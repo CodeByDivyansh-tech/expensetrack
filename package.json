@@ -1,0 +1,13 @@
+{
+  "name": "expensetrack",
+  "version": "1.0.0",
+  "description": "Student Expense Tracker Web Application",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'Build complete'",
+    "start": "serve -s . -l $PORT"
+  },
+  "dependencies": {
+    "serve": "^14.2.4"
+  }
+}
