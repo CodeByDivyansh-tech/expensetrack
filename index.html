@@ -54,17 +54,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   <!-- Firebase Configuration Module -->
   <script src="firebase-config.js"></script>
-  <script>
-    // Fast Auth Guard before render
-    (function() {
-      try {
-        var session = localStorage.getItem('expensetrack_user_session');
-        if (!session) {
-          window.location.replace('login.html');
-        }
-      } catch(e) {}
-    })();
-  </script>
 
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -175,6 +164,21 @@
 </head>
 
 <body class="bg-surface font-body-md text-body-md text-on-surface antialiased">
+  
+  <!-- Auth Resolving Loading Screen Overlay -->
+  <div id="auth-loading-overlay" class="fixed inset-0 bg-surface z-[9999] flex flex-col items-center justify-center gap-4 transition-opacity duration-300">
+    <div class="relative flex items-center justify-center">
+      <div class="w-14 h-14 rounded-full border-4 border-surface-container border-t-primary animate-spin"></div>
+      <img alt="ExpenseTrack" class="w-7 h-7 object-contain absolute" src="https://lh3.googleusercontent.com/aida/AEtjO1VzIAMlMB5gwZ_4XwCn95HL3vHeDbgfUKeqWUcQB2AL-Zyyv52Le_zlOtXkrVC_WZJNir7NcDG0t0zpQ9l3gv8xwC9WOkxnwzJQgZVxwkLSQFf3PzCD0zfohoqO2gAFYiuQDQGtWgtVyCOGy0MHJ_OcIPzl2y6f4bfwKEEdXaHCqyrULnzSZx5Bo71KIPDDCLuGWAQG5plm77PQgZ38xy7sZuHoCEokSM0l1IDYgUEb7pe6UUTCzZnpKE0"/>
+    </div>
+    <div class="flex flex-col items-center text-center">
+      <span class="font-title-md text-title-md text-on-surface font-bold tracking-tight">ExpenseTrack</span>
+      <span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1.5 mt-1">
+        <span class="w-2 h-2 rounded-full bg-primary inline-block animate-pulse"></span>
+        Checking student session...
+      </span>
+    </div>
+  </div>
   
   <!-- ========================================== -->
   <!-- DESKTOP PERSISTENT SIDEBAR                -->

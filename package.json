@@ -5,7 +5,7 @@
   "main": "index.html",
   "scripts": {
     "build": "echo 'Build complete'",
-    "start": "serve -s . -l $PORT"
+    "start": "serve . -l $PORT"
   },
   "dependencies": {
     "serve": "^14.2.4"

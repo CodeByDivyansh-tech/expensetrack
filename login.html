@@ -329,12 +329,17 @@
         if (alertBox) alertBox.style.display = 'none';
       }
 
-      // 1. Auth Guard: If already logged in, redirect straight to Dashboard
+      // 1. Auth Guard: If genuinely logged in, redirect to index.html
       if (window.FirebaseService) {
         window.FirebaseService.onAuthStateChanged(user => {
-          if (user) {
-            window.location.replace('index.html');
+          if (user && user.uid) {
+            const currentPath = window.location.pathname.toLowerCase();
+            // Strictly prevent loops: Only redirect if currently on login page
+            if (currentPath.endsWith('login.html') || currentPath.endsWith('/login') || currentPath === '/login') {
+              window.location.replace('index.html');
+            }
           }
+          // When !user: Remain on login.html! NEVER redirect to login.html or self!
         });
       }
 

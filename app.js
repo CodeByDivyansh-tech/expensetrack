@@ -1467,19 +1467,54 @@
     if (profileAvatar && profile.photoURL) profileAvatar.src = profile.photoURL;
   }
 
-  function initAuthGuardAndSyncUser() {
-    if (!window.FirebaseService) return;
+  function hideLoadingOverlay() {
+    const overlay = document.getElementById('auth-loading-overlay');
+    if (overlay) {
+      overlay.style.opacity = '0';
+      overlay.style.pointerEvents = 'none';
+      setTimeout(() => {
+        overlay.style.display = 'none';
+      }, 300);
+    }
+  }
 
-    // 1. Instant sync from cached session
-    const cached = window.FirebaseService.getCachedSession();
-    if (cached) {
-      applyUserProfile(cached);
+  function redirectToLogin() {
+    const currentPath = window.location.pathname.toLowerCase();
+    // Strictly guard against redirect loops: Never redirect if already on login screen
+    if (!currentPath.endsWith('login.html') && !currentPath.endsWith('/login') && currentPath !== '/login') {
+      window.location.replace('login.html');
+    }
+  }
+
+  function initAuthGuardAndSyncUser() {
+    if (!window.FirebaseService) {
+      hideLoadingOverlay();
+      return;
     }
 
-    // 2. Live Firebase listener
+    let authResolved = false;
+
+    // Safety timeout: If Firebase network resolution takes > 4.5s
+    const timeoutId = setTimeout(() => {
+      if (!authResolved) {
+        authResolved = true;
+        const cached = window.FirebaseService.getCachedSession();
+        if (cached) {
+          applyUserProfile(cached);
+          hideLoadingOverlay();
+        } else {
+          redirectToLogin();
+        }
+      }
+    }, 4500);
+
+    // Live Firebase listener - single source of truth for auth
     window.FirebaseService.onAuthStateChanged(user => {
+      authResolved = true;
+      clearTimeout(timeoutId);
+
       if (!user) {
-        window.location.replace('login.html');
+        redirectToLogin();
       } else {
         applyUserProfile({
           displayName: user.displayName || user.phoneNumber || 'Student User',
@@ -1487,6 +1522,7 @@
           photoURL: user.photoURL || '',
           phoneNumber: user.phoneNumber || ''
         });
+        hideLoadingOverlay();
       }
     });
   }
