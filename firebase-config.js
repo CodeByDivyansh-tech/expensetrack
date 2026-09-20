@@ -95,36 +95,6 @@
     },
 
     /**
-     * Initialize invisible reCAPTCHA for Phone Sign-In
-     */
-    initRecaptcha(containerId = 'recaptcha-container') {
-      if (!auth) throw new Error('Firebase Auth not initialized.');
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-        } catch (e) {}
-      }
-      window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(containerId, {
-        size: 'invisible',
-        callback: () => {
-          // reCAPTCHA solved
-        },
-        'expired-callback': () => {
-          console.warn('reCAPTCHA expired.');
-        }
-      });
-      return window.recaptchaVerifier;
-    },
-
-    /**
-     * Send Phone OTP
-     */
-    async sendPhoneOtp(phoneNumber, appVerifier) {
-      if (!auth) throw new Error('Firebase Auth not initialized.');
-      return auth.signInWithPhoneNumber(phoneNumber, appVerifier);
-    },
-
-    /**
      * Sign out user and clear local session
      */
     async signOut() {

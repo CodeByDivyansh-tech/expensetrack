@@ -200,81 +200,7 @@
         </button>
       </div>
 
-      <!-- Divider -->
-      <div class="relative flex items-center justify-center">
-        <div class="border-t border-slate-200 w-full"></div>
-        <span class="bg-surface-container-lowest px-3 text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">or phone OTP</span>
-      </div>
 
-      <!-- Sign-In Method 2: Phone Number with OTP -->
-      <div class="flex flex-col gap-4">
-        
-        <!-- STEP 1: Phone Number Input Form -->
-        <form id="phone-form" class="flex flex-col gap-3">
-          <label class="font-label-sm text-label-sm text-on-surface-variant">Mobile Phone Number</label>
-          
-          <div class="flex items-center gap-2">
-            <!-- Country Code -->
-            <select id="phone-country-code" class="px-3 py-3 bg-surface-container-low rounded-2xl font-label-md text-label-md text-on-surface border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary">
-              <option value="+91" selected>🇮🇳 +91 (IN)</option>
-              <option value="+1">🇺🇸 +1 (US)</option>
-              <option value="+44">🇬🇧 +44 (UK)</option>
-              <option value="+61">🇦🇺 +61 (AU)</option>
-              <option value="+1">🇨🇦 +1 (CA)</option>
-            </select>
-            <!-- Phone Number -->
-            <div class="relative flex-1">
-              <input 
-                id="phone-input" 
-                type="tel" 
-                required 
-                placeholder="98765 43210" 
-                class="w-full px-4 py-3 bg-surface-container-low rounded-2xl font-body-md text-body-md text-on-surface border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
-
-          <!-- Send OTP Button -->
-          <button 
-            id="btn-send-otp" 
-            type="submit" 
-            class="w-full py-3 px-4 rounded-full bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container font-label-md text-label-md shadow-sm transition-all duration-200 flex items-center justify-center gap-2 mt-1"
-          >
-            <span class="material-symbols-outlined text-lg">sms</span>
-            <span id="send-otp-text">Send Verification Code</span>
-          </button>
-        </form>
-
-        <!-- STEP 2: OTP Verification Form (Hidden initially) -->
-        <form id="otp-form" style="display: none;" class="flex flex-col gap-3">
-          <div class="flex items-center justify-between">
-            <label class="font-label-sm text-label-sm text-on-surface-variant">Enter 6-Digit OTP</label>
-            <button type="button" id="btn-change-phone" class="text-primary font-label-sm text-label-sm font-semibold hover:underline">
-              Change Number
-            </button>
-          </div>
-
-          <input 
-            id="otp-input" 
-            type="text" 
-            maxlength="6" 
-            placeholder="• • • • • •" 
-            class="w-full px-4 py-3 bg-surface-container-low rounded-2xl font-numeric-balance text-numeric-balance text-center tracking-[0.5em] text-on-surface border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-
-          <button 
-            id="btn-verify-otp" 
-            type="submit" 
-            class="w-full py-3 px-4 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all duration-200 flex items-center justify-center gap-2"
-          >
-            <span class="material-symbols-outlined text-lg">verified_user</span>
-            <span id="verify-otp-text">Verify &amp; Sign In</span>
-          </button>
-        </form>
-
-        <!-- Invisible reCAPTCHA container required by Firebase Phone Auth -->
-        <div id="recaptcha-container"></div>
-      </div>
 
       <!-- Campus Guarantee Badge -->
       <div class="pt-3 border-t border-slate-100 flex items-center justify-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
@@ -299,18 +225,7 @@
       const alertText = document.getElementById('auth-alert-text');
       const googleBtn = document.getElementById('btn-google-signin');
       const googleBtnText = document.getElementById('google-btn-text');
-      const phoneForm = document.getElementById('phone-form');
-      const otpForm = document.getElementById('otp-form');
-      const phoneInput = document.getElementById('phone-input');
-      const countryCodeSelect = document.getElementById('phone-country-code');
-      const btnSendOtp = document.getElementById('btn-send-otp');
-      const sendOtpText = document.getElementById('send-otp-text');
-      const otpInput = document.getElementById('otp-input');
-      const btnVerifyOtp = document.getElementById('btn-verify-otp');
-      const verifyOtpText = document.getElementById('verify-otp-text');
-      const btnChangePhone = document.getElementById('btn-change-phone');
 
-      let confirmationResult = null;
 
       function showAlert(msg, isError = true) {
         if (!alertBox || !alertText) return;
@@ -367,98 +282,6 @@
             showAlert(err.message || 'Google sign-in failed. Please try again.');
           }
         }
-      });
-
-      // 3. Send Phone OTP
-      phoneForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        hideAlert();
-
-        const rawPhone = phoneInput.value.replace(/[\s-]/g, '');
-        const countryCode = countryCodeSelect.value;
-        const fullPhoneNumber = countryCode + rawPhone;
-
-        if (!rawPhone || rawPhone.length < 7) {
-          showAlert('Please enter a valid phone number.');
-          return;
-        }
-
-        btnSendOtp.disabled = true;
-        sendOtpText.textContent = 'Sending OTP...';
-
-        try {
-          const appVerifier = window.FirebaseService.initRecaptcha('recaptcha-container');
-          confirmationResult = await window.FirebaseService.sendPhoneOtp(fullPhoneNumber, appVerifier);
-          
-          showAlert(`Verification code sent to ${fullPhoneNumber}`, false);
-          phoneForm.style.display = 'none';
-          otpForm.style.display = 'flex';
-          otpInput.value = '';
-          setTimeout(() => otpInput.focus(), 100);
-        } catch (err) {
-          console.error('Phone Sign-in Error:', err);
-          btnSendOtp.disabled = false;
-          sendOtpText.textContent = 'Send Verification Code';
-          if (err.code === 'auth/invalid-phone-number') {
-            showAlert('Invalid phone number format. Please check the digits.');
-          } else if (err.code === 'auth/too-many-requests') {
-            showAlert('Too many requests. Please wait a few moments before retrying.');
-          } else {
-            showAlert(err.message || 'Failed to send OTP code.');
-          }
-        }
-      });
-
-      // 4. Verify OTP Code
-      otpForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        hideAlert();
-
-        const code = otpInput.value.trim();
-        if (!code || code.length < 6) {
-          showAlert('Please enter the complete 6-digit OTP code.');
-          return;
-        }
-
-        if (!confirmationResult) {
-          showAlert('Session expired. Please request a new OTP code.');
-          otpForm.style.display = 'none';
-          phoneForm.style.display = 'flex';
-          btnSendOtp.disabled = false;
-          sendOtpText.textContent = 'Send Verification Code';
-          return;
-        }
-
-        btnVerifyOtp.disabled = true;
-        verifyOtpText.textContent = 'Verifying...';
-
-        try {
-          await confirmationResult.confirm(code);
-          showAlert('Phone verification successful! Redirecting...', false);
-          setTimeout(() => {
-            window.location.replace('index.html');
-          }, 500);
-        } catch (err) {
-          console.error('OTP Verification Error:', err);
-          btnVerifyOtp.disabled = false;
-          verifyOtpText.textContent = 'Verify & Sign In';
-          if (err.code === 'auth/invalid-verification-code') {
-            showAlert('Incorrect OTP code. Please check and try again.');
-          } else if (err.code === 'auth/code-expired') {
-            showAlert('OTP code has expired. Please request a new one.');
-          } else {
-            showAlert(err.message || 'Verification failed.');
-          }
-        }
-      });
-
-      // 5. Change Phone Number Button
-      btnChangePhone.addEventListener('click', () => {
-        hideAlert();
-        otpForm.style.display = 'none';
-        phoneForm.style.display = 'flex';
-        btnSendOtp.disabled = false;
-        sendOtpText.textContent = 'Send Verification Code';
       });
     })();
   </script>
