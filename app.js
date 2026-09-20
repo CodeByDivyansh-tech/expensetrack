@@ -16,7 +16,7 @@
       color: '#f59e0b',
       iconBgClass: 'bg-tertiary-fixed text-on-tertiary-fixed',
       badgeBgClass: 'bg-tertiary-fixed-dim text-on-tertiary-fixed',
-      desc: 'Off-campus meals, takeout, morning coffees',
+      desc: 'Campus canteen, Swiggy / Zomato, chai & snacks',
       defaultCap: 4000,
       minCap: 2000,
       maxCap: 6000,
@@ -29,7 +29,7 @@
       color: '#006948',
       iconBgClass: 'bg-surface-container text-primary',
       badgeBgClass: 'bg-primary-fixed text-on-primary-fixed',
-      desc: "Trader Joe's runs, pantry staples, dorm snacks",
+      desc: 'Hostel essentials, local mart, fruits & snacks',
       defaultCap: 2200,
       minCap: 1000,
       maxCap: 4000,
@@ -42,7 +42,7 @@
       color: '#ba1a1a',
       iconBgClass: 'bg-error-container text-error',
       badgeBgClass: 'bg-error-container text-on-error-container',
-      desc: 'Lab manual rentals, Chegg, printing balance',
+      desc: 'Course notes, photostat / printing, semester books',
       defaultCap: 1200,
       minCap: 500,
       maxCap: 3000,
@@ -55,7 +55,7 @@
       color: '#565e74',
       iconBgClass: 'bg-secondary-container text-on-secondary-container',
       badgeBgClass: 'bg-primary-fixed text-on-primary-fixed',
-      desc: 'Game tickets, weekend movies, campus concerts',
+      desc: 'BookMyShow, weekend outings, campus fests',
       defaultCap: 1800,
       minCap: 500,
       maxCap: 3000,
@@ -68,7 +68,7 @@
       color: '#00855d',
       iconBgClass: 'bg-surface-container text-primary',
       badgeBgClass: 'bg-primary-fixed text-on-primary-fixed',
-      desc: 'Spotify Student, iCloud, haircut, laundry card',
+      desc: 'Mobile recharge, Spotify, haircuts, laundry',
       defaultCap: 600,
       minCap: 200,
       maxCap: 1500,
@@ -81,7 +81,7 @@
       color: '#006948',
       iconBgClass: 'bg-primary text-on-primary',
       badgeBgClass: 'bg-primary-container text-on-primary-container',
-      desc: 'Automated cushion for flight changes, tech repairs, urgent needs',
+      desc: 'Medical urgent needs, emergency travel, repairs',
       defaultCap: 1200,
       minCap: 500,
       maxCap: 5000,
@@ -96,107 +96,7 @@
     SETTINGS: 'expensetrack_settings',
   };
 
-  // --- Initial Seed Data matching Stitch Demo numbers exactly ---
-  const INITIAL_DEMO_EXPENSES = [
-    {
-      id: 'exp-1',
-      amount: 1800,
-      category: 'food',
-      date: '2025-10-14',
-      note: 'Off-campus dining & group dinner',
-      createdAt: 1728900000000,
-    },
-    {
-      id: 'exp-2',
-      amount: 950,
-      category: 'food',
-      date: '2025-10-11',
-      note: 'Starbucks morning coffees & study fuel',
-      createdAt: 1728640800000,
-    },
-    {
-      id: 'exp-3',
-      amount: 750,
-      category: 'food',
-      date: '2025-10-07',
-      note: 'Late night library takeout',
-      createdAt: 1728295200000,
-    },
-    {
-      id: 'exp-4',
-      amount: 1100,
-      category: 'groceries',
-      date: '2025-10-12',
-      note: "Trader Joe's pantry restock",
-      createdAt: 1728727200000,
-    },
-    {
-      id: 'exp-5',
-      amount: 500,
-      category: 'groceries',
-      date: '2025-10-05',
-      note: 'Dorm snacks & fruit',
-      createdAt: 1728122400000,
-    },
-    {
-      id: 'exp-6',
-      amount: 900,
-      category: 'textbooks',
-      date: '2025-10-02',
-      note: 'Chegg semester textbook rental',
-      createdAt: 1727863200000,
-    },
-    {
-      id: 'exp-7',
-      amount: 500,
-      category: 'textbooks',
-      date: '2025-10-08',
-      note: 'Lab manual & campus printing quota',
-      createdAt: 1728381600000,
-    },
-    {
-      id: 'exp-8',
-      amount: 500,
-      category: 'entertainment',
-      date: '2025-10-10',
-      note: 'Campus homecoming game tickets',
-      createdAt: 1728554400000,
-    },
-    {
-      id: 'exp-9',
-      amount: 300,
-      category: 'entertainment',
-      date: '2025-10-04',
-      note: 'Weekend movie with roommates',
-      createdAt: 1728036000000,
-    },
-    {
-      id: 'exp-10',
-      amount: 200,
-      category: 'personal',
-      date: '2025-10-01',
-      note: 'Spotify Student & Apple iCloud plan',
-      createdAt: 1727776800000,
-    },
-    {
-      id: 'exp-11',
-      amount: 250,
-      category: 'personal',
-      date: '2025-10-06',
-      note: 'Laundry card reload & haircut',
-      createdAt: 1728208800000,
-    },
-    {
-      id: 'exp-12',
-      amount: 1200,
-      category: 'emergency',
-      date: '2025-10-01',
-      note: 'Campus payroll auto-save cushion',
-      createdAt: 1727776800001,
-    },
-  ];
-
-  const INITIAL_DEMO_BUDGET = {
+  const DEFAULT_BUDGET = {
     overallCap: 12000,
     categories: {
       food: 4000,
@@ -208,9 +108,9 @@
     },
   };
 
-  const INITIAL_SETTINGS = {
-    notify80: true,
-    weeklyDigest: true,
+  const DEFAULT_SETTINGS = {
+    notify80: false,
+    weeklyDigest: false,
     roommateAlert: false,
   };
 
@@ -234,19 +134,19 @@
       const storedBudget = localStorage.getItem(STORAGE_KEYS.BUDGET);
       const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
 
-      state.expenses = storedExpenses ? JSON.parse(storedExpenses) : [...INITIAL_DEMO_EXPENSES];
-      state.budget = storedBudget ? JSON.parse(storedBudget) : { ...INITIAL_DEMO_BUDGET, categories: { ...INITIAL_DEMO_BUDGET.categories } };
-      state.settings = storedSettings ? JSON.parse(storedSettings) : { ...INITIAL_SETTINGS };
+      // Single source of truth: Genuinely empty state for new users, no demo seeding!
+      state.expenses = storedExpenses ? JSON.parse(storedExpenses) : [];
+      state.budget = storedBudget ? JSON.parse(storedBudget) : { ...DEFAULT_BUDGET, categories: { ...DEFAULT_BUDGET.categories } };
+      state.settings = storedSettings ? JSON.parse(storedSettings) : { ...DEFAULT_SETTINGS };
 
-      // Ensure storage is seeded if first visit
       if (!storedExpenses) saveExpenses();
       if (!storedBudget) saveBudget();
       if (!storedSettings) saveSettings();
     } catch (err) {
       console.error('Error loading state from localStorage:', err);
-      state.expenses = [...INITIAL_DEMO_EXPENSES];
-      state.budget = { ...INITIAL_DEMO_BUDGET, categories: { ...INITIAL_DEMO_BUDGET.categories } };
-      state.settings = { ...INITIAL_SETTINGS };
+      state.expenses = [];
+      state.budget = { ...DEFAULT_BUDGET, categories: { ...DEFAULT_BUDGET.categories } };
+      state.settings = { ...DEFAULT_SETTINGS };
     }
   }
 
@@ -369,21 +269,75 @@
     });
 
     // Refresh view specific content
-    renderCurrentView();
+    syncAllViewsWithData();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function renderCurrentView() {
-    updateSidebarWidget();
-    if (state.currentView === 'dashboard') {
-      renderDashboard();
-    } else if (state.currentView === 'budget-setup') {
-      renderBudgetSetup();
-    } else if (state.currentView === 'analytics') {
-      renderAnalytics();
-    } else if (state.currentView === 'profile-&-settings') {
-      renderProfile();
+  // --- Academic Term & Insights Helper ---
+  function getAcademicTermInfo() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-indexed: 0 = Jan, 8 = Sep
+
+    let termName = '';
+    let termStartDate;
+
+    if (month >= 6) { // Jul - Dec: Monsoon / Fall Semester
+      termName = `Fall Term ${year} • Campus Living`;
+      termStartDate = new Date(year, 6, 15);
+    } else { // Jan - Jun: Spring Semester
+      termName = `Spring Term ${year} • Campus Living`;
+      termStartDate = new Date(year, 0, 15);
     }
+
+    const diffMs = Math.max(0, now - termStartDate);
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const currentWeek = Math.min(16, Math.max(1, Math.ceil(diffDays / 7)));
+
+    return {
+      termName,
+      weekText: `Week ${currentWeek} of 16`,
+      termCycle: currentWeek <= 4 ? 'Early Semester' : currentWeek <= 10 ? 'Midterm Cycle' : 'Finals & Wrap-up'
+    };
+  }
+
+  function updateAcademicTermDisplay() {
+    const info = getAcademicTermInfo();
+    const termBadges = document.querySelectorAll('.dynamic-term-badge');
+    termBadges.forEach(el => { el.textContent = info.termName; });
+
+    const weekBadges = document.querySelectorAll('.dynamic-term-week');
+    weekBadges.forEach(el => { el.textContent = info.weekText; });
+
+    const cycleBadges = document.querySelectorAll('.dynamic-term-cycle');
+    cycleBadges.forEach(el => { el.textContent = info.termCycle; });
+  }
+
+  function getTopSpendingCategory(spendingMap) {
+    let topKey = 'food';
+    let maxVal = -1;
+    Object.keys(CATEGORIES).forEach(key => {
+      const val = spendingMap[key] || 0;
+      if (val > maxVal) {
+        maxVal = val;
+        topKey = key;
+      }
+    });
+    return { ...CATEGORIES[topKey], amount: maxVal > 0 ? maxVal : 0 };
+  }
+
+  // --- Unified Single Source of Truth Synchronization ---
+  function syncAllViewsWithData() {
+    updateSidebarWidget();
+    updateAcademicTermDisplay();
+    renderDashboard();
+    renderBudgetSetup();
+    renderAnalytics();
+    renderProfile();
+  }
+
+  function renderCurrentView() {
+    syncAllViewsWithData();
   }
 
   // --- Sidebar Semester Budget Widget Update ---
@@ -496,6 +450,20 @@
 
     // Transactions List
     renderDashboardTransactions();
+
+    // Dynamic spending insight based on real history
+    const dashInsight = document.getElementById('dash-spending-insight');
+    if (dashInsight) {
+      if (state.expenses.length === 0) {
+        dashInsight.textContent = 'Log your first college expense to begin tracking your daily spending rhythm.';
+      } else {
+        const spendingMap = getCategorySpendingMap();
+        const topCat = getTopSpendingCategory(spendingMap);
+        const dayOfMonth = Math.max(1, new Date().getDate());
+        const dailyAvg = Math.round(totalSpent / dayOfMonth);
+        dashInsight.textContent = `${topCat.name} leads your spending at ₹${formatINR(topCat.amount)}. Your month-to-date pacing is ₹${formatINR(dailyAvg)}/day.`;
+      }
+    }
   }
 
   function renderDashboardCategoryChips() {
@@ -703,6 +671,33 @@
       }
     }
 
+    // Emergency fund card dynamic updates
+    const emergSpent = spendingMap.emergency || 0;
+    const emergCap = categoryCaps.emergency !== undefined ? categoryCaps.emergency : CATEGORIES.emergency.defaultCap;
+    const emergPct = emergCap > 0 ? Math.min(100, Math.round((emergSpent / emergCap) * 100)) : 0;
+    const emergValElem = document.querySelector('.spent-val-emergency');
+    const emergCapElem = document.getElementById('cap-emergency');
+    const emergRadial = document.getElementById('emergency-radial-bar');
+    const emergDesc = document.getElementById('emergency-cushion-desc');
+    const emergGoalPct = document.getElementById('emergency-goal-percent');
+
+    if (emergValElem) emergValElem.textContent = formatINR(emergSpent);
+    if (emergCapElem) emergCapElem.textContent = formatINR(emergCap);
+    if (emergRadial) emergRadial.setAttribute('stroke-dasharray', `${emergPct}, 100`);
+    if (emergDesc) emergDesc.textContent = `₹${formatINR(emergSpent)} saved on this device`;
+    if (emergGoalPct) emergGoalPct.textContent = `${emergPct}% of Semester Target`;
+
+    // Dynamic budget insight
+    const budgetInsight = document.getElementById('budget-spending-insight');
+    if (budgetInsight) {
+      if (state.expenses.length === 0) {
+        budgetInsight.textContent = 'No expenses logged yet. Category gauges will track your real spending live as you log transactions.';
+      } else {
+        const topCat = getTopSpendingCategory(spendingMap);
+        budgetInsight.textContent = `${topCat.name} is your highest budget demand (₹${formatINR(topCat.amount)}). Adjust sliders below to fine-tune your targets.`;
+      }
+    }
+
     // Reflect settings toggles
     const t80 = document.getElementById('toggle-80');
     const tDigest = document.getElementById('toggle-digest');
@@ -768,8 +763,7 @@
     if (!state.budget.categories) state.budget.categories = {};
     state.budget.categories[cat] = val;
     saveBudget();
-    renderBudgetSetup();
-    updateSidebarWidget();
+    syncAllViewsWithData();
   }
 
   // ==========================================
@@ -1018,11 +1012,13 @@
   // Helper to ensure modal error banner is hidden by default
   function hideExpenseFormError() {
     const errorContainer = document.getElementById('expense-form-error');
+    const errorText = document.getElementById('expense-form-error-text');
     if (errorContainer) {
-      errorContainer.style.display = 'none';
+      errorContainer.style.setProperty('display', 'none', 'important');
       errorContainer.classList.add('hidden');
       errorContainer.classList.remove('flex');
     }
+    if (errorText) errorText.textContent = '';
   }
 
   // Helper to show modal error banner only on validation failure
@@ -1033,7 +1029,7 @@
       errorText.textContent = message;
       errorContainer.classList.remove('hidden');
       errorContainer.classList.add('flex');
-      errorContainer.style.display = 'flex';
+      errorContainer.style.setProperty('display', 'flex', 'important');
     }
   }
 
@@ -1191,7 +1187,7 @@
 
     saveExpenses();
     closeExpenseModal();
-    renderCurrentView();
+    syncAllViewsWithData();
   }
 
   function confirmDeleteExpense(id) {
@@ -1204,7 +1200,7 @@
       state.expenses = state.expenses.filter(e => e.id !== id);
       saveExpenses();
       showToast('Expense deleted.', 'info');
-      renderCurrentView();
+      syncAllViewsWithData();
     }
   }
 
@@ -1239,37 +1235,28 @@
     saveBudget();
     closeBudgetModal();
     showToast(`Monthly budget ceiling updated to ₹${formatINR(val)}!`, 'success');
-    renderCurrentView();
+    syncAllViewsWithData();
   }
 
   function resetBudgetDefaults() {
     if (window.confirm('Reset all category caps and monthly ceiling to default semester targets?')) {
       state.budget = {
-        overallCap: INITIAL_DEMO_BUDGET.overallCap,
-        categories: { ...INITIAL_DEMO_BUDGET.categories },
+        overallCap: DEFAULT_BUDGET.overallCap,
+        categories: { ...DEFAULT_BUDGET.categories },
       };
       saveBudget();
       showToast('Budget caps reset to defaults.', 'info');
-      renderCurrentView();
+      syncAllViewsWithData();
     }
   }
 
   function clearAllExpenses() {
-    if (window.confirm('Are you sure you want to delete ALL logged expenses? This will allow you to test the empty state.')) {
+    if (window.confirm('Are you sure you want to delete ALL logged expenses? This will reset the app to an empty state.')) {
       state.expenses = [];
       saveExpenses();
       showToast('All expenses cleared. Empty state activated.', 'info');
-      renderCurrentView();
+      syncAllViewsWithData();
     }
-  }
-
-  function loadSampleData() {
-    state.expenses = JSON.parse(JSON.stringify(INITIAL_DEMO_EXPENSES));
-    state.budget = JSON.parse(JSON.stringify(INITIAL_DEMO_BUDGET));
-    saveExpenses();
-    saveBudget();
-    showToast('Sample student demo data restored!', 'success');
-    renderCurrentView();
   }
 
   // ==========================================
@@ -1411,9 +1398,6 @@
     const btnClearData = document.getElementById('btn-clear-expenses');
     if (btnClearData) btnClearData.addEventListener('click', clearAllExpenses);
 
-    const btnLoadSample = document.getElementById('btn-load-sample');
-    if (btnLoadSample) btnLoadSample.addEventListener('click', loadSampleData);
-
     const btnEditCapFromSettings = document.getElementById('btn-edit-budget-cap');
     if (btnEditCapFromSettings) btnEditCapFromSettings.addEventListener('click', openBudgetModal);
 
@@ -1455,16 +1439,17 @@
     const profileEmail = document.getElementById('profile-user-email');
     const profileAvatar = document.getElementById('profile-user-avatar');
 
-    const name = profile.displayName || profile.phoneNumber || 'Student User';
-    const contact = profile.email || profile.phoneNumber || 'Campus Sync Active';
+    const name = profile.displayName || 'Student User';
+    const contact = profile.email || 'Signed in via Google';
+    const photo = profile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=006948&color=ffffff&bold=true`;
 
     if (headerName) headerName.textContent = name;
     if (headerEmail) headerEmail.textContent = contact;
-    if (headerAvatar && profile.photoURL) headerAvatar.src = profile.photoURL;
+    if (headerAvatar) headerAvatar.src = photo;
 
     if (profileName) profileName.textContent = name;
-    if (profileEmail) profileEmail.textContent = `${contact} • On-Campus Resident`;
-    if (profileAvatar && profile.photoURL) profileAvatar.src = profile.photoURL;
+    if (profileEmail) profileEmail.textContent = `${contact} • Saved on this device`;
+    if (profileAvatar) profileAvatar.src = photo;
   }
 
   function hideLoadingOverlay() {
@@ -1530,6 +1515,7 @@
   // Expose API for inline onclick handlers
   window.ExpenseTrackApp = {
     navigateTo,
+    syncAllViewsWithData,
     openAddExpenseModal,
     openEditExpenseModal,
     confirmDeleteExpense,
@@ -1538,7 +1524,6 @@
     saveBudgetModal,
     resetBudgetDefaults,
     clearAllExpenses,
-    loadSampleData,
   };
 
   // Bootstrap Application
@@ -1548,5 +1533,6 @@
     hideExpenseFormError();
     initAuthGuardAndSyncUser();
     navigateTo('dashboard');
+    syncAllViewsWithData();
   });
 })();

@@ -191,7 +191,7 @@
         <div class="flex flex-col">
           <span class="font-title-md text-title-md text-on-surface font-bold tracking-tight">ExpenseTrack</span>
           <span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
-            <span class="w-2 h-2 rounded-full bg-primary inline-block"></span> Student Sync Active
+            <span class="w-2 h-2 rounded-full bg-primary inline-block"></span> Saved on this device
           </span>
         </div>
       </div>
@@ -259,7 +259,7 @@
         <!-- Term Badge -->
         <div class="hidden sm:flex items-center gap-space-sm bg-surface-container-low rounded-full px-space-md py-1">
           <span class="material-symbols-outlined text-on-surface-variant text-lg">school</span>
-          <span class="font-label-sm text-label-sm text-on-surface-variant">Fall Term • Campus Living</span>
+          <span class="font-label-sm text-label-sm text-on-surface-variant dynamic-term-badge">Fall Term • Campus Living</span>
         </div>
 
         <!-- Right Side Header Icons & Profile -->
@@ -271,10 +271,10 @@
           
           <div class="flex items-center gap-space-sm pl-2 cursor-pointer" onclick="window.ExpenseTrackApp.navigateTo('profile-&-settings')">
             <div class="hidden sm:flex flex-col text-right">
-              <span class="font-label-md text-label-md text-on-surface font-semibold" id="header-user-name">Alex Rivera</span>
-              <span class="font-body-sm text-body-sm text-on-surface-variant" id="header-user-email">Class of '26</span>
+              <span class="font-label-md text-label-md text-on-surface font-semibold" id="header-user-name">Student User</span>
+              <span class="font-body-sm text-body-sm text-on-surface-variant" id="header-user-email">Google Account</span>
             </div>
-            <img id="header-user-avatar" alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvTZEuqQyGuqnu0LMothjPZK8z4ng8n2DrNONak-8ig1Gj2nweQtbt48Q1wnuzmiWQz6NtSWMXJkFeGxeH1YFk75YklePL2tpnHFmXj96z9bLcLSGBTRQBGtV8rm2A2qPTgk9YUYg8xQ6ZtNISy3kUIUzSqrQ5-ucAaolK-BLFhtuvbpnWjX7OXUvoQjrXa0sLOMRcLUK2TjAeJZZAzo73iJY2jW--ZYK7bo44LwbstEdaGRcFMZBv"/>
+            <img id="header-user-avatar" alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary/20" src="https://ui-avatars.com/api/?name=Student+User&background=006948&color=ffffff&bold=true"/>
           </div>
         </div>
       </div>
@@ -292,7 +292,7 @@
           <div class="flex flex-col">
             <div class="flex items-center gap-space-xs text-on-surface-variant mb-1">
               <span class="material-symbols-outlined text-sm text-primary">verified</span>
-              <span class="font-label-sm text-label-sm uppercase tracking-wider">Student Overview • Fall 2025</span>
+              <span class="font-label-sm text-label-sm uppercase tracking-wider">Student Overview • <span class="dynamic-term-badge inline">Fall Term • Campus Living</span></span>
             </div>
             <div class="flex items-baseline gap-space-sm flex-wrap">
               <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Spending Dashboard</h1>
@@ -368,21 +368,21 @@
                 <span class="material-symbols-outlined text-primary text-xl">school</span>
                 <span class="font-title-md text-title-md text-on-surface font-semibold">Campus Term Status</span>
               </div>
-              <span class="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant">Midterm Cycle</span>
+              <span class="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant dynamic-term-cycle">Midterm Cycle</span>
             </div>
             <div class="my-space-xs z-10 flex items-center gap-space-md">
               <img class="w-20 h-20 rounded-2xl object-cover shadow-sm flex-shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsUNiZ6hY5zhO4Io6PjpzsgU7Oj2WMYEsM_Dlv9VBaL3RXar_mY4m0z5Htg-rFK014tRax7akLeodTdk-siD-T9g6lLDSkm81vyLre2fZSu_eZxb7S-tZZns5s0Qzm4Yxdfsrb1Lp5OW9WSidFnj1yAtApJ2blUqiKTRmaWQFHM88QRE0AAqriaeXOBc38ylsoG9hIKp_n7amWlTr_u7Iu98_JdQBaNGoHvn77N6w2jB221HjIo-D8" alt="Student on campus"/>
               <div class="flex flex-col">
                 <span class="font-label-md text-label-md text-on-surface font-semibold">Study Season Spending</span>
-                <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  Dining & coffee purchases naturally peak near exam weeks. Keep daily food pacing under ₹150.
+                <p id="dash-spending-insight" class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                  Log your first college expense to begin tracking your daily spending rhythm.
                 </p>
               </div>
             </div>
             <div class="pt-space-sm z-10 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
               <span class="flex items-center gap-1">
                 <span class="w-2 h-2 rounded-full bg-primary"></span>
-                ExpenseTrack Auto-Sync
+                Saved on this device
               </span>
               <button class="text-primary font-bold hover:underline" onclick="window.ExpenseTrackApp.navigateTo('analytics')">
                 View Analytics &rarr;
@@ -455,7 +455,7 @@
           <div class="flex flex-col">
             <div class="flex items-center gap-space-xs text-on-surface-variant mb-1">
               <span class="material-symbols-outlined text-sm text-primary">verified</span>
-              <span class="font-label-sm text-label-sm uppercase tracking-wider">Semester Plan • Fall 2025</span>
+              <span class="font-label-sm text-label-sm uppercase tracking-wider">Semester Plan • <span class="dynamic-term-badge inline">Fall Term • Campus Living</span></span>
             </div>
             <div class="flex items-baseline gap-space-sm flex-wrap">
               <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Monthly Semester Budget</h1>
@@ -531,21 +531,21 @@
                 <span class="material-symbols-outlined text-primary text-xl">auto_stories</span>
                 <span class="font-title-md text-title-md text-on-surface font-semibold">Campus Routine Check</span>
               </div>
-              <span class="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant">Week 6 of 16</span>
+              <span class="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant dynamic-term-week">Week 1 of 16</span>
             </div>
             <div class="my-space-xs z-10 flex items-center gap-space-md">
               <img class="w-20 h-20 rounded-2xl object-cover shadow-sm flex-shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsUNiZ6hY5zhO4Io6PjpzsgU7Oj2WMYEsM_Dlv9VBaL3RXar_mY4m0z5Htg-rFK014tRax7akLeodTdk-siD-T9g6lLDSkm81vyLre2fZSu_eZxb7S-tZZns5s0Qzm4Yxdfsrb1Lp5OW9WSidFnj1yAtApJ2blUqiKTRmaWQFHM88QRE0AAqriaeXOBc38ylsoG9hIKp_n7amWlTr_u7Iu98_JdQBaNGoHvn77N6w2jB221HjIo-D8" alt="Campus Quad"/>
               <div class="flex flex-col">
-                <span class="font-label-md text-label-md text-on-surface font-semibold">Midterms approaching</span>
-                <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  Textbooks are paid for. Food spending tends to spike by 14% around study marathon periods.
+                <span class="font-label-md text-label-md text-on-surface font-semibold dynamic-term-cycle">Active Semester Plan</span>
+                <p id="budget-spending-insight" class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                  No expenses logged yet. Category gauges will track your real spending live as you log transactions.
                 </p>
               </div>
             </div>
             <div class="pt-space-sm z-10 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
               <span class="flex items-center gap-1">
-                <span class="w-2 h-2 rounded-full bg-tertiary"></span>
-                Midterm peak allowance projected
+                <span class="w-2 h-2 rounded-full bg-primary"></span>
+                Live Budget Pacing
               </span>
               <a class="text-primary font-bold hover:underline" href="#" onclick="window.ExpenseTrackApp.navigateTo('analytics')">View History</a>
             </div>
@@ -576,25 +576,25 @@
                   <div>
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Food &amp; Dining</span>
-                      <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed text-label-sm font-label-sm flex items-center gap-1">
-                        <span class="material-symbols-outlined text-xs">warning</span> Approaching limit!
+                      <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">check_circle</span> On track
                       </span>
                     </div>
-                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Off-campus meals, takeout, morning coffees</div>
+                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Campus canteen, Swiggy / Zomato, chai &amp; snacks</div>
                   </div>
                 </div>
                 <div class="text-right">
-                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-food">3,500</span></span>
+                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-food">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-food">4,000</span> cap</span>
                 </div>
               </div>
               <div>
                 <div class="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
-                  <div class="category-progress-fill bg-tertiary h-full rounded-full transition-all duration-300" style="width: 87.5%;"></div>
+                  <div class="category-progress-fill bg-primary h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
                 </div>
                 <div class="flex justify-between items-center mt-1.5 font-label-sm text-label-sm">
-                  <span class="category-remaining-text text-tertiary font-bold">88% Spent (₹500 remaining)</span>
-                  <span class="text-on-surface-variant">Recommended pace: ₹150/day</span>
+                  <span class="category-remaining-text text-primary font-bold">0% Spent (₹4,000 remaining)</span>
+                  <span class="text-on-surface-variant">Recommended pace: ₹130/day</span>
                 </div>
               </div>
               <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
@@ -623,20 +623,20 @@
                         <span class="material-symbols-outlined text-xs">check_circle</span> On track
                       </span>
                     </div>
-                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Trader Joe's runs, pantry staples, dorm snacks</div>
+                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Hostel essentials, local mart, fruits &amp; snacks</div>
                   </div>
                 </div>
                 <div class="text-right">
-                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-groceries">1,600</span></span>
+                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-groceries">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-groceries">2,200</span> cap</span>
                 </div>
               </div>
               <div>
                 <div class="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
-                  <div class="category-progress-fill bg-primary h-full rounded-full transition-all duration-300" style="width: 72.7%;"></div>
+                  <div class="category-progress-fill bg-primary h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
                 </div>
                 <div class="flex justify-between items-center mt-1.5 font-label-sm text-label-sm">
-                  <span class="category-remaining-text text-primary font-bold">72% Spent (₹600 remaining)</span>
+                  <span class="category-remaining-text text-primary font-bold">0% Spent (₹2,200 remaining)</span>
                   <span class="text-on-surface-variant">Pacing comfortably</span>
                 </div>
               </div>
@@ -662,25 +662,25 @@
                   <div>
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Textbooks &amp; Coursework</span>
-                      <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-error-container text-on-error-container text-label-sm font-label-sm flex items-center gap-1">
-                        <span class="material-symbols-outlined text-xs">error</span> Exceeded by ₹200!
+                      <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">check_circle</span> On track
                       </span>
                     </div>
-                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Lab manual rentals, Chegg, printing balance</div>
+                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Course notes, photostat / printing, semester books</div>
                   </div>
                 </div>
                 <div class="text-right">
-                  <span class="font-headline-sm text-headline-sm text-error font-bold">₹<span class="spent-val-textbooks">1,400</span></span>
+                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-textbooks">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-textbooks">1,200</span> cap</span>
                 </div>
               </div>
               <div>
                 <div class="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
-                  <div class="category-progress-fill bg-error h-full rounded-full transition-all duration-300" style="width: 100%;"></div>
+                  <div class="category-progress-fill bg-primary h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
                 </div>
                 <div class="flex justify-between items-center mt-1.5 font-label-sm text-label-sm">
-                  <span class="category-remaining-text text-error font-bold">116% Overrun (-₹200 over cap)</span>
-                  <span class="text-on-surface-variant">Term course registration closed</span>
+                  <span class="category-remaining-text text-primary font-bold">0% Spent (₹1,200 remaining)</span>
+                  <span class="text-on-surface-variant">Course semester reserve</span>
                 </div>
               </div>
               <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
@@ -706,23 +706,23 @@
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Entertainment &amp; Social</span>
                       <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm flex items-center gap-1">
-                        <span class="material-symbols-outlined text-xs">sentiment_satisfied</span> Plenty safe
+                        <span class="material-symbols-outlined text-xs">check_circle</span> On track
                       </span>
                     </div>
-                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Game tickets, weekend movies, campus concerts</div>
+                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">BookMyShow, weekend outings, campus fests</div>
                   </div>
                 </div>
                 <div class="text-right">
-                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-entertainment">800</span></span>
+                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-entertainment">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-entertainment">1,800</span> cap</span>
                 </div>
               </div>
               <div>
                 <div class="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
-                  <div class="category-progress-fill bg-primary h-full rounded-full transition-all duration-300" style="width: 44.4%;"></div>
+                  <div class="category-progress-fill bg-primary h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
                 </div>
                 <div class="flex justify-between items-center mt-1.5 font-label-sm text-label-sm">
-                  <span class="category-remaining-text text-primary font-bold">44% Spent (₹1,000 remaining)</span>
+                  <span class="category-remaining-text text-primary font-bold">0% Spent (₹1,800 remaining)</span>
                   <span class="text-on-surface-variant">₹400/weekend available</span>
                 </div>
               </div>
@@ -752,20 +752,20 @@
                         <span class="material-symbols-outlined text-xs">check_circle</span> On track
                       </span>
                     </div>
-                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Spotify Student, iCloud, haircut, laundry card</div>
+                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Mobile recharge, Spotify, haircuts, laundry</div>
                   </div>
                 </div>
                 <div class="text-right">
-                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-personal">450</span></span>
+                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-personal">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-personal">600</span> cap</span>
                 </div>
               </div>
               <div>
                 <div class="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
-                  <div class="category-progress-fill bg-primary h-full rounded-full transition-all duration-300" style="width: 75%;"></div>
+                  <div class="category-progress-fill bg-primary h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
                 </div>
                 <div class="flex justify-between items-center mt-1.5 font-label-sm text-label-sm">
-                  <span class="category-remaining-text text-primary font-bold">75% Spent (₹150 remaining)</span>
+                  <span class="category-remaining-text text-primary font-bold">0% Spent (₹600 remaining)</span>
                   <span class="text-on-surface-variant">All recurring charges cleared</span>
                 </div>
               </div>
@@ -795,12 +795,12 @@
                         Auto-Saved
                       </span>
                     </div>
-                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Automated cushion for flight changes, tech repairs, urgent needs</div>
+                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Medical urgent needs, emergency travel, repairs</div>
                   </div>
                 </div>
                 <div class="text-right">
-                  <span class="font-headline-sm text-headline-sm text-primary font-bold">₹1,200</span>
-                  <span class="font-body-sm text-body-sm text-on-surface-variant block">Goal: ₹5,000 / term</span>
+                  <span class="font-headline-sm text-headline-sm text-primary font-bold">₹<span class="spent-val-emergency">0</span></span>
+                  <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-emergency">1,200</span> cap</span>
                 </div>
               </div>
               <!-- Inline Visual Radial Micro Sparkline -->
@@ -808,14 +808,14 @@
                 <div class="flex items-center gap-space-md">
                   <svg class="w-12 h-12 transform -rotate-90 flex-shrink-0" viewBox="0 0 36 36">
                     <path class="text-surface-container" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3.5"></path>
-                    <path class="text-primary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="24, 100" stroke-linecap="round" stroke-width="3.5"></path>
+                    <path id="emergency-radial-bar" class="text-primary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="0, 100" stroke-linecap="round" stroke-width="3.5"></path>
                   </svg>
                   <div class="flex flex-col">
-                    <span class="font-label-md text-label-md text-on-surface font-bold">Deposit Confirmed for Current Term</span>
-                    <span class="font-body-sm text-body-sm text-on-surface-variant">₹1,200 deposited from campus payroll</span>
+                    <span class="font-label-md text-label-md text-on-surface font-bold">Emergency Cushion Reserve</span>
+                    <span id="emergency-cushion-desc" class="font-body-sm text-body-sm text-on-surface-variant">₹0 saved on this device</span>
                   </div>
                 </div>
-                <span class="font-label-sm text-label-sm text-primary font-semibold hidden sm:inline-block">24% of Semester Goal</span>
+                <span id="emergency-goal-percent" class="font-label-sm text-label-sm text-primary font-semibold hidden sm:inline-block">0% of Semester Target</span>
               </div>
             </div>
           </div>
@@ -837,33 +837,42 @@
                 <!-- Toggle 1 -->
                 <div class="flex items-start justify-between gap-space-sm pt-2">
                   <div class="flex flex-col">
-                    <span class="font-label-md text-label-md text-on-surface font-semibold">Notify when category hits 80%</span>
+                    <div class="flex items-center gap-2">
+                      <span class="font-label-md text-label-md text-on-surface font-semibold">Notify when category hits 80%</span>
+                      <span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[10px] font-bold uppercase tracking-wider">Coming Soon</span>
+                    </div>
                     <span class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Sends a gentle push ping to slow dining out pace before overruns.</span>
                   </div>
-                  <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
-                    <input checked="" class="sr-only peer" id="toggle-80" type="checkbox"/>
+                  <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1 opacity-70">
+                    <input class="sr-only peer" id="toggle-80" type="checkbox" disabled/>
                     <div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                   </label>
                 </div>
                 <!-- Toggle 2 -->
                 <div class="flex items-start justify-between gap-space-sm pt-2">
                   <div class="flex flex-col">
-                    <span class="font-label-md text-label-md text-on-surface font-semibold">Sunday night weekly digest</span>
+                    <div class="flex items-center gap-2">
+                      <span class="font-label-md text-label-md text-on-surface font-semibold">Sunday night weekly digest</span>
+                      <span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[10px] font-bold uppercase tracking-wider">Coming Soon</span>
+                    </div>
                     <span class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">A 30-second breakdown before your Monday 9 AM class starts.</span>
                   </div>
-                  <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
-                    <input checked="" class="sr-only peer" id="toggle-digest" type="checkbox"/>
+                  <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1 opacity-70">
+                    <input class="sr-only peer" id="toggle-digest" type="checkbox" disabled/>
                     <div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                   </label>
                 </div>
                 <!-- Toggle 3: Peer Shared Expenses Auto-Check -->
                 <div class="flex items-start justify-between gap-space-sm pt-2">
                   <div class="flex flex-col">
-                    <span class="font-label-md text-label-md text-on-surface font-semibold">Roommate split alert</span>
-                    <span class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Prompt Venmo settlement reminders when utilities post.</span>
+                    <div class="flex items-center gap-2">
+                      <span class="font-label-md text-label-md text-on-surface font-semibold">Roommate split alert</span>
+                      <span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[10px] font-bold uppercase tracking-wider">Coming Soon</span>
+                    </div>
+                    <span class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Prompt UPI settlement reminders when shared expenses post.</span>
                   </div>
-                  <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
-                    <input class="sr-only peer" id="toggle-roommate" type="checkbox"/>
+                  <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1 opacity-70">
+                    <input class="sr-only peer" id="toggle-roommate" type="checkbox" disabled/>
                     <div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                   </label>
                 </div>
@@ -916,7 +925,7 @@
           <div class="flex flex-col">
             <div class="flex items-center gap-space-xs text-on-surface-variant mb-1">
               <span class="material-symbols-outlined text-sm text-primary">pie_chart</span>
-              <span class="font-label-sm text-label-sm uppercase tracking-wider">Financial Breakdown • Fall 2025</span>
+              <span class="font-label-sm text-label-sm uppercase tracking-wider">Financial Breakdown • <span class="dynamic-term-badge inline">Fall Term • Campus Living</span></span>
             </div>
             <div class="flex items-baseline gap-space-sm flex-wrap">
               <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Spending Analytics</h1>
@@ -1032,11 +1041,11 @@
           <!-- Student Profile Card (6 Cols) -->
           <div class="lg:col-span-6 bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-space-md">
             <div class="flex items-center gap-space-md">
-              <img id="profile-user-avatar" alt="Alex Rivera" class="w-16 h-16 rounded-full object-cover ring-4 ring-primary/10 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvTZEuqQyGuqnu0LMothjPZK8z4ng8n2DrNONak-8ig1Gj2nweQtbt48Q1wnuzmiWQz6NtSWMXJkFeGxeH1YFk75YklePL2tpnHFmXj96z9bLcLSGBTRQBGtV8rm2A2qPTgk9YUYg8xQ6ZtNISy3kUIUzSqrQ5-ucAaolK-BLFhtuvbpnWjX7OXUvoQjrXa0sLOMRcLUK2TjAeJZZAzo73iJY2jW--ZYK7bo44LwbstEdaGRcFMZBv"/>
+              <img id="profile-user-avatar" alt="Student User" class="w-16 h-16 rounded-full object-cover ring-4 ring-primary/10 shadow-sm" src="https://ui-avatars.com/api/?name=Student+User&background=006948&color=ffffff&bold=true"/>
               <div class="flex flex-col flex-1">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
-                    <span class="font-headline-sm text-headline-sm text-on-surface font-bold" id="profile-user-name">Alex Rivera</span>
+                    <span class="font-headline-sm text-headline-sm text-on-surface font-bold" id="profile-user-name">Student User</span>
                     <span class="px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-semibold">Verified</span>
                   </div>
                   <button id="btn-logout" type="button" class="px-3 py-1.5 rounded-full bg-surface-container hover:bg-error-container hover:text-error text-on-surface font-label-sm text-label-sm flex items-center gap-1.5 transition-colors">
@@ -1044,8 +1053,8 @@
                     <span>Log Out</span>
                   </button>
                 </div>
-                <span class="font-body-sm text-body-sm text-on-surface-variant" id="profile-user-email">Class of '26 • alex.rivera@campus.edu</span>
-                <span class="font-body-sm text-body-sm text-primary font-semibold mt-0.5">Fall Term 2025 • Campus Sync Active</span>
+                <span class="font-body-sm text-body-sm text-on-surface-variant" id="profile-user-email">Google Account • Saved on this device</span>
+                <span class="font-body-sm text-body-sm text-primary font-semibold mt-0.5"><span class="dynamic-term-badge inline">Fall Term • Campus Living</span> • Saved on this device</span>
               </div>
             </div>
 
@@ -1080,17 +1089,6 @@
             </div>
 
             <div class="flex flex-col gap-space-sm">
-              <!-- Load Default Data -->
-              <div class="p-space-md rounded-2xl bg-surface-container-low flex items-center justify-between gap-space-sm">
-                <div class="flex flex-col">
-                  <span class="font-label-md text-label-md text-on-surface font-semibold">Restore Stitch Demo Data</span>
-                  <span class="font-body-sm text-body-sm text-on-surface-variant">Reloads the realistic student transactions from the Stitch design.</span>
-                </div>
-                <button class="px-4 py-2 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm flex-shrink-0 transition-colors" id="btn-load-sample">
-                  Restore Demo
-                </button>
-              </div>
-
               <!-- Clear All Data (Test Empty States) -->
               <div class="p-space-md rounded-2xl bg-error-container/40 flex items-center justify-between gap-space-sm">
                 <div class="flex flex-col">
@@ -1163,12 +1161,12 @@
       </div>
 
       <!-- Form Error Alert Container -->
-      <div id="expense-form-error" style="display: none;" class="p-3 rounded-2xl bg-error-container text-on-error-container text-label-md font-label-md items-center gap-2">
+      <div id="expense-form-error" style="display: none !important;" class="hidden p-3 rounded-2xl bg-error-container text-on-error-container text-label-md font-label-md items-center gap-2">
         <span class="material-symbols-outlined text-lg flex-shrink-0">error</span>
-        <span id="expense-form-error-text">Please check input fields.</span>
+        <span id="expense-form-error-text"></span>
       </div>
 
-      <form id="expense-form" class="flex flex-col gap-space-md">
+      <form id="expense-form" novalidate class="flex flex-col gap-space-md">
         <!-- Amount Input with Large Currency Display -->
         <div class="flex flex-col gap-space-xs">
           <label class="font-label-sm text-label-sm text-on-surface-variant">Expense Amount (₹) *</label>
@@ -1242,7 +1240,7 @@
           <input 
             id="expense-note" 
             type="text" 
-            placeholder="e.g. Starbucks, Trader Joe's, Chegg rental" 
+            placeholder="e.g. Campus canteen, Swiggy, BookMyShow, Xerox notes" 
             class="w-full px-4 py-3 bg-surface-container-low rounded-2xl font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
