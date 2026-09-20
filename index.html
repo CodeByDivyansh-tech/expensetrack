@@ -10,7 +10,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+  
+  <!-- Material Symbols Outlined (Full Variable Font Range) -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   
   <!-- Chart.js for Analytics -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -27,7 +29,42 @@
     .tabular-nums {
       font-feature-settings: "tnum";
     }
+
+    /* Enforce Material Symbols Ligature Rendering */
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined' !important;
+      font-weight: normal !important;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga' 1;
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: 'liga' 1;
+    }
   </style>
+
+  <!-- Firebase Compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+  <!-- Firebase Configuration Module -->
+  <script src="firebase-config.js"></script>
+  <script>
+    // Fast Auth Guard before render
+    (function() {
+      try {
+        var session = localStorage.getItem('expensetrack_user_session');
+        if (!session) {
+          window.location.replace('login.html');
+        }
+      } catch(e) {}
+    })();
+  </script>
 
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -181,6 +218,10 @@
           <span class="material-symbols-outlined text-2xl">manage_accounts</span>
           <span class="font-label-md text-label-md">Settings &amp; Profile</span>
         </a>
+        <button id="btn-logout-sidebar" type="button" class="flex items-center gap-space-md px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-error-container hover:text-error transition-colors text-left w-full">
+          <span class="material-symbols-outlined text-2xl">logout</span>
+          <span class="font-label-md text-label-md">Log Out</span>
+        </button>
       </nav>
     </div>
 
@@ -226,10 +267,10 @@
           
           <div class="flex items-center gap-space-sm pl-2 cursor-pointer" onclick="window.ExpenseTrackApp.navigateTo('profile-&-settings')">
             <div class="hidden sm:flex flex-col text-right">
-              <span class="font-label-md text-label-md text-on-surface font-semibold">Alex Rivera</span>
-              <span class="font-body-sm text-body-sm text-on-surface-variant">Class of '26</span>
+              <span class="font-label-md text-label-md text-on-surface font-semibold" id="header-user-name">Alex Rivera</span>
+              <span class="font-body-sm text-body-sm text-on-surface-variant" id="header-user-email">Class of '26</span>
             </div>
-            <img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvTZEuqQyGuqnu0LMothjPZK8z4ng8n2DrNONak-8ig1Gj2nweQtbt48Q1wnuzmiWQz6NtSWMXJkFeGxeH1YFk75YklePL2tpnHFmXj96z9bLcLSGBTRQBGtV8rm2A2qPTgk9YUYg8xQ6ZtNISy3kUIUzSqrQ5-ucAaolK-BLFhtuvbpnWjX7OXUvoQjrXa0sLOMRcLUK2TjAeJZZAzo73iJY2jW--ZYK7bo44LwbstEdaGRcFMZBv"/>
+            <img id="header-user-avatar" alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvTZEuqQyGuqnu0LMothjPZK8z4ng8n2DrNONak-8ig1Gj2nweQtbt48Q1wnuzmiWQz6NtSWMXJkFeGxeH1YFk75YklePL2tpnHFmXj96z9bLcLSGBTRQBGtV8rm2A2qPTgk9YUYg8xQ6ZtNISy3kUIUzSqrQ5-ucAaolK-BLFhtuvbpnWjX7OXUvoQjrXa0sLOMRcLUK2TjAeJZZAzo73iJY2jW--ZYK7bo44LwbstEdaGRcFMZBv"/>
           </div>
         </div>
       </div>
@@ -987,14 +1028,20 @@
           <!-- Student Profile Card (6 Cols) -->
           <div class="lg:col-span-6 bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-space-md">
             <div class="flex items-center gap-space-md">
-              <img alt="Alex Rivera" class="w-16 h-16 rounded-full object-cover ring-4 ring-primary/10 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvTZEuqQyGuqnu0LMothjPZK8z4ng8n2DrNONak-8ig1Gj2nweQtbt48Q1wnuzmiWQz6NtSWMXJkFeGxeH1YFk75YklePL2tpnHFmXj96z9bLcLSGBTRQBGtV8rm2A2qPTgk9YUYg8xQ6ZtNISy3kUIUzSqrQ5-ucAaolK-BLFhtuvbpnWjX7OXUvoQjrXa0sLOMRcLUK2TjAeJZZAzo73iJY2jW--ZYK7bo44LwbstEdaGRcFMZBv"/>
-              <div class="flex flex-col">
-                <div class="flex items-center gap-2">
-                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">Alex Rivera</span>
-                  <span class="px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-semibold">Active</span>
+              <img id="profile-user-avatar" alt="Alex Rivera" class="w-16 h-16 rounded-full object-cover ring-4 ring-primary/10 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvTZEuqQyGuqnu0LMothjPZK8z4ng8n2DrNONak-8ig1Gj2nweQtbt48Q1wnuzmiWQz6NtSWMXJkFeGxeH1YFk75YklePL2tpnHFmXj96z9bLcLSGBTRQBGtV8rm2A2qPTgk9YUYg8xQ6ZtNISy3kUIUzSqrQ5-ucAaolK-BLFhtuvbpnWjX7OXUvoQjrXa0sLOMRcLUK2TjAeJZZAzo73iJY2jW--ZYK7bo44LwbstEdaGRcFMZBv"/>
+              <div class="flex flex-col flex-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="font-headline-sm text-headline-sm text-on-surface font-bold" id="profile-user-name">Alex Rivera</span>
+                    <span class="px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-semibold">Verified</span>
+                  </div>
+                  <button id="btn-logout" type="button" class="px-3 py-1.5 rounded-full bg-surface-container hover:bg-error-container hover:text-error text-on-surface font-label-sm text-label-sm flex items-center gap-1.5 transition-colors">
+                    <span class="material-symbols-outlined text-base">logout</span>
+                    <span>Log Out</span>
+                  </button>
                 </div>
-                <span class="font-body-sm text-body-sm text-on-surface-variant">Class of '26 • Computer Science &amp; Economics</span>
-                <span class="font-body-sm text-body-sm text-primary font-semibold mt-0.5">Fall Term 2025 • On-Campus Resident</span>
+                <span class="font-body-sm text-body-sm text-on-surface-variant" id="profile-user-email">Class of '26 • alex.rivera@campus.edu</span>
+                <span class="font-body-sm text-body-sm text-primary font-semibold mt-0.5">Fall Term 2025 • Campus Sync Active</span>
               </div>
             </div>
 
@@ -1112,7 +1159,7 @@
       </div>
 
       <!-- Form Error Alert Container -->
-      <div id="expense-form-error" class="hidden p-3 rounded-2xl bg-error-container text-on-error-container text-label-md font-label-md flex items-center gap-2">
+      <div id="expense-form-error" style="display: none;" class="p-3 rounded-2xl bg-error-container text-on-error-container text-label-md font-label-md items-center gap-2">
         <span class="material-symbols-outlined text-lg flex-shrink-0">error</span>
         <span id="expense-form-error-text">Please check input fields.</span>
       </div>

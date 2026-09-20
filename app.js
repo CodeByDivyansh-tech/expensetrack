@@ -1015,7 +1015,28 @@
 
   // ==========================================
   // EXPENSES CRUD OPERATIONS
-  // ==========================================
+  // Helper to ensure modal error banner is hidden by default
+  function hideExpenseFormError() {
+    const errorContainer = document.getElementById('expense-form-error');
+    if (errorContainer) {
+      errorContainer.style.display = 'none';
+      errorContainer.classList.add('hidden');
+      errorContainer.classList.remove('flex');
+    }
+  }
+
+  // Helper to show modal error banner only on validation failure
+  function showExpenseFormError(message) {
+    const errorContainer = document.getElementById('expense-form-error');
+    const errorText = document.getElementById('expense-form-error-text');
+    if (errorContainer && errorText) {
+      errorText.textContent = message;
+      errorContainer.classList.remove('hidden');
+      errorContainer.classList.add('flex');
+      errorContainer.style.display = 'flex';
+    }
+  }
+
   function openAddExpenseModal() {
     state.editingExpenseId = null;
     const modal = document.getElementById('expense-modal');
@@ -1025,9 +1046,10 @@
     const amountInput = document.getElementById('expense-amount');
     const noteInput = document.getElementById('expense-note');
     const dateInput = document.getElementById('expense-date');
-    const errorContainer = document.getElementById('expense-form-error');
 
-    if (errorContainer) errorContainer.classList.add('hidden');
+    // Ensure error is completely hidden on modal open
+    hideExpenseFormError();
+
     if (title) title.textContent = 'Quick Log Expense';
     if (subtitle) subtitle.textContent = 'Capture transaction in under 10 seconds';
     if (submitBtn) submitBtn.textContent = 'Save Expense';
@@ -1064,9 +1086,10 @@
     const amountInput = document.getElementById('expense-amount');
     const noteInput = document.getElementById('expense-note');
     const dateInput = document.getElementById('expense-date');
-    const errorContainer = document.getElementById('expense-form-error');
 
-    if (errorContainer) errorContainer.classList.add('hidden');
+    // Ensure error is completely hidden on modal open
+    hideExpenseFormError();
+
     if (title) title.textContent = 'Edit Expense';
     if (subtitle) subtitle.textContent = 'Modify transaction details';
     if (submitBtn) submitBtn.textContent = 'Update Expense';
@@ -1084,6 +1107,7 @@
   function closeExpenseModal() {
     const modal = document.getElementById('expense-modal');
     if (modal) modal.classList.add('hidden');
+    hideExpenseFormError();
     state.editingExpenseId = null;
   }
 
@@ -1110,8 +1134,6 @@
     const noteInput = document.getElementById('expense-note');
     const dateInput = document.getElementById('expense-date');
     const catInput = document.getElementById('expense-selected-category');
-    const errorContainer = document.getElementById('expense-form-error');
-    const errorText = document.getElementById('expense-form-error-text');
 
     const amountVal = parseFloat(amountInput.value);
     const noteVal = noteInput.value.trim();
@@ -1134,14 +1156,11 @@
     }
 
     if (errors.length > 0) {
-      if (errorContainer && errorText) {
-        errorText.textContent = errors.join(' ');
-        errorContainer.classList.remove('hidden');
-      }
+      showExpenseFormError(errors.join(' '));
       return;
     }
 
-    if (errorContainer) errorContainer.classList.add('hidden');
+    hideExpenseFormError();
 
     if (state.editingExpenseId) {
       // Update existing
@@ -1397,6 +1416,79 @@
 
     const btnEditCapFromSettings = document.getElementById('btn-edit-budget-cap');
     if (btnEditCapFromSettings) btnEditCapFromSettings.addEventListener('click', openBudgetModal);
+
+    // Logout Buttons (Profile Screen & Sidebar)
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) {
+      btnLogout.addEventListener('click', () => {
+        if (window.FirebaseService) {
+          window.FirebaseService.signOut();
+        } else {
+          localStorage.removeItem('expensetrack_user_session');
+          window.location.replace('login.html');
+        }
+      });
+    }
+
+    const btnLogoutSidebar = document.getElementById('btn-logout-sidebar');
+    if (btnLogoutSidebar) {
+      btnLogoutSidebar.addEventListener('click', () => {
+        if (window.FirebaseService) {
+          window.FirebaseService.signOut();
+        } else {
+          localStorage.removeItem('expensetrack_user_session');
+          window.location.replace('login.html');
+        }
+      });
+    }
+  }
+
+  // ==========================================
+  // AUTH GUARD & USER PROFILE SYNC
+  // ==========================================
+  function applyUserProfile(profile) {
+    if (!profile) return;
+    const headerName = document.getElementById('header-user-name');
+    const headerEmail = document.getElementById('header-user-email');
+    const headerAvatar = document.getElementById('header-user-avatar');
+    const profileName = document.getElementById('profile-user-name');
+    const profileEmail = document.getElementById('profile-user-email');
+    const profileAvatar = document.getElementById('profile-user-avatar');
+
+    const name = profile.displayName || profile.phoneNumber || 'Student User';
+    const contact = profile.email || profile.phoneNumber || 'Campus Sync Active';
+
+    if (headerName) headerName.textContent = name;
+    if (headerEmail) headerEmail.textContent = contact;
+    if (headerAvatar && profile.photoURL) headerAvatar.src = profile.photoURL;
+
+    if (profileName) profileName.textContent = name;
+    if (profileEmail) profileEmail.textContent = `${contact} • On-Campus Resident`;
+    if (profileAvatar && profile.photoURL) profileAvatar.src = profile.photoURL;
+  }
+
+  function initAuthGuardAndSyncUser() {
+    if (!window.FirebaseService) return;
+
+    // 1. Instant sync from cached session
+    const cached = window.FirebaseService.getCachedSession();
+    if (cached) {
+      applyUserProfile(cached);
+    }
+
+    // 2. Live Firebase listener
+    window.FirebaseService.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.replace('login.html');
+      } else {
+        applyUserProfile({
+          displayName: user.displayName || user.phoneNumber || 'Student User',
+          email: user.email || user.phoneNumber || 'Campus Living',
+          photoURL: user.photoURL || '',
+          phoneNumber: user.phoneNumber || ''
+        });
+      }
+    });
   }
 
   // Expose API for inline onclick handlers
@@ -1417,6 +1509,8 @@
   document.addEventListener('DOMContentLoaded', () => {
     loadState();
     initEventListeners();
+    hideExpenseFormError();
+    initAuthGuardAndSyncUser();
     navigateTo('dashboard');
   });
 })();

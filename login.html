@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Login - ExpenseTrack Student Finance</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  
+  <!-- Material Symbols Outlined (Full Variable Font Range) -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  
+  <style>
+    @layer base {
+      html, body { margin: 0; padding: 0; }
+      body { overscroll-behavior: none; }
+    }
+    ::-webkit-scrollbar { display: none; }
+    
+    /* Enforce Material Symbols Ligature Rendering */
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined' !important;
+      font-weight: normal !important;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga' 1;
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: 'liga' 1;
+    }
+  </style>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-primary-container": "#f5fff7",
+            "on-surface": "#0b1c30",
+            "surface-tint": "#006c4a",
+            "inverse-on-surface": "#eaf1ff",
+            "secondary": "#565e74",
+            "surface-variant": "#d3e4fe",
+            "primary-container": "#00855d",
+            "on-surface-variant": "#3d4a42",
+            "on-error-container": "#93000a",
+            "on-secondary": "#ffffff",
+            "secondary-fixed": "#dae2fd",
+            "outline-variant": "#bccac0",
+            "primary": "#006948",
+            "tertiary-fixed": "#ffddb8",
+            "on-tertiary": "#ffffff",
+            "secondary-container": "#dae2fd",
+            "on-primary-fixed-variant": "#005137",
+            "on-secondary-fixed": "#131b2e",
+            "error": "#ba1a1a",
+            "primary-fixed": "#85f8c4",
+            "on-error": "#ffffff",
+            "on-background": "#0b1c30",
+            "surface-dim": "#cbdbf5",
+            "on-secondary-container": "#5c647a",
+            "surface-container-high": "#dce9ff",
+            "inverse-primary": "#68dba9",
+            "background": "#f8f9ff",
+            "secondary-fixed-dim": "#bec6e0",
+            "on-secondary-fixed-variant": "#3f465c",
+            "surface-container-low": "#eff4ff",
+            "on-primary": "#ffffff",
+            "on-tertiary-container": "#fffbff",
+            "surface-container": "#e5eeff",
+            "tertiary-fixed-dim": "#ffb95f",
+            "surface-container-lowest": "#ffffff",
+            "error-container": "#ffdad6",
+            "surface-bright": "#f8f9ff",
+            "inverse-surface": "#213145",
+            "on-tertiary-fixed": "#2a1700",
+            "tertiary": "#825100",
+            "surface-container-highest": "#d3e4fe",
+            "outline": "#6d7a72",
+            "on-tertiary-fixed-variant": "#653e00",
+            "primary-fixed-dim": "#68dba9",
+            "on-primary-fixed": "#002114",
+            "surface": "#f8f9ff",
+            "tertiary-container": "#a36700"
+          },
+          borderRadius: {
+            DEFAULT: "0.25rem",
+            lg: "0.5rem",
+            xl: "0.75rem",
+            full: "9999px"
+          },
+          spacing: {
+            "margin-tablet": "2rem",
+            "space-md": "1rem",
+            "space-xl": "2rem",
+            "margin": "1rem",
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "gutter-tablet": "1.5rem",
+            "space-lg": "1.5rem",
+            "margin-desktop": "3rem",
+            "gutter": "1rem"
+          },
+          fontFamily: {
+            "label-sm": ["Plus Jakarta Sans"],
+            "display-lg-mobile": ["Plus Jakarta Sans"],
+            "numeric-balance": ["Plus Jakarta Sans"],
+            "body-md": ["Inter"],
+            "title-md": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "body-sm": ["Inter"],
+            "headline-lg-mobile": ["Plus Jakarta Sans"],
+            "display-lg": ["Plus Jakarta Sans"],
+            "label-md": ["Plus Jakarta Sans"],
+            "headline-sm": ["Plus Jakarta Sans"],
+            "body-lg": ["Inter"]
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Firebase Compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+  <!-- Firebase Configuration Module -->
+  <script src="firebase-config.js"></script>
+</head>
+
+<body class="bg-surface font-body-md text-body-md text-on-surface antialiased min-h-screen flex flex-col justify-between">
+
+  <!-- Header Branding -->
+  <header class="w-full px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <img alt="ExpenseTrack Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1VzIAMlMB5gwZ_4XwCn95HL3vHeDbgfUKeqWUcQB2AL-Zyyv52Le_zlOtXkrVC_WZJNir7NcDG0t0zpQ9l3gv8xwC9WOkxnwzJQgZVxwkLSQFf3PzCD0zfohoqO2gAFYiuQDQGtWgtVyCOGy0MHJ_OcIPzl2y6f4bfwKEEdXaHCqyrULnzSZx5Bo71KIPDDCLuGWAQG5plm77PQgZ38xy7sZuHoCEokSM0l1IDYgUEb7pe6UUTCzZnpKE0"/>
+      <div class="flex flex-col">
+        <span class="font-title-md text-title-md text-on-surface font-bold tracking-tight">ExpenseTrack</span>
+        <span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
+          <span class="w-2 h-2 rounded-full bg-primary inline-block"></span> Student Sync Active
+        </span>
+      </div>
+    </div>
+    <div class="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">
+      <span class="material-symbols-outlined text-sm text-primary">verified</span>
+      <span>Fall Term • Campus Living</span>
+    </div>
+  </header>
+
+  <!-- Main Auth Container -->
+  <main class="flex-1 flex items-center justify-center p-4 sm:p-6">
+    <div class="w-full max-w-md bg-surface-container-lowest rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-100 flex flex-col gap-6 relative overflow-hidden">
+      
+      <!-- Ambient Decorative Aura -->
+      <div class="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-primary-fixed/30 blur-3xl pointer-events-none"></div>
+
+      <!-- Hero Title -->
+      <div class="flex flex-col text-center items-center">
+        <div class="w-12 h-12 rounded-2xl bg-primary-fixed flex items-center justify-center text-on-primary-fixed mb-3 shadow-sm">
+          <span class="material-symbols-outlined text-2xl">account_balance_wallet</span>
+        </div>
+        <h1 class="font-headline-sm text-headline-sm text-on-surface font-bold">Welcome to ExpenseTrack</h1>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+          Mindful, stress-free student budgeting for college life.
+        </p>
+      </div>
+
+      <!-- Feedback Alert Container -->
+      <div id="auth-alert" style="display: none;" class="p-3.5 rounded-2xl text-label-md font-label-md items-center gap-2.5">
+        <span class="material-symbols-outlined text-xl flex-shrink-0" id="auth-alert-icon">error</span>
+        <span id="auth-alert-text" class="flex-1"></span>
+      </div>
+
+      <!-- Sign-In Method 1: Google Sign-In -->
+      <div class="flex flex-col gap-3">
+        <button 
+          id="btn-google-signin" 
+          type="button" 
+          class="w-full py-3 px-4 rounded-2xl bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md border border-slate-200 flex items-center justify-center gap-3 transition-all duration-200 shadow-sm active:scale-[0.99]"
+        >
+          <!-- Official Google "G" SVG Icon -->
+          <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.27 21.36 7.36 24 12 24z"/>
+            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.97 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/>
+            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.27 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+          </svg>
+          <span id="google-btn-text">Sign in with Google</span>
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div class="relative flex items-center justify-center">
+        <div class="border-t border-slate-200 w-full"></div>
+        <span class="bg-surface-container-lowest px-3 text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">or phone OTP</span>
+      </div>
+
+      <!-- Sign-In Method 2: Phone Number with OTP -->
+      <div class="flex flex-col gap-4">
+        
+        <!-- STEP 1: Phone Number Input Form -->
+        <form id="phone-form" class="flex flex-col gap-3">
+          <label class="font-label-sm text-label-sm text-on-surface-variant">Mobile Phone Number</label>
+          
+          <div class="flex items-center gap-2">
+            <!-- Country Code -->
+            <select id="phone-country-code" class="px-3 py-3 bg-surface-container-low rounded-2xl font-label-md text-label-md text-on-surface border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="+91" selected>🇮🇳 +91 (IN)</option>
+              <option value="+1">🇺🇸 +1 (US)</option>
+              <option value="+44">🇬🇧 +44 (UK)</option>
+              <option value="+61">🇦🇺 +61 (AU)</option>
+              <option value="+1">🇨🇦 +1 (CA)</option>
+            </select>
+            <!-- Phone Number -->
+            <div class="relative flex-1">
+              <input 
+                id="phone-input" 
+                type="tel" 
+                required 
+                placeholder="98765 43210" 
+                class="w-full px-4 py-3 bg-surface-container-low rounded-2xl font-body-md text-body-md text-on-surface border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          <!-- Send OTP Button -->
+          <button 
+            id="btn-send-otp" 
+            type="submit" 
+            class="w-full py-3 px-4 rounded-full bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container font-label-md text-label-md shadow-sm transition-all duration-200 flex items-center justify-center gap-2 mt-1"
+          >
+            <span class="material-symbols-outlined text-lg">sms</span>
+            <span id="send-otp-text">Send Verification Code</span>
+          </button>
+        </form>
+
+        <!-- STEP 2: OTP Verification Form (Hidden initially) -->
+        <form id="otp-form" style="display: none;" class="flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <label class="font-label-sm text-label-sm text-on-surface-variant">Enter 6-Digit OTP</label>
+            <button type="button" id="btn-change-phone" class="text-primary font-label-sm text-label-sm font-semibold hover:underline">
+              Change Number
+            </button>
+          </div>
+
+          <input 
+            id="otp-input" 
+            type="text" 
+            maxlength="6" 
+            placeholder="• • • • • •" 
+            class="w-full px-4 py-3 bg-surface-container-low rounded-2xl font-numeric-balance text-numeric-balance text-center tracking-[0.5em] text-on-surface border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+
+          <button 
+            id="btn-verify-otp" 
+            type="submit" 
+            class="w-full py-3 px-4 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all duration-200 flex items-center justify-center gap-2"
+          >
+            <span class="material-symbols-outlined text-lg">verified_user</span>
+            <span id="verify-otp-text">Verify &amp; Sign In</span>
+          </button>
+        </form>
+
+        <!-- Invisible reCAPTCHA container required by Firebase Phone Auth -->
+        <div id="recaptcha-container"></div>
+      </div>
+
+      <!-- Campus Guarantee Badge -->
+      <div class="pt-3 border-t border-slate-100 flex items-center justify-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-base text-primary">security</span>
+        <span>Secure authentication via Google Firebase</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="w-full py-4 text-center text-on-surface-variant font-body-sm text-body-sm">
+    <span>ExpenseTrack • Student Financial Vitality</span>
+  </footer>
+
+  <!-- Login Page Controller Logic -->
+  <script>
+    (function() {
+      'use strict';
+
+      const alertBox = document.getElementById('auth-alert');
+      const alertIcon = document.getElementById('auth-alert-icon');
+      const alertText = document.getElementById('auth-alert-text');
+      const googleBtn = document.getElementById('btn-google-signin');
+      const googleBtnText = document.getElementById('google-btn-text');
+      const phoneForm = document.getElementById('phone-form');
+      const otpForm = document.getElementById('otp-form');
+      const phoneInput = document.getElementById('phone-input');
+      const countryCodeSelect = document.getElementById('phone-country-code');
+      const btnSendOtp = document.getElementById('btn-send-otp');
+      const sendOtpText = document.getElementById('send-otp-text');
+      const otpInput = document.getElementById('otp-input');
+      const btnVerifyOtp = document.getElementById('btn-verify-otp');
+      const verifyOtpText = document.getElementById('verify-otp-text');
+      const btnChangePhone = document.getElementById('btn-change-phone');
+
+      let confirmationResult = null;
+
+      function showAlert(msg, isError = true) {
+        if (!alertBox || !alertText) return;
+        alertText.textContent = msg;
+        if (isError) {
+          alertBox.className = 'p-3.5 rounded-2xl bg-error-container text-on-error-container text-label-md font-label-md flex items-center gap-2.5';
+          alertIcon.textContent = 'error';
+        } else {
+          alertBox.className = 'p-3.5 rounded-2xl bg-primary-fixed text-on-primary-fixed text-label-md font-label-md flex items-center gap-2.5';
+          alertIcon.textContent = 'check_circle';
+        }
+        alertBox.style.display = 'flex';
+      }
+
+      function hideAlert() {
+        if (alertBox) alertBox.style.display = 'none';
+      }
+
+      // 1. Auth Guard: If already logged in, redirect straight to Dashboard
+      if (window.FirebaseService) {
+        window.FirebaseService.onAuthStateChanged(user => {
+          if (user) {
+            window.location.replace('index.html');
+          }
+        });
+      }
+
+      // 2. Google Sign-In
+      googleBtn.addEventListener('click', async () => {
+        hideAlert();
+        googleBtnText.textContent = 'Signing in...';
+        googleBtn.disabled = true;
+
+        try {
+          await window.FirebaseService.signInWithGoogle();
+          showAlert('Google sign-in successful! Redirecting...', false);
+          setTimeout(() => {
+            window.location.replace('index.html');
+          }, 500);
+        } catch (err) {
+          console.error('Google Sign-in Error:', err);
+          googleBtnText.textContent = 'Sign in with Google';
+          googleBtn.disabled = false;
+          if (err.code === 'auth/popup-closed-by-user') {
+            showAlert('Sign-in cancelled. Please try again.');
+          } else if (err.code === 'auth/popup-blocked') {
+            showAlert('Sign-in popup was blocked by browser. Please allow popups.');
+          } else {
+            showAlert(err.message || 'Google sign-in failed. Please try again.');
+          }
+        }
+      });
+
+      // 3. Send Phone OTP
+      phoneForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideAlert();
+
+        const rawPhone = phoneInput.value.replace(/[\s-]/g, '');
+        const countryCode = countryCodeSelect.value;
+        const fullPhoneNumber = countryCode + rawPhone;
+
+        if (!rawPhone || rawPhone.length < 7) {
+          showAlert('Please enter a valid phone number.');
+          return;
+        }
+
+        btnSendOtp.disabled = true;
+        sendOtpText.textContent = 'Sending OTP...';
+
+        try {
+          const appVerifier = window.FirebaseService.initRecaptcha('recaptcha-container');
+          confirmationResult = await window.FirebaseService.sendPhoneOtp(fullPhoneNumber, appVerifier);
+          
+          showAlert(`Verification code sent to ${fullPhoneNumber}`, false);
+          phoneForm.style.display = 'none';
+          otpForm.style.display = 'flex';
+          otpInput.value = '';
+          setTimeout(() => otpInput.focus(), 100);
+        } catch (err) {
+          console.error('Phone Sign-in Error:', err);
+          btnSendOtp.disabled = false;
+          sendOtpText.textContent = 'Send Verification Code';
+          if (err.code === 'auth/invalid-phone-number') {
+            showAlert('Invalid phone number format. Please check the digits.');
+          } else if (err.code === 'auth/too-many-requests') {
+            showAlert('Too many requests. Please wait a few moments before retrying.');
+          } else {
+            showAlert(err.message || 'Failed to send OTP code.');
+          }
+        }
+      });
+
+      // 4. Verify OTP Code
+      otpForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideAlert();
+
+        const code = otpInput.value.trim();
+        if (!code || code.length < 6) {
+          showAlert('Please enter the complete 6-digit OTP code.');
+          return;
+        }
+
+        if (!confirmationResult) {
+          showAlert('Session expired. Please request a new OTP code.');
+          otpForm.style.display = 'none';
+          phoneForm.style.display = 'flex';
+          btnSendOtp.disabled = false;
+          sendOtpText.textContent = 'Send Verification Code';
+          return;
+        }
+
+        btnVerifyOtp.disabled = true;
+        verifyOtpText.textContent = 'Verifying...';
+
+        try {
+          await confirmationResult.confirm(code);
+          showAlert('Phone verification successful! Redirecting...', false);
+          setTimeout(() => {
+            window.location.replace('index.html');
+          }, 500);
+        } catch (err) {
+          console.error('OTP Verification Error:', err);
+          btnVerifyOtp.disabled = false;
+          verifyOtpText.textContent = 'Verify & Sign In';
+          if (err.code === 'auth/invalid-verification-code') {
+            showAlert('Incorrect OTP code. Please check and try again.');
+          } else if (err.code === 'auth/code-expired') {
+            showAlert('OTP code has expired. Please request a new one.');
+          } else {
+            showAlert(err.message || 'Verification failed.');
+          }
+        }
+      });
+
+      // 5. Change Phone Number Button
+      btnChangePhone.addEventListener('click', () => {
+        hideAlert();
+        otpForm.style.display = 'none';
+        phoneForm.style.display = 'flex';
+        btnSendOtp.disabled = false;
+        sendOtpText.textContent = 'Send Verification Code';
+      });
+    })();
+  </script>
+</body>
+</html>
