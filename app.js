@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Category Definitions ---
-  // Strictly using the 6 categories from the Stitch design
+  // Core Categories
   const CATEGORIES = {
     food: {
       id: 'food',
@@ -17,8 +17,8 @@
       iconBgClass: 'bg-tertiary-fixed text-on-tertiary-fixed',
       badgeBgClass: 'bg-tertiary-fixed-dim text-on-tertiary-fixed',
       desc: 'Campus canteen, Swiggy / Zomato, chai & snacks',
-      defaultCap: 4000,
-      minCap: 2000,
+      defaultCap: 3500,
+      minCap: 1000,
       maxCap: 6000,
       step: 100,
     },
@@ -30,14 +30,27 @@
       iconBgClass: 'bg-surface-container text-primary',
       badgeBgClass: 'bg-primary-fixed text-on-primary-fixed',
       desc: 'Hostel essentials, local mart, fruits & snacks',
-      defaultCap: 2200,
-      minCap: 1000,
+      defaultCap: 2000,
+      minCap: 500,
       maxCap: 4000,
       step: 100,
     },
+    transport: {
+      id: 'transport',
+      name: 'Transport',
+      icon: 'directions_bus',
+      color: '#0284c7',
+      iconBgClass: 'bg-surface-container text-primary',
+      badgeBgClass: 'bg-primary-fixed text-on-primary-fixed',
+      desc: 'Metro, auto rickshaw, bus pass, campus commute',
+      defaultCap: 1000,
+      minCap: 200,
+      maxCap: 3000,
+      step: 50,
+    },
     textbooks: {
       id: 'textbooks',
-      name: 'Textbooks & Coursework',
+      name: 'Education & Textbooks',
       icon: 'menu_book',
       color: '#ba1a1a',
       iconBgClass: 'bg-error-container text-error',
@@ -56,7 +69,7 @@
       iconBgClass: 'bg-secondary-container text-on-secondary-container',
       badgeBgClass: 'bg-primary-fixed text-on-primary-fixed',
       desc: 'BookMyShow, weekend outings, campus fests',
-      defaultCap: 1800,
+      defaultCap: 1500,
       minCap: 500,
       maxCap: 3000,
       step: 50,
@@ -90,6 +103,20 @@
     },
   };
 
+  // Helper to normalize any input category string safely
+  function normalizeCategoryKey(key) {
+    if (!key) return 'food';
+    const lower = String(key).trim().toLowerCase();
+    if (lower === 'food' || lower === 'dining' || lower.includes('food')) return 'food';
+    if (lower === 'groceries' || lower === 'grocery') return 'groceries';
+    if (lower === 'transport' || lower === 'transportation' || lower === 'commute' || lower === 'travel' || lower === 'bus' || lower === 'metro') return 'transport';
+    if (lower === 'textbooks' || lower === 'education' || lower === 'coursework' || lower === 'books') return 'textbooks';
+    if (lower === 'entertainment' || lower === 'social' || lower.includes('entertain')) return 'entertainment';
+    if (lower === 'personal' || lower === 'subscriptions' || lower.includes('person')) return 'personal';
+    if (lower === 'emergency' || lower.includes('emerg') || lower.includes('saving')) return 'emergency';
+    return CATEGORIES[lower] ? lower : 'food';
+  }
+
   const STORAGE_KEYS = {
     EXPENSES: 'expensetrack_expenses',
     BUDGET: 'expensetrack_budget',
@@ -99,10 +126,11 @@
   const DEFAULT_BUDGET = {
     overallCap: 12000,
     categories: {
-      food: 4000,
-      groceries: 2200,
+      food: 3500,
+      groceries: 2000,
+      transport: 1000,
       textbooks: 1200,
-      entertainment: 1800,
+      entertainment: 1500,
       personal: 600,
       emergency: 1200,
     },
@@ -134,10 +162,42 @@
       const storedBudget = localStorage.getItem(STORAGE_KEYS.BUDGET);
       const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
 
-      // Single source of truth: Genuinely empty state for new users, no demo seeding!
-      state.expenses = storedExpenses ? JSON.parse(storedExpenses) : [];
-      state.budget = storedBudget ? JSON.parse(storedBudget) : { ...DEFAULT_BUDGET, categories: { ...DEFAULT_BUDGET.categories } };
-      state.settings = storedSettings ? JSON.parse(storedSettings) : { ...DEFAULT_SETTINGS };
+      // Single source of truth: Genuinely empty state for new users, safe parse
+      let parsedExpenses = [];
+      if (storedExpenses) {
+        try {
+          const parsed = JSON.parse(storedExpenses);
+          if (Array.isArray(parsed)) parsedExpenses = parsed;
+        } catch (e) {
+          console.warn('Corrupted expenses in localStorage, resetting to empty array');
+          parsedExpenses = [];
+        }
+      }
+      state.expenses = parsedExpenses;
+
+      let parsedBudget = null;
+      if (storedBudget) {
+        try {
+          parsedBudget = JSON.parse(storedBudget);
+        } catch (e) {
+          parsedBudget = null;
+        }
+      }
+      state.budget = (parsedBudget && typeof parsedBudget === 'object' && parsedBudget.categories)
+        ? { ...DEFAULT_BUDGET, ...parsedBudget, categories: { ...DEFAULT_BUDGET.categories, ...parsedBudget.categories } }
+        : { ...DEFAULT_BUDGET, categories: { ...DEFAULT_BUDGET.categories } };
+
+      let parsedSettings = null;
+      if (storedSettings) {
+        try {
+          parsedSettings = JSON.parse(storedSettings);
+        } catch (e) {
+          parsedSettings = null;
+        }
+      }
+      state.settings = (parsedSettings && typeof parsedSettings === 'object')
+        ? { ...DEFAULT_SETTINGS, ...parsedSettings }
+        : { ...DEFAULT_SETTINGS };
 
       if (!storedExpenses) saveExpenses();
       if (!storedBudget) saveBudget();
@@ -193,18 +253,16 @@
 
   // --- Calculations ---
   function getCategorySpendingMap() {
-    const map = {
-      food: 0,
-      groceries: 0,
-      textbooks: 0,
-      entertainment: 0,
-      personal: 0,
-      emergency: 0,
-    };
+    const map = {};
+    Object.keys(CATEGORIES).forEach(k => {
+      map[k] = 0;
+    });
     state.expenses.forEach(exp => {
-      const cat = exp.category;
+      const cat = normalizeCategoryKey(exp.category);
       if (map[cat] !== undefined) {
         map[cat] += Number(exp.amount) || 0;
+      } else {
+        map[cat] = (map[cat] || 0) + (Number(exp.amount) || 0);
       }
     });
     return map;
@@ -282,11 +340,11 @@
     let termName = '';
     let termStartDate;
 
-    if (month >= 6) { // Jul - Dec: Monsoon / Fall Semester
-      termName = `Fall Term ${year} • Campus Living`;
+    if (month >= 6) { // Jul - Dec: Autumn Semester
+      termName = `Semester Term ${year} • Campus Living`;
       termStartDate = new Date(year, 6, 15);
     } else { // Jan - Jun: Spring Semester
-      termName = `Spring Term ${year} • Campus Living`;
+      termName = `Semester Term ${year} • Campus Living`;
       termStartDate = new Date(year, 0, 15);
     }
 
@@ -775,12 +833,23 @@
     const overallCap = state.budget?.overallCap || 0;
     const categoryCaps = state.budget?.categories || {};
 
+    const totalSpentElem = document.getElementById('analytics-total-spent');
     const emptyElem = document.getElementById('analytics-empty-state');
     const contentElem = document.getElementById('analytics-content');
+
+    if (totalSpentElem) totalSpentElem.textContent = `₹${formatINR(totalSpent)}`;
 
     if (totalSpent === 0) {
       if (emptyElem) emptyElem.classList.remove('hidden');
       if (contentElem) contentElem.classList.add('hidden');
+      if (state.charts.categoryDonut) {
+        state.charts.categoryDonut.destroy();
+        state.charts.categoryDonut = null;
+      }
+      if (state.charts.monthlyBar) {
+        state.charts.monthlyBar.destroy();
+        state.charts.monthlyBar = null;
+      }
       return;
     }
 
@@ -788,11 +857,8 @@
     if (contentElem) contentElem.classList.remove('hidden');
 
     // Key Stat Metrics
-    const totalSpentElem = document.getElementById('analytics-total-spent');
     const topCategoryElem = document.getElementById('analytics-top-category');
     const dailyAvgElem = document.getElementById('analytics-daily-avg');
-
-    if (totalSpentElem) totalSpentElem.textContent = `₹${formatINR(totalSpent)}`;
 
     // Top Category
     let topCatKey = 'food';
@@ -860,14 +926,7 @@
 
     const catLabels = Object.keys(CATEGORIES).map(k => CATEGORIES[k].name);
     const catData = Object.keys(CATEGORIES).map(k => spendingMap[k] || 0);
-    const catColors = [
-      '#f59e0b', // food (tertiary/amber)
-      '#006948', // groceries (primary green)
-      '#ba1a1a', // textbooks (error red)
-      '#565e74', // entertainment (secondary slate)
-      '#00855d', // personal (primary container)
-      '#825100', // emergency fund (tertiary container)
-    ];
+    const catColors = Object.keys(CATEGORIES).map(k => CATEGORIES[k].color || '#006948');
 
     // Donut Chart
     const donutCtx = document.getElementById('chart-category-donut')?.getContext?.('2d');
@@ -1135,20 +1194,18 @@
     const noteVal = noteInput.value.trim();
     const dateVal = dateInput.value.trim();
     const catVal = catInput.value.trim();
+    const normCat = normalizeCategoryKey(catVal);
 
     // Strict Validation:
-    // 1. Amount must be a positive number
-    // 2. Category is required and must be one of the allowed categories
-    // 3. Date is required
     const errors = [];
     if (isNaN(amountVal) || amountVal <= 0) {
-      errors.push('Amount must be a positive number greater than ₹0.');
+      errors.push('Please enter an amount greater than ₹0.');
     }
-    if (!catVal || !CATEGORIES[catVal]) {
+    if (!catVal || !CATEGORIES[normCat]) {
       errors.push('Please select a valid expense category.');
     }
     if (!dateVal) {
-      errors.push('Transaction date is required.');
+      errors.push('Please select a transaction date.');
     }
 
     if (errors.length > 0) {
@@ -1165,20 +1222,20 @@
         state.expenses[idx] = {
           ...state.expenses[idx],
           amount: Math.round(amountVal),
-          category: catVal,
+          category: normCat,
           date: dateVal,
-          note: noteVal || CATEGORIES[catVal].name,
+          note: noteVal || CATEGORIES[normCat].name,
         };
         showToast('Expense updated successfully!', 'success');
       }
     } else {
       // Create new
       const newExp = {
-        id: 'exp-' + Date.now(),
+        id: 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
         amount: Math.round(amountVal),
-        category: catVal,
+        category: normCat,
         date: dateVal,
-        note: noteVal || CATEGORIES[catVal].name,
+        note: noteVal || CATEGORIES[normCat].name,
         createdAt: Date.now(),
       };
       state.expenses.unshift(newExp);
@@ -1190,17 +1247,45 @@
     syncAllViewsWithData();
   }
 
+  function addExpense({ amount, category, date, note } = {}) {
+    const amountVal = parseFloat(amount);
+    if (isNaN(amountVal) || amountVal <= 0) {
+      throw new Error('Please enter an amount greater than ₹0.');
+    }
+    const normCat = normalizeCategoryKey(category);
+    if (!CATEGORIES[normCat]) {
+      throw new Error('Please select a valid expense category.');
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const newExp = {
+      id: 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      amount: Math.round(amountVal),
+      category: normCat,
+      date: date || today,
+      note: (note && String(note).trim()) || CATEGORIES[normCat].name,
+      createdAt: Date.now(),
+    };
+    state.expenses.unshift(newExp);
+    saveExpenses();
+    syncAllViewsWithData();
+    return newExp;
+  }
+
+  function deleteExpense(id) {
+    state.expenses = state.expenses.filter(e => e.id !== id);
+    saveExpenses();
+    syncAllViewsWithData();
+  }
+
   function confirmDeleteExpense(id) {
     const exp = state.expenses.find(e => e.id === id);
     if (!exp) return;
 
-    const cat = CATEGORIES[exp.category]?.name || 'Expense';
+    const cat = CATEGORIES[normalizeCategoryKey(exp.category)]?.name || 'Expense';
     const msg = `Delete transaction: "${exp.note || cat}" for ₹${formatINR(exp.amount)}?`;
     if (window.confirm(msg)) {
-      state.expenses = state.expenses.filter(e => e.id !== id);
-      saveExpenses();
+      deleteExpense(id);
       showToast('Expense deleted.', 'info');
-      syncAllViewsWithData();
     }
   }
 
@@ -1439,7 +1524,7 @@
     const profileEmail = document.getElementById('profile-user-email');
     const profileAvatar = document.getElementById('profile-user-avatar');
 
-    const name = profile.displayName || 'Student User';
+    const name = profile.displayName || 'Student';
     const contact = profile.email || 'Signed in via Google';
     const photo = profile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=006948&color=ffffff&bold=true`;
 
@@ -1502,7 +1587,7 @@
         redirectToLogin();
       } else {
         applyUserProfile({
-          displayName: user.displayName || user.phoneNumber || 'Student User',
+          displayName: user.displayName || user.phoneNumber || 'Student',
           email: user.email || user.phoneNumber || 'Campus Living',
           photoURL: user.photoURL || '',
           phoneNumber: user.phoneNumber || ''
@@ -1512,18 +1597,27 @@
     });
   }
 
-  // Expose API for inline onclick handlers
+  // Expose API for inline onclick handlers and testing
   window.ExpenseTrackApp = {
     navigateTo,
     syncAllViewsWithData,
     openAddExpenseModal,
     openEditExpenseModal,
+    addExpense,
+    deleteExpense,
     confirmDeleteExpense,
     openBudgetModal,
     closeBudgetModal,
     saveBudgetModal,
     resetBudgetDefaults,
     clearAllExpenses,
+    getExpenses: () => [...state.expenses],
+    getTotalSpending: () => getTotalSpending(),
+    getCategorySpending: (cat) => {
+      const m = getCategorySpendingMap();
+      return m[normalizeCategoryKey(cat)] || 0;
+    },
+    getState: () => state,
   };
 
   // Bootstrap Application

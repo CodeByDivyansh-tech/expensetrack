@@ -54,7 +54,7 @@
           localStorage.setItem('expensetrack_user_session', JSON.stringify({
             uid: user.uid,
             email: user.email || '',
-            displayName: user.displayName || user.phoneNumber || 'Student User',
+            displayName: user.displayName || user.phoneNumber || 'Student',
             photoURL: user.photoURL || '',
             phoneNumber: user.phoneNumber || ''
           }));
