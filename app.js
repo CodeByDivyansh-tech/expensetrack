@@ -6,141 +6,38 @@
 (function () {
   'use strict';
 
-  // --- Constants & Category Definitions ---
-  // Core Categories
-  const CATEGORIES = {
-    food: {
-      id: 'food',
-      name: 'Food & Dining',
-      icon: 'restaurant',
-      color: '#f59e0b',
-      iconBgClass: 'bg-tertiary-fixed text-on-tertiary-fixed',
-      badgeBgClass: 'bg-tertiary-fixed-dim text-on-tertiary-fixed',
-      desc: 'Campus canteen, Swiggy / Zomato, chai & snacks',
-      defaultCap: 3500,
-      minCap: 1000,
-      maxCap: 6000,
-      step: 100,
-    },
-    groceries: {
-      id: 'groceries',
-      name: 'Groceries',
-      icon: 'local_mall',
-      color: '#006948',
-      iconBgClass: 'bg-surface-container text-primary',
-      badgeBgClass: 'bg-primary-fixed text-on-primary-fixed',
-      desc: 'Hostel essentials, local mart, fruits & snacks',
-      defaultCap: 2000,
-      minCap: 500,
-      maxCap: 4000,
-      step: 100,
-    },
-    transport: {
-      id: 'transport',
-      name: 'Transport',
-      icon: 'directions_bus',
-      color: '#0284c7',
-      iconBgClass: 'bg-surface-container text-primary',
-      badgeBgClass: 'bg-primary-fixed text-on-primary-fixed',
-      desc: 'Metro, auto rickshaw, bus pass, campus commute',
-      defaultCap: 1000,
-      minCap: 200,
-      maxCap: 3000,
-      step: 50,
-    },
-    textbooks: {
-      id: 'textbooks',
-      name: 'Education & Textbooks',
-      icon: 'menu_book',
-      color: '#ba1a1a',
-      iconBgClass: 'bg-error-container text-error',
-      badgeBgClass: 'bg-error-container text-on-error-container',
-      desc: 'Course notes, photostat / printing, semester books',
-      defaultCap: 1200,
-      minCap: 500,
-      maxCap: 3000,
-      step: 50,
-    },
-    entertainment: {
-      id: 'entertainment',
-      name: 'Entertainment & Social',
-      icon: 'celebration',
-      color: '#565e74',
-      iconBgClass: 'bg-secondary-container text-on-secondary-container',
-      badgeBgClass: 'bg-primary-fixed text-on-primary-fixed',
-      desc: 'BookMyShow, weekend outings, campus fests',
-      defaultCap: 1500,
-      minCap: 500,
-      maxCap: 3000,
-      step: 50,
-    },
-    personal: {
-      id: 'personal',
-      name: 'Personal & Subscriptions',
-      icon: 'subscriptions',
-      color: '#00855d',
-      iconBgClass: 'bg-surface-container text-primary',
-      badgeBgClass: 'bg-primary-fixed text-on-primary-fixed',
-      desc: 'Mobile recharge, Spotify, haircuts, laundry',
-      defaultCap: 600,
-      minCap: 200,
-      maxCap: 1500,
-      step: 50,
-    },
-    emergency: {
-      id: 'emergency',
-      name: 'Emergency Student Fund',
-      icon: 'lock',
-      color: '#006948',
-      iconBgClass: 'bg-primary text-on-primary',
-      badgeBgClass: 'bg-primary-container text-on-primary-container',
-      desc: 'Medical urgent needs, emergency travel, repairs',
-      defaultCap: 1200,
-      minCap: 500,
-      maxCap: 5000,
-      step: 100,
-      isAutoSave: true,
-    },
-  };
+  // --- Modules: Data Access Layer & Budget Allocation Calculator ---
+  const DataLayer = (typeof window !== 'undefined' && window.ExpenseTrackDataLayer)
+    ? window.ExpenseTrackDataLayer
+    : (typeof require !== 'undefined' ? require('./data-layer.js') : null);
 
-  // Helper to normalize any input category string safely
-  function normalizeCategoryKey(key) {
-    if (!key) return 'food';
-    const lower = String(key).trim().toLowerCase();
-    if (lower === 'food' || lower === 'dining' || lower.includes('food')) return 'food';
-    if (lower === 'groceries' || lower === 'grocery') return 'groceries';
-    if (lower === 'transport' || lower === 'transportation' || lower === 'commute' || lower === 'travel' || lower === 'bus' || lower === 'metro') return 'transport';
-    if (lower === 'textbooks' || lower === 'education' || lower === 'coursework' || lower === 'books') return 'textbooks';
-    if (lower === 'entertainment' || lower === 'social' || lower.includes('entertain')) return 'entertainment';
-    if (lower === 'personal' || lower === 'subscriptions' || lower.includes('person')) return 'personal';
-    if (lower === 'emergency' || lower.includes('emerg') || lower.includes('saving')) return 'emergency';
-    return CATEGORIES[lower] ? lower : 'food';
+  const BudgetCalculator = (typeof window !== 'undefined' && window.BudgetCalculator)
+    ? window.BudgetCalculator
+    : (typeof require !== 'undefined' ? require('./budget-calculator.js') : null);
+
+  // Dynamic Categories Getter
+  function getCategories() {
+    return DataLayer ? DataLayer.getActiveCategories() : {};
   }
 
-  const STORAGE_KEYS = {
-    EXPENSES: 'expensetrack_expenses',
-    BUDGET: 'expensetrack_budget',
-    SETTINGS: 'expensetrack_settings',
-  };
+  function getAllCategories(includeArchived = false) {
+    return DataLayer ? DataLayer.getAllCategories(includeArchived) : {};
+  }
 
-  const DEFAULT_BUDGET = {
-    overallCap: 12000,
-    categories: {
-      food: 3500,
-      groceries: 2000,
-      transport: 1000,
-      textbooks: 1200,
-      entertainment: 1500,
-      personal: 600,
-      emergency: 1200,
-    },
-  };
+  function normalizeCategoryKey(key) {
+    return DataLayer ? DataLayer.normalizeCategoryKey(key) : (key || 'food');
+  }
 
-  const DEFAULT_SETTINGS = {
-    notify80: false,
-    weeklyDigest: false,
-    roommateAlert: false,
-  };
+  function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+  const escapeHtml = escapeHTML;
 
   // --- State Object ---
   const state = {
@@ -155,83 +52,27 @@
     },
   };
 
-  // --- Storage Functions ---
+  // --- Storage via Data Access Layer ---
   function loadState() {
-    try {
-      const storedExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-      const storedBudget = localStorage.getItem(STORAGE_KEYS.BUDGET);
-      const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-
-      // Single source of truth: Genuinely empty state for new users, safe parse
-      let parsedExpenses = [];
-      if (storedExpenses) {
-        try {
-          const parsed = JSON.parse(storedExpenses);
-          if (Array.isArray(parsed)) parsedExpenses = parsed;
-        } catch (e) {
-          console.warn('Corrupted expenses in localStorage, resetting to empty array');
-          parsedExpenses = [];
-        }
-      }
-      state.expenses = parsedExpenses;
-
-      let parsedBudget = null;
-      if (storedBudget) {
-        try {
-          parsedBudget = JSON.parse(storedBudget);
-        } catch (e) {
-          parsedBudget = null;
-        }
-      }
-      state.budget = (parsedBudget && typeof parsedBudget === 'object' && parsedBudget.categories)
-        ? { ...DEFAULT_BUDGET, ...parsedBudget, categories: { ...DEFAULT_BUDGET.categories, ...parsedBudget.categories } }
-        : { ...DEFAULT_BUDGET, categories: { ...DEFAULT_BUDGET.categories } };
-
-      let parsedSettings = null;
-      if (storedSettings) {
-        try {
-          parsedSettings = JSON.parse(storedSettings);
-        } catch (e) {
-          parsedSettings = null;
-        }
-      }
-      state.settings = (parsedSettings && typeof parsedSettings === 'object')
-        ? { ...DEFAULT_SETTINGS, ...parsedSettings }
-        : { ...DEFAULT_SETTINGS };
-
-      if (!storedExpenses) saveExpenses();
-      if (!storedBudget) saveBudget();
-      if (!storedSettings) saveSettings();
-    } catch (err) {
-      console.error('Error loading state from localStorage:', err);
-      state.expenses = [];
-      state.budget = { ...DEFAULT_BUDGET, categories: { ...DEFAULT_BUDGET.categories } };
-      state.settings = { ...DEFAULT_SETTINGS };
-    }
+    if (!DataLayer) return;
+    state.expenses = DataLayer.getExpenses();
+    state.budget = DataLayer.getBudget();
+    state.settings = DataLayer.getSettings();
   }
 
   function saveExpenses() {
-    try {
-      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(state.expenses));
-    } catch (err) {
-      console.error('Failed to save expenses to localStorage:', err);
-    }
+    if (!DataLayer) return;
+    DataLayer.saveExpenses(state.expenses);
   }
 
   function saveBudget() {
-    try {
-      localStorage.setItem(STORAGE_KEYS.BUDGET, JSON.stringify(state.budget));
-    } catch (err) {
-      console.error('Failed to save budget to localStorage:', err);
-    }
+    if (!DataLayer) return;
+    DataLayer.saveBudget(state.budget);
   }
 
   function saveSettings() {
-    try {
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings));
-    } catch (err) {
-      console.error('Failed to save settings to localStorage:', err);
-    }
+    if (!DataLayer) return;
+    DataLayer.saveSettings(state.settings);
   }
 
   // --- Formatting Helpers ---
@@ -254,7 +95,8 @@
   // --- Calculations ---
   function getCategorySpendingMap() {
     const map = {};
-    Object.keys(CATEGORIES).forEach(k => {
+    const allCats = getAllCategories(true);
+    Object.keys(allCats).forEach(k => {
       map[k] = 0;
     });
     state.expenses.forEach(exp => {
@@ -337,14 +179,12 @@
     const year = now.getFullYear();
     const month = now.getMonth(); // 0-indexed: 0 = Jan, 8 = Sep
 
-    let termName = '';
+    const termName = `Semester ${year}`;
     let termStartDate;
 
     if (month >= 6) { // Jul - Dec: Autumn Semester
-      termName = `Semester Term ${year} • Campus Living`;
       termStartDate = new Date(year, 6, 15);
     } else { // Jan - Jun: Spring Semester
-      termName = `Semester Term ${year} • Campus Living`;
       termStartDate = new Date(year, 0, 15);
     }
 
@@ -353,6 +193,7 @@
     const currentWeek = Math.min(16, Math.max(1, Math.ceil(diffDays / 7)));
 
     return {
+      year,
       termName,
       weekText: `Week ${currentWeek} of 16`,
       termCycle: currentWeek <= 4 ? 'Early Semester' : currentWeek <= 10 ? 'Midterm Cycle' : 'Finals & Wrap-up'
@@ -361,6 +202,9 @@
 
   function updateAcademicTermDisplay() {
     const info = getAcademicTermInfo();
+    const semBadges = document.querySelectorAll('.dynamic-semester-badge');
+    semBadges.forEach(el => { el.textContent = `Semester ${info.year}`; });
+
     const termBadges = document.querySelectorAll('.dynamic-term-badge');
     termBadges.forEach(el => { el.textContent = info.termName; });
 
@@ -372,16 +216,18 @@
   }
 
   function getTopSpendingCategory(spendingMap) {
+    const allCats = getAllCategories(true);
     let topKey = 'food';
     let maxVal = -1;
-    Object.keys(CATEGORIES).forEach(key => {
+    Object.keys(allCats).forEach(key => {
       const val = spendingMap[key] || 0;
       if (val > maxVal) {
         maxVal = val;
         topKey = key;
       }
     });
-    return { ...CATEGORIES[topKey], amount: maxVal > 0 ? maxVal : 0 };
+    const catObj = allCats[topKey] || { name: 'Food & Dining', icon: 'restaurant', color: '#f59e0b' };
+    return { ...catObj, amount: maxVal > 0 ? maxVal : 0 };
   }
 
   // --- Unified Single Source of Truth Synchronization ---
@@ -530,12 +376,13 @@
 
     const spendingMap = getCategorySpendingMap();
     const caps = state.budget?.categories || {};
+    const activeCats = getCategories();
 
     let html = '';
-    Object.keys(CATEGORIES).forEach(catKey => {
-      const cat = CATEGORIES[catKey];
+    Object.keys(activeCats).forEach(catKey => {
+      const cat = activeCats[catKey];
       const spent = spendingMap[catKey] || 0;
-      const cap = caps[catKey] || cat.defaultCap;
+      const cap = caps[catKey] !== undefined ? caps[catKey] : cat.defaultCap;
       const pct = cap > 0 ? Math.round((spent / cap) * 100) : 0;
       const isOver = spent > cap;
 
@@ -555,8 +402,8 @@
       html += `
         <div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div class="flex items-center justify-between mb-2">
-            <div class="w-10 h-10 rounded-xl ${cat.iconBgClass} flex items-center justify-center">
-              <span class="material-symbols-outlined text-xl">${cat.icon}</span>
+            <div class="w-10 h-10 rounded-xl ${cat.iconBgClass || 'bg-surface-container text-primary'} flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">${escapeHtml(cat.icon || 'category')}</span>
             </div>
             <span class="px-2 py-0.5 rounded-full ${badgeColor} text-label-sm font-label-sm flex items-center gap-1">
               <span class="material-symbols-outlined text-xs">${badgeIcon}</span>
@@ -564,7 +411,7 @@
             </span>
           </div>
           <div>
-            <div class="font-label-md text-label-md text-on-surface font-bold truncate">${cat.name}</div>
+            <div class="font-label-md text-label-md text-on-surface font-bold truncate">${escapeHtml(cat.name)}</div>
             <div class="flex items-baseline justify-between mt-1">
               <span class="font-title-md text-title-md font-bold text-on-surface">₹${formatINR(spent)}</span>
               <span class="font-body-sm text-body-sm text-on-surface-variant">/ ₹${formatINR(cap)}</span>
@@ -604,9 +451,11 @@
       return dateB - dateA;
     });
 
+    const allCats = getAllCategories(true);
     let html = '';
     sorted.forEach(exp => {
-      const cat = CATEGORIES[exp.category] || CATEGORIES.personal;
+      const normKey = normalizeCategoryKey(exp.category);
+      const cat = allCats[exp.category] || allCats[normKey] || { name: exp.category, icon: 'receipt_long', iconBgClass: 'bg-surface-container text-primary', color: '#006948' };
       html += `
         <div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-slate-100 flex items-center justify-between gap-space-sm hover:border-surface-container-high transition-colors group">
           <div class="flex items-center gap-space-md min-w-0">
@@ -662,20 +511,84 @@
     const overallCap = state.budget?.overallCap || 12000;
     const spendingMap = getCategorySpendingMap();
     const categoryCaps = state.budget?.categories || {};
+    const activeCategories = getCategories();
+
+    // Use BudgetCalculator to get pure allocation metrics
+    const alloc = BudgetCalculator
+      ? BudgetCalculator.computeAllocation(overallCap, categoryCaps)
+      : {
+          monthlyBudget: overallCap,
+          totalAllocated: 0,
+          buffer: overallCap,
+          remaining: overallCap,
+          overAmount: 0,
+          isOverBudget: false,
+          allocatedPercent: 0,
+          visualBarWidthPercent: 0,
+          bufferPercent: 100,
+          formattedTotal: '0',
+          formattedBudget: formatINR(overallCap),
+          statusText: `₹${formatINR(overallCap)} remaining`,
+          percentLabel: '0% assigned',
+        };
 
     // Macro figures
     const totalAllocatedElem = document.getElementById('total-allocated-val');
-    const bufferElem = document.getElementById('buffer-val');
+    const macroDenominatorElem = document.getElementById('macro-denominator-val');
+    const bufferPillElem = document.getElementById('buffer-status-pill');
+    const bufferIconElem = document.getElementById('buffer-status-icon');
+    const bufferTextElem = document.getElementById('buffer-status-text');
     const barAllocated = document.getElementById('bar-allocated');
     const barBuffer = document.getElementById('bar-buffer');
     const macroCapDisplay = document.getElementById('macro-cap-display');
     const macroAllocatedLabel = document.getElementById('macro-allocated-label');
     const macroBufferLabel = document.getElementById('macro-buffer-label');
 
-    let sumAllocated = 0;
-    Object.keys(CATEGORIES).forEach(catKey => {
-      const cap = categoryCaps[catKey] !== undefined ? categoryCaps[catKey] : CATEGORIES[catKey].defaultCap;
-      sumAllocated += cap;
+    if (totalAllocatedElem) totalAllocatedElem.textContent = formatINR(alloc.totalAllocated);
+    if (macroDenominatorElem) macroDenominatorElem.textContent = formatINR(alloc.monthlyBudget);
+    if (macroCapDisplay) macroCapDisplay.textContent = `₹${formatINR(alloc.monthlyBudget)} / mo`;
+
+    // Cap visual bar width at 100%, show real percentage in label (e.g. 110% assigned to categories)
+    if (barAllocated) {
+      barAllocated.style.width = `${alloc.visualBarWidthPercent}%`;
+      barAllocated.className = alloc.isOverBudget
+        ? 'bg-error h-full rounded-full transition-all duration-300'
+        : 'bg-primary h-full rounded-full transition-all duration-300';
+    }
+    if (barBuffer) barBuffer.style.width = `${alloc.bufferPercent}%`;
+
+    if (macroAllocatedLabel) {
+      macroAllocatedLabel.textContent = `${alloc.allocatedPercent}% assigned to categories`;
+    }
+
+    if (alloc.isOverBudget) {
+      if (bufferPillElem) {
+        bufferPillElem.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-error-container text-on-error-container font-title-md text-title-md font-bold mt-1';
+      }
+      if (bufferIconElem) bufferIconElem.textContent = 'warning';
+      if (bufferTextElem) bufferTextElem.textContent = `₹${formatINR(alloc.overAmount)} over budget`;
+      if (macroBufferLabel) {
+        macroBufferLabel.className = 'text-error font-bold';
+        macroBufferLabel.textContent = `Deficit (-₹${formatINR(alloc.overAmount)})`;
+      }
+    } else {
+      if (bufferPillElem) {
+        bufferPillElem.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-title-md text-title-md font-bold mt-1';
+      }
+      if (bufferIconElem) bufferIconElem.textContent = 'check_circle';
+      if (bufferTextElem) bufferTextElem.textContent = `₹${formatINR(alloc.remaining)} remaining`;
+      if (macroBufferLabel) {
+        macroBufferLabel.className = 'text-primary font-bold';
+        macroBufferLabel.textContent = `Safe Cushion (±${alloc.bufferPercent.toFixed(1)}%)`;
+      }
+    }
+
+    // Default categories update (the 7 static cards in HTML)
+    const defaultKeys = ['food', 'groceries', 'transport', 'textbooks', 'entertainment', 'personal', 'emergency'];
+    defaultKeys.forEach(catKey => {
+      const cat = activeCategories[catKey];
+      if (!cat) return;
+      const cap = categoryCaps[catKey] !== undefined ? categoryCaps[catKey] : cat.defaultCap;
 
       // Update Slider value and displays
       const slider = document.querySelector(`.budget-slider[data-category="${catKey}"]`);
@@ -694,44 +607,113 @@
       updateCategoryCardLive(catKey, spendingMap[catKey] || 0, cap);
     });
 
-    const buffer = overallCap - sumAllocated;
-    if (totalAllocatedElem) totalAllocatedElem.textContent = formatINR(sumAllocated);
-    if (bufferElem) bufferElem.textContent = formatINR(Math.abs(buffer));
-    if (macroCapDisplay) macroCapDisplay.textContent = `₹${formatINR(overallCap)} / mo`;
+    // Dynamic Custom Categories Rendering
+    const customContainer = document.getElementById('custom-category-cards-container');
+    if (customContainer) {
+      const customCats = Object.values(activeCategories).filter(c => c.isCustom);
+      if (customCats.length === 0) {
+        customContainer.innerHTML = '';
+      } else {
+        let customHtml = '';
+        customCats.forEach(cat => {
+          const catKey = cat.id;
+          const cap = categoryCaps[catKey] !== undefined ? categoryCaps[catKey] : cat.defaultCap;
+          const spent = spendingMap[catKey] || 0;
+          const pct = cap > 0 ? (spent / cap) * 100 : 0;
+          const roundedPct = Math.round(pct);
+          const diff = cap - spent;
 
-    const allocatedPercent = overallCap > 0 ? Math.min(100, Math.max(0, (sumAllocated / overallCap) * 100)) : 100;
-    const bufferPercent = Math.max(0, 100 - allocatedPercent);
+          let badgeColor = 'bg-primary-fixed text-on-primary-fixed';
+          let badgeIcon = 'check_circle';
+          let badgeText = 'On track';
+          let progressColor = 'bg-primary';
 
-    if (barAllocated) barAllocated.style.width = `${allocatedPercent}%`;
-    if (barBuffer) barBuffer.style.width = `${bufferPercent}%`;
+          if (diff < 0) {
+            badgeColor = 'bg-error-container text-on-error-container';
+            badgeIcon = 'error';
+            badgeText = `Exceeded by ₹${formatINR(Math.abs(diff))}!`;
+            progressColor = 'bg-error';
+          } else if (roundedPct >= 80) {
+            badgeColor = 'bg-tertiary-fixed-dim text-on-tertiary-fixed';
+            badgeIcon = 'warning';
+            badgeText = 'Approaching limit!';
+            progressColor = 'bg-tertiary';
+          }
 
-    if (macroAllocatedLabel) {
-      macroAllocatedLabel.textContent = `${allocatedPercent.toFixed(1)}% assigned to categories`;
-    }
+          customHtml += `
+            <div id="cat-card-${catKey}" class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm flex flex-col gap-space-md hover:shadow-md transition-shadow duration-200">
+              <div class="flex items-start justify-between gap-space-sm">
+                <div class="flex items-center gap-space-md min-w-0">
+                  <div class="w-12 h-12 rounded-2xl ${cat.iconBgClass || 'bg-surface-container text-primary'} flex items-center justify-center flex-shrink-0">
+                    <span class="material-symbols-outlined text-2xl">${escapeHtml(cat.icon || 'category')}</span>
+                  </div>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="font-title-md text-title-md text-on-surface font-bold truncate">${escapeHtml(cat.name)}</span>
+                      <span class="category-status-badge px-2.5 py-0.5 rounded-full ${badgeColor} text-label-sm font-label-sm flex items-center gap-1 flex-shrink-0">
+                        <span class="material-symbols-outlined text-xs">${badgeIcon}</span> ${badgeText}
+                      </span>
+                    </div>
+                    <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5 truncate">${escapeHtml(cat.desc || 'Custom Category')}</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <button 
+                    type="button"
+                    onclick="window.ExpenseTrackApp.openEditCustomCategoryModal('${catKey}')"
+                    class="w-8 h-8 rounded-xl bg-surface-container-low hover:bg-surface-container hover:text-primary text-on-surface-variant flex items-center justify-center transition-colors"
+                    title="Edit Category"
+                    aria-label="Edit Category"
+                  >
+                    <span class="material-symbols-outlined text-base">edit</span>
+                  </button>
+                  <button 
+                    type="button"
+                    onclick="window.ExpenseTrackApp.confirmDeleteCategory('${catKey}')"
+                    class="w-8 h-8 rounded-xl bg-surface-container-low hover:bg-error-container hover:text-error text-on-surface-variant flex items-center justify-center transition-colors"
+                    title="Delete Category"
+                    aria-label="Delete Category"
+                  >
+                    <span class="material-symbols-outlined text-base">delete</span>
+                  </button>
+                </div>
+              </div>
 
-    if (buffer < 0) {
-      if (bufferElem && bufferElem.parentElement) {
-        bufferElem.parentElement.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-error-container text-on-error-container font-title-md text-title-md font-bold mt-1';
-        bufferElem.nextSibling.nodeValue = ' over cap!';
-      }
-      if (macroBufferLabel) {
-        macroBufferLabel.className = 'text-error font-bold';
-        macroBufferLabel.textContent = `Deficit (-₹${formatINR(Math.abs(buffer))})`;
-      }
-    } else {
-      if (bufferElem && bufferElem.parentElement) {
-        bufferElem.parentElement.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-title-md text-title-md font-bold mt-1';
-        bufferElem.nextSibling.nodeValue = ' left';
-      }
-      if (macroBufferLabel) {
-        macroBufferLabel.className = 'text-primary font-bold';
-        macroBufferLabel.textContent = `Safe Cushion (±${bufferPercent.toFixed(1)}%)`;
+              <div>
+                <div class="flex items-baseline justify-between mb-1">
+                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-${catKey}">${formatINR(spent)}</span></span>
+                  <span class="font-body-sm text-body-sm text-on-surface-variant">of ₹<span id="cap-${catKey}">${formatINR(cap)}</span> cap</span>
+                </div>
+                <div class="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
+                  <div class="category-progress-fill ${progressColor} h-full rounded-full transition-all duration-300" style="width: ${Math.min(100, Math.max(0, pct))}%"></div>
+                </div>
+                <div class="flex justify-between items-center mt-1.5 font-label-sm text-label-sm">
+                  <span class="category-remaining-text ${diff < 0 ? 'text-error font-bold' : roundedPct >= 80 ? 'text-tertiary font-bold' : 'text-primary font-bold'}">
+                    ${diff < 0 ? `${roundedPct}% Overrun (-₹${formatINR(Math.abs(diff))} over cap)` : `${roundedPct}% Spent (₹${formatINR(diff)} remaining)`}
+                  </span>
+                </div>
+              </div>
+
+              <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm border-t border-slate-100">
+                <label class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base">tune</span> Adjust Cap Target:
+                </label>
+                <div class="flex items-center gap-space-md flex-1 max-w-sm">
+                  <span class="font-body-sm text-body-sm text-on-surface-variant">₹${formatINR(cat.minCap || 200)}</span>
+                  <input class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" data-category="${catKey}" max="${cat.maxCap || 10000}" min="${cat.minCap || 200}" step="${cat.step || 100}" type="range" value="${cap}"/>
+                  <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-${catKey}">${formatINR(cap)}</span></span>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        customContainer.innerHTML = customHtml;
       }
     }
 
     // Emergency fund card dynamic updates
     const emergSpent = spendingMap.emergency || 0;
-    const emergCap = categoryCaps.emergency !== undefined ? categoryCaps.emergency : CATEGORIES.emergency.defaultCap;
+    const emergCap = categoryCaps.emergency !== undefined ? categoryCaps.emergency : 1200;
     const emergPct = emergCap > 0 ? Math.min(100, Math.round((emergSpent / emergCap) * 100)) : 0;
     const emergValElem = document.querySelector('.spent-val-emergency');
     const emergCapElem = document.getElementById('cap-emergency');
@@ -815,6 +797,74 @@
     }
   }
 
+  function handleSliderInput(slider) {
+    const cat = slider.dataset.category;
+    const val = parseInt(slider.value, 10);
+    const display = document.getElementById(`slider-display-${cat}`);
+    const capDisplay = document.getElementById(`cap-${cat}`);
+    if (display) display.textContent = formatINR(val);
+    if (capDisplay) capDisplay.textContent = formatINR(val);
+
+    if (!state.budget.categories) state.budget.categories = {};
+    state.budget.categories[cat] = val;
+
+    const overallCap = state.budget?.overallCap || 12000;
+    const alloc = BudgetCalculator
+      ? BudgetCalculator.computeAllocation(overallCap, state.budget.categories)
+      : null;
+
+    if (alloc) {
+      const totalAllocatedElem = document.getElementById('total-allocated-val');
+      const macroDenominatorElem = document.getElementById('macro-denominator-val');
+      const bufferPillElem = document.getElementById('buffer-status-pill');
+      const bufferIconElem = document.getElementById('buffer-status-icon');
+      const bufferTextElem = document.getElementById('buffer-status-text');
+      const barAllocated = document.getElementById('bar-allocated');
+      const barBuffer = document.getElementById('bar-buffer');
+      const macroAllocatedLabel = document.getElementById('macro-allocated-label');
+      const macroBufferLabel = document.getElementById('macro-buffer-label');
+
+      if (totalAllocatedElem) totalAllocatedElem.textContent = formatINR(alloc.totalAllocated);
+      if (macroDenominatorElem) macroDenominatorElem.textContent = formatINR(alloc.monthlyBudget);
+      if (barAllocated) {
+        barAllocated.style.width = `${alloc.visualBarWidthPercent}%`;
+        barAllocated.className = alloc.isOverBudget
+          ? 'bg-error h-full rounded-full transition-all duration-300'
+          : 'bg-primary h-full rounded-full transition-all duration-300';
+      }
+      if (barBuffer) barBuffer.style.width = `${alloc.bufferPercent}%`;
+
+      if (macroAllocatedLabel) {
+        macroAllocatedLabel.textContent = `${alloc.allocatedPercent}% assigned to categories`;
+      }
+
+      if (alloc.isOverBudget) {
+        if (bufferPillElem) {
+          bufferPillElem.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-error-container text-on-error-container font-title-md text-title-md font-bold mt-1';
+        }
+        if (bufferIconElem) bufferIconElem.textContent = 'warning';
+        if (bufferTextElem) bufferTextElem.textContent = `₹${formatINR(alloc.overAmount)} over budget`;
+        if (macroBufferLabel) {
+          macroBufferLabel.className = 'text-error font-bold';
+          macroBufferLabel.textContent = `Deficit (-₹${formatINR(alloc.overAmount)})`;
+        }
+      } else {
+        if (bufferPillElem) {
+          bufferPillElem.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-title-md text-title-md font-bold mt-1';
+        }
+        if (bufferIconElem) bufferIconElem.textContent = 'check_circle';
+        if (bufferTextElem) bufferTextElem.textContent = `₹${formatINR(alloc.remaining)} remaining`;
+        if (macroBufferLabel) {
+          macroBufferLabel.className = 'text-primary font-bold';
+          macroBufferLabel.textContent = `Safe Cushion (±${alloc.bufferPercent.toFixed(1)}%)`;
+        }
+      }
+    }
+
+    const spendingMap = getCategorySpendingMap();
+    updateCategoryCardLive(cat, spendingMap[cat] || 0, val);
+  }
+
   function handleSliderChange(slider) {
     const cat = slider.dataset.category;
     const val = parseInt(slider.value, 10);
@@ -870,7 +920,8 @@
       }
     });
     if (topCategoryElem) {
-      const topCat = CATEGORIES[topCatKey] || CATEGORIES.food;
+      const allCats = getAllCategories(true);
+      const topCat = allCats[topCatKey] || { name: 'Food & Dining' };
       topCategoryElem.textContent = `${topCat.name} (₹${formatINR(maxVal)})`;
     }
 
@@ -883,22 +934,30 @@
     // Category Breakdown Rows
     const breakdownList = document.getElementById('analytics-breakdown-list');
     if (breakdownList) {
+      const activeCats = getCategories();
+      const allCats = getAllCategories(true);
+      // Union of active categories and categories with spending
+      const catKeySet = new Set(Object.keys(activeCats));
+      Object.keys(spendingMap).forEach(k => {
+        if (spendingMap[k] > 0) catKeySet.add(k);
+      });
+
       let rowsHtml = '';
-      Object.keys(CATEGORIES).forEach(catKey => {
-        const cat = CATEGORIES[catKey];
+      catKeySet.forEach(catKey => {
+        const cat = allCats[catKey] || { name: catKey, icon: 'category', iconBgClass: 'bg-surface-container text-primary', defaultCap: 1000 };
         const spent = spendingMap[catKey] || 0;
-        const cap = categoryCaps[catKey] || cat.defaultCap;
+        const cap = categoryCaps[catKey] !== undefined ? categoryCaps[catKey] : (cat.defaultCap || 1000);
         const sharePct = totalSpent > 0 ? Math.round((spent / totalSpent) * 100) : 0;
         const budgetPct = cap > 0 ? Math.round((spent / cap) * 100) : 0;
 
         rowsHtml += `
           <div class="flex items-center justify-between p-space-sm rounded-xl hover:bg-surface-container-low transition-colors">
             <div class="flex items-center gap-space-sm">
-              <div class="w-8 h-8 rounded-lg ${cat.iconBgClass} flex items-center justify-center">
-                <span class="material-symbols-outlined text-lg">${cat.icon}</span>
+              <div class="w-8 h-8 rounded-lg ${cat.iconBgClass || 'bg-surface-container text-primary'} flex items-center justify-center">
+                <span class="material-symbols-outlined text-lg">${escapeHtml(cat.icon || 'category')}</span>
               </div>
               <div class="flex flex-col">
-                <span class="font-label-md text-label-md text-on-surface font-bold">${cat.name}</span>
+                <span class="font-label-md text-label-md text-on-surface font-bold">${escapeHtml(cat.name)}</span>
                 <span class="font-body-sm text-body-sm text-on-surface-variant">${sharePct}% of total spending</span>
               </div>
             </div>
@@ -924,9 +983,17 @@
       return;
     }
 
-    const catLabels = Object.keys(CATEGORIES).map(k => CATEGORIES[k].name);
-    const catData = Object.keys(CATEGORIES).map(k => spendingMap[k] || 0);
-    const catColors = Object.keys(CATEGORIES).map(k => CATEGORIES[k].color || '#006948');
+    const activeCats = getCategories();
+    const allCats = getAllCategories(true);
+    const catKeySet = new Set(Object.keys(activeCats));
+    Object.keys(spendingMap).forEach(k => {
+      if (spendingMap[k] > 0) catKeySet.add(k);
+    });
+    const catKeys = Array.from(catKeySet);
+
+    const catLabels = catKeys.map(k => (allCats[k]?.name || k));
+    const catData = catKeys.map(k => spendingMap[k] || 0);
+    const catColors = catKeys.map(k => allCats[k]?.color || '#006948');
 
     // Donut Chart
     const donutCtx = document.getElementById('chart-category-donut')?.getContext?.('2d');
@@ -1092,6 +1159,76 @@
     }
   }
 
+  // Dynamic Quick Log Chips
+  function renderQuickLogCategoryChips(selectedCatKey = 'food') {
+    const container = document.getElementById('quick-log-category-container');
+    if (!container) return;
+
+    const activeCategories = getCategories();
+    const currentSelected = selectedCatKey || document.getElementById('expense-selected-category')?.value || 'food';
+
+    let html = '';
+    Object.values(activeCategories).forEach(cat => {
+      const isSelected = cat.id === currentSelected;
+      const baseClass = isSelected
+        ? 'expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-primary text-on-primary text-left transition-all min-h-[48px] shadow-sm'
+        : 'expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all min-h-[48px] hover:bg-surface-container';
+
+      const iconClass = isSelected ? 'text-on-primary' : 'text-primary';
+
+      html += `
+        <button type="button" data-category="${escapeHtml(cat.id)}" class="${baseClass}">
+          <span class="material-symbols-outlined text-xl ${iconClass} flex-shrink-0">${escapeHtml(cat.icon || 'category')}</span>
+          <span class="font-label-sm text-label-sm leading-snug break-words hyphens-auto flex-1">${escapeHtml(cat.name)}</span>
+        </button>
+      `;
+    });
+
+    // Last tile: + Custom Category
+    html += `
+      <button type="button" id="btn-quick-log-add-custom" class="flex items-center gap-2 p-2.5 rounded-2xl border-2 border-dashed border-outline-variant hover:border-primary hover:bg-primary-fixed/20 text-primary text-left transition-all min-h-[48px]">
+        <span class="material-symbols-outlined text-xl text-primary flex-shrink-0">add_circle</span>
+        <span class="font-label-sm text-label-sm font-semibold leading-snug break-words flex-1">+ Custom Category</span>
+      </button>
+    `;
+
+    container.innerHTML = html;
+
+    // Attach click listeners to chips
+    container.querySelectorAll('.expense-category-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const catId = btn.getAttribute('data-category');
+        selectCategoryChip(catId);
+      });
+    });
+
+    // Attach click listener to + Custom Category button
+    const addCustomBtn = document.getElementById('btn-quick-log-add-custom');
+    if (addCustomBtn) {
+      addCustomBtn.addEventListener('click', () => {
+        openAddCustomCategoryModal();
+      });
+    }
+  }
+
+  function selectCategoryChip(catKey) {
+    const chips = document.querySelectorAll('.expense-category-chip');
+    chips.forEach(chip => {
+      const key = chip.dataset.category;
+      const icon = chip.querySelector('.material-symbols-outlined');
+      if (key === catKey) {
+        chip.className = 'expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-primary text-on-primary text-left transition-all min-h-[48px] shadow-sm';
+        if (icon) icon.className = 'material-symbols-outlined text-xl text-on-primary flex-shrink-0';
+      } else {
+        chip.className = 'expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all min-h-[48px] hover:bg-surface-container';
+        if (icon) icon.className = 'material-symbols-outlined text-xl text-primary flex-shrink-0';
+      }
+    });
+
+    const hiddenInput = document.getElementById('expense-selected-category');
+    if (hiddenInput) hiddenInput.value = catKey;
+  }
+
   function openAddExpenseModal() {
     state.editingExpenseId = null;
     const modal = document.getElementById('expense-modal');
@@ -1122,7 +1259,7 @@
       dateInput.value = `${yyyy}-${mm}-${dd}`;
     }
 
-    // Default category chip: food
+    renderQuickLogCategoryChips('food');
     selectCategoryChip('food');
 
     if (modal) modal.classList.remove('hidden');
@@ -1142,7 +1279,6 @@
     const noteInput = document.getElementById('expense-note');
     const dateInput = document.getElementById('expense-date');
 
-    // Ensure error is completely hidden on modal open
     hideExpenseFormError();
 
     if (title) title.textContent = 'Edit Expense';
@@ -1153,6 +1289,7 @@
     if (noteInput) noteInput.value = exp.note || '';
     if (dateInput) dateInput.value = exp.date || '';
 
+    renderQuickLogCategoryChips(exp.category);
     selectCategoryChip(exp.category);
 
     if (modal) modal.classList.remove('hidden');
@@ -1164,23 +1301,6 @@
     if (modal) modal.classList.add('hidden');
     hideExpenseFormError();
     state.editingExpenseId = null;
-  }
-
-  function selectCategoryChip(catKey) {
-    const chips = document.querySelectorAll('.expense-category-chip');
-    chips.forEach(chip => {
-      const key = chip.dataset.category;
-      if (key === catKey) {
-        chip.classList.add('ring-2', 'ring-primary', 'bg-primary-container', 'text-on-primary-container');
-        chip.classList.remove('bg-surface-container-low', 'text-on-surface');
-      } else {
-        chip.classList.remove('ring-2', 'ring-primary', 'bg-primary-container', 'text-on-primary-container');
-        chip.classList.add('bg-surface-container-low', 'text-on-surface');
-      }
-    });
-
-    const hiddenInput = document.getElementById('expense-selected-category');
-    if (hiddenInput) hiddenInput.value = catKey;
   }
 
   function handleExpenseFormSubmit(e) {
@@ -1195,13 +1315,14 @@
     const dateVal = dateInput.value.trim();
     const catVal = catInput.value.trim();
     const normCat = normalizeCategoryKey(catVal);
+    const allCats = getAllCategories(true);
 
     // Strict Validation:
     const errors = [];
     if (isNaN(amountVal) || amountVal <= 0) {
       errors.push('Please enter an amount greater than ₹0.');
     }
-    if (!catVal || !CATEGORIES[normCat]) {
+    if (!catVal || !allCats[normCat]) {
       errors.push('Please select a valid expense category.');
     }
     if (!dateVal) {
@@ -1215,6 +1336,8 @@
 
     hideExpenseFormError();
 
+    const categoryName = allCats[normCat]?.name || normCat;
+
     if (state.editingExpenseId) {
       // Update existing
       const idx = state.expenses.findIndex(x => x.id === state.editingExpenseId);
@@ -1224,7 +1347,7 @@
           amount: Math.round(amountVal),
           category: normCat,
           date: dateVal,
-          note: noteVal || CATEGORIES[normCat].name,
+          note: noteVal || categoryName,
         };
         showToast('Expense updated successfully!', 'success');
       }
@@ -1235,7 +1358,7 @@
         amount: Math.round(amountVal),
         category: normCat,
         date: dateVal,
-        note: noteVal || CATEGORIES[normCat].name,
+        note: noteVal || categoryName,
         createdAt: Date.now(),
       };
       state.expenses.unshift(newExp);
@@ -1253,16 +1376,18 @@
       throw new Error('Please enter an amount greater than ₹0.');
     }
     const normCat = normalizeCategoryKey(category);
-    if (!CATEGORIES[normCat]) {
+    const allCats = getAllCategories(true);
+    if (!allCats[normCat]) {
       throw new Error('Please select a valid expense category.');
     }
     const today = new Date().toISOString().split('T')[0];
+    const categoryName = allCats[normCat]?.name || normCat;
     const newExp = {
       id: 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
       amount: Math.round(amountVal),
       category: normCat,
       date: date || today,
-      note: (note && String(note).trim()) || CATEGORIES[normCat].name,
+      note: (note && String(note).trim()) || categoryName,
       createdAt: Date.now(),
     };
     state.expenses.unshift(newExp);
@@ -1281,7 +1406,8 @@
     const exp = state.expenses.find(e => e.id === id);
     if (!exp) return;
 
-    const cat = CATEGORIES[normalizeCategoryKey(exp.category)]?.name || 'Expense';
+    const allCats = getAllCategories(true);
+    const cat = allCats[normalizeCategoryKey(exp.category)]?.name || 'Expense';
     const msg = `Delete transaction: "${exp.note || cat}" for ₹${formatINR(exp.amount)}?`;
     if (window.confirm(msg)) {
       deleteExpense(id);
@@ -1325,10 +1451,11 @@
 
   function resetBudgetDefaults() {
     if (window.confirm('Reset all category caps and monthly ceiling to default semester targets?')) {
-      state.budget = {
-        overallCap: DEFAULT_BUDGET.overallCap,
-        categories: { ...DEFAULT_BUDGET.categories },
+      const defBudget = DataLayer ? DataLayer.resetBudgetDefaults() : {
+        overallCap: 12000,
+        categories: { food: 3500, groceries: 2000, transport: 1000, textbooks: 1200, entertainment: 1500, personal: 600, emergency: 1200 }
       };
+      state.budget = defBudget;
       saveBudget();
       showToast('Budget caps reset to defaults.', 'info');
       syncAllViewsWithData();
@@ -1338,9 +1465,217 @@
   function clearAllExpenses() {
     if (window.confirm('Are you sure you want to delete ALL logged expenses? This will reset the app to an empty state.')) {
       state.expenses = [];
+      if (DataLayer) DataLayer.clearAllExpenses();
       saveExpenses();
       showToast('All expenses cleared. Empty state activated.', 'info');
       syncAllViewsWithData();
+    }
+  }
+
+  // ==========================================
+  // CUSTOM CATEGORY MODAL & CRUD
+  // ==========================================
+  function openAddCustomCategoryModal() {
+    const modal = document.getElementById('custom-category-modal');
+    const form = document.getElementById('custom-category-form');
+    const title = document.getElementById('custom-category-modal-title');
+    const idInput = document.getElementById('custom-category-id');
+    const nameInput = document.getElementById('custom-category-name');
+    const capInput = document.getElementById('custom-category-cap');
+    const iconInput = document.getElementById('custom-category-icon');
+    const colorInput = document.getElementById('custom-category-color');
+
+    hideCustomCategoryError();
+    if (form) form.reset();
+    if (idInput) idInput.value = '';
+    if (title) title.textContent = 'Add Custom Category';
+    if (iconInput) iconInput.value = 'category';
+    if (colorInput) colorInput.value = '#006948';
+
+    selectCustomIcon('category');
+    selectCustomColor('#006948');
+
+    if (modal) modal.classList.remove('hidden');
+    if (nameInput) setTimeout(() => nameInput.focus(), 100);
+  }
+
+  function openEditCustomCategoryModal(catId) {
+    if (!catId) return;
+    const allCats = getAllCategories(true);
+    const cat = allCats[catId];
+    if (!cat) return;
+
+    const modal = document.getElementById('custom-category-modal');
+    const title = document.getElementById('custom-category-modal-title');
+    const idInput = document.getElementById('custom-category-id');
+    const nameInput = document.getElementById('custom-category-name');
+    const capInput = document.getElementById('custom-category-cap');
+    const iconInput = document.getElementById('custom-category-icon');
+    const colorInput = document.getElementById('custom-category-color');
+
+    hideCustomCategoryError();
+    if (title) title.textContent = 'Edit Category';
+    if (idInput) idInput.value = catId;
+    if (nameInput) nameInput.value = cat.name || '';
+
+    const currentCap = state.budget?.categories?.[catId] !== undefined
+      ? state.budget.categories[catId]
+      : (cat.defaultCap || 500);
+    if (capInput) capInput.value = currentCap;
+
+    const icon = cat.icon || 'category';
+    const color = cat.color || '#006948';
+    if (iconInput) iconInput.value = icon;
+    if (colorInput) colorInput.value = color;
+
+    selectCustomIcon(icon);
+    selectCustomColor(color);
+
+    if (modal) modal.classList.remove('hidden');
+    if (nameInput) setTimeout(() => nameInput.focus(), 100);
+  }
+
+  function closeCustomCategoryModal() {
+    const modal = document.getElementById('custom-category-modal');
+    if (modal) modal.classList.add('hidden');
+    hideCustomCategoryError();
+  }
+
+  function showCustomCategoryError(msg) {
+    const errBox = document.getElementById('custom-category-error');
+    const errText = document.getElementById('custom-category-error-text');
+    if (errText) errText.textContent = msg;
+    if (errBox) errBox.classList.remove('hidden');
+  }
+
+  function hideCustomCategoryError() {
+    const errBox = document.getElementById('custom-category-error');
+    if (errBox) errBox.classList.add('hidden');
+  }
+
+  function selectCustomIcon(iconName) {
+    const iconInput = document.getElementById('custom-category-icon');
+    if (iconInput) iconInput.value = iconName;
+
+    const buttons = document.querySelectorAll('#custom-icon-selector .icon-option');
+    buttons.forEach(btn => {
+      const ic = btn.getAttribute('data-icon');
+      if (ic === iconName) {
+        btn.className = 'icon-option p-2 rounded-xl bg-primary-container text-on-primary-container flex items-center justify-center ring-2 ring-primary';
+      } else {
+        btn.className = 'icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center';
+      }
+    });
+  }
+
+  function selectCustomColor(hexColor) {
+    const colorInput = document.getElementById('custom-category-color');
+    if (colorInput) colorInput.value = hexColor;
+
+    const buttons = document.querySelectorAll('#custom-color-selector .color-option');
+    buttons.forEach(btn => {
+      const col = btn.getAttribute('data-color');
+      if (col === hexColor) {
+        btn.className = 'color-option w-7 h-7 rounded-full ring-2 ring-offset-2 ring-primary transition-all';
+      } else {
+        btn.className = 'color-option w-7 h-7 rounded-full transition-all';
+      }
+    });
+  }
+
+  function handleCustomCategoryFormSubmit(e) {
+    e.preventDefault();
+    const idInput = document.getElementById('custom-category-id');
+    const nameInput = document.getElementById('custom-category-name');
+    const capInput = document.getElementById('custom-category-cap');
+    const iconInput = document.getElementById('custom-category-icon');
+    const colorInput = document.getElementById('custom-category-color');
+
+    const id = idInput?.value?.trim() || null;
+    const name = nameInput?.value?.trim() || '';
+    const cap = parseFloat(capInput?.value) || 0;
+    const icon = iconInput?.value?.trim() || 'category';
+    const color = colorInput?.value?.trim() || '#006948';
+
+    if (!DataLayer) return;
+
+    const validation = DataLayer.validateCategoryInput({ name, defaultCap: cap, icon, color }, !!id, id);
+    if (!validation.valid) {
+      showCustomCategoryError(validation.errors.join(' '));
+      return;
+    }
+
+    try {
+      if (id) {
+        // Edit existing category
+        const updated = DataLayer.updateCustomCategory(id, { name, defaultCap: cap, icon, color });
+        if (!state.budget.categories) state.budget.categories = {};
+        state.budget.categories[id] = cap;
+        saveBudget();
+        showToast(`Category "${updated.name}" updated!`, 'success');
+      } else {
+        // Add new custom category
+        const created = DataLayer.addCustomCategory({ name, defaultCap: cap, icon, color });
+        if (!state.budget.categories) state.budget.categories = {};
+        state.budget.categories[created.id] = cap;
+        saveBudget();
+        showToast(`Category "${created.name}" created!`, 'success');
+      }
+
+      closeCustomCategoryModal();
+      syncAllViewsWithData();
+
+      // If Quick Log modal is open, re-render its chips
+      const expenseModal = document.getElementById('expense-modal');
+      if (expenseModal && !expenseModal.classList.contains('hidden')) {
+        renderQuickLogCategoryChips(id || undefined);
+      }
+    } catch (err) {
+      showCustomCategoryError(err.message || 'Failed to save category');
+    }
+  }
+
+  function confirmDeleteCategory(catId) {
+    if (!catId || !DataLayer) return;
+    const allCats = getAllCategories(true);
+    const cat = allCats[catId];
+    if (!cat) return;
+
+    if (cat.isDefault) {
+      alert('Default categories cannot be deleted.');
+      return;
+    }
+
+    const expenses = DataLayer.getExpenses();
+    const hasExpenses = expenses.some(e => normalizeCategoryKey(e.category) === catId);
+
+    if (hasExpenses) {
+      const proceed = window.confirm(
+        `"${cat.name}" has active expenses recorded.\n\nArchiving will hide it from future logging but keep all historical transaction data intact. Proceed?`
+      );
+      if (!proceed) return;
+    } else {
+      const proceed = window.confirm(`Permanently delete custom category "${cat.name}"?`);
+      if (!proceed) return;
+    }
+
+    const result = DataLayer.deleteCategory(catId);
+    if (result.action === 'archived') {
+      showToast(`Category "${cat.name}" archived.`, 'info');
+    } else {
+      if (state.budget?.categories?.[catId] !== undefined) {
+        delete state.budget.categories[catId];
+        saveBudget();
+      }
+      showToast(`Category "${cat.name}" deleted.`, 'info');
+    }
+
+    syncAllViewsWithData();
+
+    // Re-render Quick Log chips if open
+    const expenseModal = document.getElementById('expense-modal');
+    if (expenseModal && !expenseModal.classList.contains('hidden')) {
+      renderQuickLogCategoryChips('food');
     }
   }
 
@@ -1383,16 +1718,6 @@
     }, 3200);
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
   // ==========================================
   // EVENT LISTENERS & INITIALIZATION
   // ==========================================
@@ -1411,10 +1736,17 @@
       }
     });
 
-    // Budget Sliders
-    const sliders = document.querySelectorAll('.budget-slider');
-    sliders.forEach(slider => {
-      slider.addEventListener('input', () => handleSliderChange(slider));
+    // Budget Sliders via delegation for static & dynamic sliders
+    document.addEventListener('input', e => {
+      if (e.target && e.target.matches && e.target.matches('.budget-slider')) {
+        handleSliderInput(e.target);
+      }
+    });
+
+    document.addEventListener('change', e => {
+      if (e.target && e.target.matches && e.target.matches('.budget-slider')) {
+        handleSliderChange(e.target);
+      }
     });
 
     // Budget Setup Action Buttons
@@ -1433,6 +1765,43 @@
     const saveBudgetModalBtn = document.getElementById('save-budget-modal');
     if (saveBudgetModalBtn) saveBudgetModalBtn.addEventListener('click', saveBudgetModal);
 
+    // Custom Category Action Buttons & Modal
+    const addCatBtn = document.getElementById('btn-budget-add-category');
+    if (addCatBtn) addCatBtn.addEventListener('click', openAddCustomCategoryModal);
+
+    const closeCustomCatModalBtn = document.getElementById('close-custom-category-modal');
+    if (closeCustomCatModalBtn) closeCustomCatModalBtn.addEventListener('click', closeCustomCategoryModal);
+
+    const cancelCustomCatModalBtn = document.getElementById('cancel-custom-category-modal');
+    if (cancelCustomCatModalBtn) cancelCustomCatModalBtn.addEventListener('click', closeCustomCategoryModal);
+
+    const customCategoryForm = document.getElementById('custom-category-form');
+    if (customCategoryForm) customCategoryForm.addEventListener('submit', handleCustomCategoryFormSubmit);
+
+    // Custom Category Modal Icon Selector
+    const iconSelector = document.getElementById('custom-icon-selector');
+    if (iconSelector) {
+      iconSelector.addEventListener('click', e => {
+        const btn = e.target.closest('.icon-option');
+        if (btn) {
+          const icon = btn.getAttribute('data-icon');
+          if (icon) selectCustomIcon(icon);
+        }
+      });
+    }
+
+    // Custom Category Modal Color Selector
+    const colorSelector = document.getElementById('custom-color-selector');
+    if (colorSelector) {
+      colorSelector.addEventListener('click', e => {
+        const btn = e.target.closest('.color-option');
+        if (btn) {
+          const color = btn.getAttribute('data-color');
+          if (color) selectCustomColor(color);
+        }
+      });
+    }
+
     // Expense Modal Buttons & Form
     const expenseForm = document.getElementById('expense-form');
     if (expenseForm) expenseForm.addEventListener('submit', handleExpenseFormSubmit);
@@ -1442,14 +1811,6 @@
 
     const cancelExpenseModalBtn = document.getElementById('cancel-expense-modal');
     if (cancelExpenseModalBtn) cancelExpenseModalBtn.addEventListener('click', closeExpenseModal);
-
-    // Category chips selection in Expense Modal
-    const chips = document.querySelectorAll('.expense-category-chip');
-    chips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        selectCategoryChip(chip.dataset.category);
-      });
-    });
 
     // Notification Toggles in Budget Setup
     const toggle80 = document.getElementById('toggle-80');
@@ -1493,7 +1854,7 @@
         if (window.FirebaseService) {
           window.FirebaseService.signOut();
         } else {
-          localStorage.removeItem('expensetrack_user_session');
+          if (DataLayer) DataLayer.clearUserSession();
           window.location.replace('login.html');
         }
       });
@@ -1505,7 +1866,7 @@
         if (window.FirebaseService) {
           window.FirebaseService.signOut();
         } else {
-          localStorage.removeItem('expensetrack_user_session');
+          if (DataLayer) DataLayer.clearUserSession();
           window.location.replace('login.html');
         }
       });
@@ -1603,6 +1964,8 @@
     syncAllViewsWithData,
     openAddExpenseModal,
     openEditExpenseModal,
+    openExpenseModal: openAddExpenseModal,
+    closeExpenseModal,
     addExpense,
     deleteExpense,
     confirmDeleteExpense,
@@ -1611,12 +1974,24 @@
     saveBudgetModal,
     resetBudgetDefaults,
     clearAllExpenses,
+    // Custom Categories API
+    openAddCustomCategoryModal,
+    openEditCustomCategoryModal,
+    closeCustomCategoryModal,
+    confirmDeleteCategory,
+    handleSliderInput,
+    handleSliderChange,
+    handleCustomCategoryFormSubmit,
+    selectCategoryChip,
+    // Data queries
     getExpenses: () => [...state.expenses],
     getTotalSpending: () => getTotalSpending(),
     getCategorySpending: (cat) => {
       const m = getCategorySpendingMap();
       return m[normalizeCategoryKey(cat)] || 0;
     },
+    getActiveCategories: () => getCategories(),
+    getAllCategories: (archived = false) => getAllCategories(archived),
     getState: () => state,
   };
 

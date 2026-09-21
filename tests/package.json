@@ -1,0 +1,9 @@
+{
+  "name": "expensetrack-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Test suite for ExpenseTrack",
+  "scripts": {
+    "test": "node --test budget.test.js data-layer.test.js integration.test.js && node test-browser-env.js"
+  }
+}

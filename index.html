@@ -290,9 +290,13 @@
         <!-- Top Action & Meta Tier -->
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-lg">
           <div class="flex flex-col">
-            <div class="flex items-center gap-space-xs text-on-surface-variant mb-1">
+            <div class="flex items-center gap-2 text-on-surface-variant mb-1 flex-wrap">
               <span class="material-symbols-outlined text-sm text-primary">verified</span>
-              <span class="font-label-sm text-label-sm uppercase tracking-wider">Student Overview • <span class="dynamic-term-badge inline">Semester Term • Campus Living</span></span>
+              <span class="font-label-sm text-label-sm font-semibold text-on-surface">Student Overview • <span class="dynamic-semester-badge">Semester 2026</span></span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+                Campus Living
+              </span>
             </div>
             <div class="flex items-baseline gap-space-sm flex-wrap">
               <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Spending Dashboard</h1>
@@ -498,15 +502,15 @@
                 <div>
                   <div class="font-body-sm text-body-sm text-on-surface-variant">Allocated via Categories</div>
                   <div class="font-numeric-balance text-numeric-balance text-on-surface tracking-tight" id="allocated-figure">
-                    ₹<span id="total-allocated-val">11,000</span>
-                    <span class="font-title-md text-title-md text-on-surface-variant font-normal">/ ₹12,000</span>
+                    ₹<span id="total-allocated-val">0</span>
+                    <span class="font-title-md text-title-md text-on-surface-variant font-normal">/ ₹<span id="macro-denominator-val">12,000</span></span>
                   </div>
                 </div>
                 <div class="sm:text-right">
                   <span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant block">Unallocated Buffer</span>
-                  <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-title-md text-title-md font-bold mt-1">
-                    <span class="material-symbols-outlined text-sm">format_image_left</span>
-                    ₹<span id="buffer-val">1,000</span> left
+                  <div id="buffer-status-pill" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-title-md text-title-md font-bold mt-1">
+                    <span class="material-symbols-outlined text-sm" id="buffer-status-icon">check_circle</span>
+                    <span id="buffer-status-text">₹0 remaining</span>
                   </div>
                 </div>
               </div>
@@ -556,14 +560,20 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
           <!-- Interactive Category Sliders & Gauges -->
           <div class="lg:col-span-8 flex flex-col gap-space-md">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">Category Budgets</h2>
                 <p class="font-body-sm text-body-sm text-on-surface-variant">Fine-tune monthly targets with live spending gauge tracking</p>
               </div>
-              <span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-3 py-1 rounded-full">
-                7 Active Budgets
-              </span>
+              <div class="flex items-center gap-2">
+                <span id="active-categories-count-badge" class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-3 py-1 rounded-full">
+                  7 Active Budgets
+                </span>
+                <button type="button" id="btn-budget-add-category" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors shadow-sm">
+                  <span class="material-symbols-outlined text-base">add</span>
+                  <span>+ Custom Category</span>
+                </button>
+              </div>
             </div>
 
             <!-- Category 1: Food & Dining -->
@@ -861,6 +871,9 @@
                 <span id="emergency-goal-percent" class="font-label-sm text-label-sm text-primary font-semibold hidden sm:inline-block">0% of Semester Target</span>
               </div>
             </div>
+
+            <!-- Dynamic Custom Categories Container -->
+            <div id="custom-category-cards-container" class="flex flex-col gap-space-md"></div>
           </div>
 
           <!-- Right Rail: Notification Automations, Spending Wisdom & Student Motivation -->
@@ -1232,41 +1245,46 @@
         <div class="flex flex-col gap-space-xs">
           <label class="font-label-sm text-label-sm text-on-surface-variant">Select Category *</label>
           <input type="hidden" id="expense-selected-category" value="food"/>
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          <div id="quick-log-category-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
             <!-- 1. Food & Dining -->
-            <button type="button" data-category="food" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all">
-              <span class="material-symbols-outlined text-xl text-tertiary">restaurant</span>
-              <span class="font-label-sm text-label-sm truncate">Food & Dining</span>
+            <button type="button" data-category="food" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all min-h-[48px] hover:bg-surface-container">
+              <span class="material-symbols-outlined text-xl text-tertiary flex-shrink-0">restaurant</span>
+              <span class="font-label-sm text-label-sm leading-snug break-words hyphens-auto flex-1">Food & Dining</span>
             </button>
             <!-- 2. Groceries -->
-            <button type="button" data-category="groceries" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all">
-              <span class="material-symbols-outlined text-xl text-primary">local_mall</span>
-              <span class="font-label-sm text-label-sm truncate">Groceries</span>
+            <button type="button" data-category="groceries" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all min-h-[48px] hover:bg-surface-container">
+              <span class="material-symbols-outlined text-xl text-primary flex-shrink-0">local_mall</span>
+              <span class="font-label-sm text-label-sm leading-snug break-words hyphens-auto flex-1">Groceries</span>
             </button>
             <!-- 3. Transport -->
-            <button type="button" data-category="transport" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all">
-              <span class="material-symbols-outlined text-xl text-primary">directions_bus</span>
-              <span class="font-label-sm text-label-sm truncate">Transport</span>
+            <button type="button" data-category="transport" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all min-h-[48px] hover:bg-surface-container">
+              <span class="material-symbols-outlined text-xl text-primary flex-shrink-0">directions_bus</span>
+              <span class="font-label-sm text-label-sm leading-snug break-words hyphens-auto flex-1">Transport</span>
             </button>
             <!-- 4. Textbooks & Coursework -->
-            <button type="button" data-category="textbooks" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all">
-              <span class="material-symbols-outlined text-xl text-error">menu_book</span>
-              <span class="font-label-sm text-label-sm truncate">Textbooks</span>
+            <button type="button" data-category="textbooks" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all min-h-[48px] hover:bg-surface-container">
+              <span class="material-symbols-outlined text-xl text-error flex-shrink-0">menu_book</span>
+              <span class="font-label-sm text-label-sm leading-snug break-words hyphens-auto flex-1">Textbooks & Coursework</span>
             </button>
             <!-- 5. Entertainment & Social -->
-            <button type="button" data-category="entertainment" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all">
-              <span class="material-symbols-outlined text-xl text-secondary">celebration</span>
-              <span class="font-label-sm text-label-sm truncate">Entertainment</span>
+            <button type="button" data-category="entertainment" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all min-h-[48px] hover:bg-surface-container">
+              <span class="material-symbols-outlined text-xl text-secondary flex-shrink-0">celebration</span>
+              <span class="font-label-sm text-label-sm leading-snug break-words hyphens-auto flex-1">Entertainment & Social</span>
             </button>
             <!-- 6. Personal & Subscriptions -->
-            <button type="button" data-category="personal" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all">
-              <span class="material-symbols-outlined text-xl text-primary">subscriptions</span>
-              <span class="font-label-sm text-label-sm truncate">Personal</span>
+            <button type="button" data-category="personal" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all min-h-[48px] hover:bg-surface-container">
+              <span class="material-symbols-outlined text-xl text-primary flex-shrink-0">subscriptions</span>
+              <span class="font-label-sm text-label-sm leading-snug break-words hyphens-auto flex-1">Personal & Subscriptions</span>
             </button>
             <!-- 7. Emergency Student Fund -->
-            <button type="button" data-category="emergency" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all">
-              <span class="material-symbols-outlined text-xl text-primary">lock</span>
-              <span class="font-label-sm text-label-sm truncate">Emergency</span>
+            <button type="button" data-category="emergency" class="expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-surface-container-low text-on-surface text-left transition-all min-h-[48px] hover:bg-surface-container">
+              <span class="material-symbols-outlined text-xl text-primary flex-shrink-0">lock</span>
+              <span class="font-label-sm text-label-sm leading-snug break-words hyphens-auto flex-1">Emergency Student Fund</span>
+            </button>
+            <!-- 8. + Custom Category Tile -->
+            <button type="button" id="btn-quick-log-add-custom" class="flex items-center gap-2 p-2.5 rounded-2xl border-2 border-dashed border-outline-variant hover:border-primary hover:bg-primary-fixed/20 text-primary text-left transition-all min-h-[48px]">
+              <span class="material-symbols-outlined text-xl text-primary flex-shrink-0">add_circle</span>
+              <span class="font-label-sm text-label-sm font-semibold leading-snug break-words flex-1">+ Custom Category</span>
             </button>
           </div>
         </div>
@@ -1343,10 +1361,141 @@
   </div>
 
   <!-- ========================================== -->
+  <!-- MODAL: ADD / EDIT CUSTOM CATEGORY          -->
+  <!-- ========================================== -->
+  <div id="custom-category-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-surface-container-lowest rounded-3xl p-6 max-w-md w-full shadow-xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-2xl bg-primary-fixed flex items-center justify-center text-on-primary-fixed">
+            <span class="material-symbols-outlined text-xl">category</span>
+          </div>
+          <div>
+            <h3 class="font-title-md text-title-md text-on-surface font-bold" id="custom-category-modal-title">Add Custom Category</h3>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">Create a personal budget bucket</p>
+          </div>
+        </div>
+        <button type="button" id="close-custom-category-modal" class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <!-- Error banner -->
+      <div id="custom-category-error" class="hidden p-3 rounded-2xl bg-error-container text-on-error-container text-label-md font-label-md flex items-center gap-2">
+        <span class="material-symbols-outlined text-lg flex-shrink-0">error</span>
+        <span id="custom-category-error-text"></span>
+      </div>
+
+      <form id="custom-category-form" novalidate class="flex flex-col gap-4">
+        <input type="hidden" id="custom-category-id" value=""/>
+
+        <div class="flex flex-col gap-1">
+          <label class="font-label-sm text-label-sm text-on-surface-variant">Category Name *</label>
+          <input 
+            id="custom-category-name" 
+            type="text" 
+            required 
+            maxlength="30"
+            placeholder="e.g. Gym, Laundry, Rent, Travel, Medicines..." 
+            class="w-full px-4 py-2.5 bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <span class="font-label-sm text-label-sm text-on-surface-variant text-right">Max 30 characters</span>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="font-label-sm text-label-sm text-on-surface-variant">Monthly Target Cap (₹) *</label>
+          <input 
+            id="custom-category-cap" 
+            type="number" 
+            min="0" 
+            step="50" 
+            required 
+            placeholder="500" 
+            class="w-full px-4 py-2.5 bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary font-bold"
+          />
+        </div>
+
+        <!-- Preset Icon Selector -->
+        <div class="flex flex-col gap-1">
+          <label class="font-label-sm text-label-sm text-on-surface-variant">Select Icon</label>
+          <input type="hidden" id="custom-category-icon" value="category"/>
+          <div class="grid grid-cols-6 gap-2" id="custom-icon-selector">
+            <button type="button" data-icon="category" class="icon-option p-2 rounded-xl bg-primary-container text-on-primary-container flex items-center justify-center ring-2 ring-primary">
+              <span class="material-symbols-outlined text-xl">category</span>
+            </button>
+            <button type="button" data-icon="fitness_center" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">fitness_center</span>
+            </button>
+            <button type="button" data-icon="local_laundry_service" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">local_laundry_service</span>
+            </button>
+            <button type="button" data-icon="home" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">home</span>
+            </button>
+            <button type="button" data-icon="phone_android" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">phone_android</span>
+            </button>
+            <button type="button" data-icon="medical_services" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">medical_services</span>
+            </button>
+            <button type="button" data-icon="flight" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">flight</span>
+            </button>
+            <button type="button" data-icon="local_cafe" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">local_cafe</span>
+            </button>
+            <button type="button" data-icon="shopping_bag" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">shopping_bag</span>
+            </button>
+            <button type="button" data-icon="sports_esports" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">sports_esports</span>
+            </button>
+            <button type="button" data-icon="school" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">school</span>
+            </button>
+            <button type="button" data-icon="savings" class="icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">savings</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Preset Color Selector -->
+        <div class="flex flex-col gap-1">
+          <label class="font-label-sm text-label-sm text-on-surface-variant">Accent Color</label>
+          <input type="hidden" id="custom-category-color" value="#006948"/>
+          <div class="flex items-center gap-2.5 flex-wrap" id="custom-color-selector">
+            <button type="button" data-color="#006948" class="color-option w-7 h-7 rounded-full bg-[#006948] ring-2 ring-offset-2 ring-primary transition-all"></button>
+            <button type="button" data-color="#0284c7" class="color-option w-7 h-7 rounded-full bg-[#0284c7] transition-all"></button>
+            <button type="button" data-color="#4f46e5" class="color-option w-7 h-7 rounded-full bg-[#4f46e5] transition-all"></button>
+            <button type="button" data-color="#7c3aed" class="color-option w-7 h-7 rounded-full bg-[#7c3aed] transition-all"></button>
+            <button type="button" data-color="#c026d3" class="color-option w-7 h-7 rounded-full bg-[#c026d3] transition-all"></button>
+            <button type="button" data-color="#e11d48" class="color-option w-7 h-7 rounded-full bg-[#e11d48] transition-all"></button>
+            <button type="button" data-color="#ea580c" class="color-option w-7 h-7 rounded-full bg-[#ea580c] transition-all"></button>
+            <button type="button" data-color="#d97706" class="color-option w-7 h-7 rounded-full bg-[#d97706] transition-all"></button>
+            <button type="button" data-color="#4b5563" class="color-option w-7 h-7 rounded-full bg-[#4b5563] transition-all"></button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" id="cancel-custom-category-modal" class="px-4 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm">
+            Save Category
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
   <!-- FLOATING TOAST NOTIFICATION CONTAINER      -->
   <!-- ========================================== -->
   <div id="toast-container" class="fixed bottom-20 lg:bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
+  <!-- Budget Allocation & Data Access Modules -->
+  <script src="budget-calculator.js"></script>
+  <script src="data-layer.js"></script>
   <!-- Application Script -->
   <script src="app.js"></script>
 </body>
