@@ -3,7 +3,7 @@ services:
     name: expensetrack
     runtime: static
     buildCommand: npm install && npm run build
-    staticPublishPath: .
+    staticPublishPath: public
     routes:
       - type: rewrite
         source: /login

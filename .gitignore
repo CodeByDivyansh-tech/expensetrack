@@ -21,6 +21,9 @@ yarn-error.log*
 # Node modules (if any npm packages are added in future)
 node_modules/
 
+# Generated build output
+public/
+
 # Secrets and credentials
 .env
 .env.*
