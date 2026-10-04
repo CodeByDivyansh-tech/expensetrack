@@ -4,10 +4,14 @@
   "description": "Student Expense Tracker Web Application",
   "main": "index.html",
   "scripts": {
-    "build": "echo 'Build complete'",
-    "start": "serve . -l $PORT"
+    "build": "tailwindcss -i ./src/styles.css -o ./dist/styles.css --minify",
+    "start": "serve . -l $PORT",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "serve": "^14.2.4"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
   }
 }

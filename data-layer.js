@@ -1,7 +1,7 @@
 /**
  * ExpenseTrack - Data Access Layer (DAL)
- * Abstracts all persistence operations behind a unified interface.
- * UI components never access localStorage directly.
+ * Unified persistence abstraction supporting Cloud Firestore with offline persistence
+ * and multi-tab synchronization, with graceful local fallback.
  */
 
 (function (root, factory) {
@@ -151,12 +151,43 @@
     roommateAlert: false,
   };
 
-  // Safe storage access helper
+  // --- Local Time Helpers (Fix for midnight - 5:30 AM IST UTC offset) ---
+  function localDateString(date = new Date()) {
+    const d = (date instanceof Date) ? date : new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function parseLocalDate(dateStr) {
+    if (!dateStr) return new Date();
+    if (dateStr instanceof Date) return dateStr;
+    const parts = String(dateStr).split('-');
+    if (parts.length >= 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+    return new Date(dateStr);
+  }
+
+  function isSameMonth(dateStr, targetYear, targetMonth) {
+    const d = parseLocalDate(dateStr);
+    return d.getFullYear() === targetYear && d.getMonth() === targetMonth;
+  }
+
+  function isCurrentMonth(dateStr) {
+    const now = new Date();
+    return isSameMonth(dateStr, now.getFullYear(), now.getMonth());
+  }
+
+  // --- Safe Storage Helper (Browser localStorage or Node mock) ---
   function getStorageEngine() {
     if (typeof localStorage !== 'undefined') {
       return localStorage;
     }
-    // Node.js fallback in-memory store for unit tests
     if (!globalThis._mockStorage) {
       globalThis._mockStorage = {
         _data: {},
@@ -191,6 +222,282 @@
     }
   }
 
+  function getDb() {
+    if (typeof firebase !== 'undefined' && typeof firebase.firestore === 'function') {
+      return firebase.firestore();
+    }
+    if (typeof window !== 'undefined' && window.FirebaseService && window.FirebaseService.db) {
+      return window.FirebaseService.db;
+    }
+    return null;
+  }
+
+  // --- In-Memory State for Active User ---
+  let _currentUid = null;
+  let _expenses = [];
+  let _budget = null;
+  let _settings = null;
+  let _customCategories = null;
+  let _unsubscribeUserDoc = null;
+  let _unsubscribeExpenses = null;
+  let _changeListeners = [];
+
+  function notifyChange() {
+    _changeListeners.forEach(fn => {
+      try { fn(); } catch (e) { console.error('Data change listener error:', e); }
+    });
+  }
+
+  function onDataChanged(listener) {
+    if (typeof listener === 'function') {
+      _changeListeners.push(listener);
+    }
+    return () => {
+      _changeListeners = _changeListeners.filter(l => l !== listener);
+    };
+  }
+
+  /**
+   * Initialize Firestore state for the authenticated user with one-time migration.
+   */
+  async function initUser(uid) {
+    if (!uid) {
+      clearUserData();
+      return;
+    }
+
+    _currentUid = uid;
+    const db = getDb();
+
+    if (!db) {
+      // Offline or non-Firebase environment: fallback to localStorage
+      _expenses = readJSON(STORAGE_KEYS.EXPENSES, []);
+      _budget = readJSON(STORAGE_KEYS.BUDGET, DEFAULT_BUDGET);
+      _settings = readJSON(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
+      _customCategories = readJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, {});
+      return;
+    }
+
+    try {
+      const userDocRef = db.collection('users').doc(uid);
+      const expensesColRef = userDocRef.collection('expenses');
+
+      // Fetch existing data
+      const [userDocSnap, expensesSnap] = await Promise.all([
+        userDocRef.get(),
+        expensesColRef.get(),
+      ]);
+
+      const isFirestoreEmpty = (!userDocSnap.exists || !userDocSnap.data() || Object.keys(userDocSnap.data()).length === 0) && expensesSnap.empty;
+
+      // Check for legacy localStorage data
+      const storage = getStorageEngine();
+      const legacyExpensesRaw = storage.getItem(STORAGE_KEYS.EXPENSES);
+      const legacyBudgetRaw = storage.getItem(STORAGE_KEYS.BUDGET);
+      const legacySettingsRaw = storage.getItem(STORAGE_KEYS.SETTINGS);
+      const legacyCustomCategoriesRaw = storage.getItem(STORAGE_KEYS.CUSTOM_CATEGORIES);
+
+      let hasLegacyData = false;
+      let legacyExpenses = [];
+      let legacyBudget = null;
+      let legacySettings = null;
+      let legacyCustomCategories = {};
+
+      if (legacyExpensesRaw) {
+        try {
+          legacyExpenses = JSON.parse(legacyExpensesRaw);
+          if (Array.isArray(legacyExpenses) && legacyExpenses.length > 0) hasLegacyData = true;
+        } catch (e) {}
+      }
+      if (legacyBudgetRaw) {
+        try {
+          legacyBudget = JSON.parse(legacyBudgetRaw);
+          if (legacyBudget && legacyBudget.overallCap) hasLegacyData = true;
+        } catch (e) {}
+      }
+      if (legacySettingsRaw) {
+        try { legacySettings = JSON.parse(legacySettingsRaw); } catch (e) {}
+      }
+      if (legacyCustomCategoriesRaw) {
+        try { legacyCustomCategories = JSON.parse(legacyCustomCategoriesRaw); } catch (e) {}
+      }
+
+      if (isFirestoreEmpty && hasLegacyData) {
+        // --- One-Time Migration to Firestore ---
+        console.log('ExpenseTrack: Performing one-time migration of localStorage data to Firestore for user', uid);
+        const batch = db.batch();
+
+        legacyExpenses.forEach(exp => {
+          const expId = exp.id || ('exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000));
+          const expRef = expensesColRef.doc(expId);
+          batch.set(expRef, {
+            amount: Number(exp.amount) || 0,
+            category: normalizeCategoryKey(exp.category),
+            date: exp.date || localDateString(),
+            note: exp.note || '',
+            createdAt: exp.createdAt || Date.now(),
+          });
+        });
+
+        const initialBudget = legacyBudget || DEFAULT_BUDGET;
+        const initialSettings = legacySettings || DEFAULT_SETTINGS;
+        const initialCustom = legacyCustomCategories || {};
+
+        batch.set(userDocRef, {
+          budget: initialBudget,
+          settings: initialSettings,
+          customCategories: initialCustom,
+          updatedAt: Date.now(),
+        }, { merge: true });
+
+        await batch.commit();
+
+        // Delete old localStorage keys
+        storage.removeItem(STORAGE_KEYS.EXPENSES);
+        storage.removeItem(STORAGE_KEYS.BUDGET);
+        storage.removeItem(STORAGE_KEYS.SETTINGS);
+        storage.removeItem(STORAGE_KEYS.CUSTOM_CATEGORIES);
+
+        // Update in-memory state
+        _expenses = legacyExpenses.map(e => ({
+          id: e.id || ('exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+          amount: Number(e.amount) || 0,
+          category: normalizeCategoryKey(e.category),
+          date: e.date || localDateString(),
+          note: e.note || '',
+          createdAt: e.createdAt || Date.now(),
+        }));
+        _budget = { ...DEFAULT_BUDGET, ...initialBudget, categories: { ...DEFAULT_BUDGET.categories, ...(initialBudget.categories || {}) } };
+        _settings = { ...DEFAULT_SETTINGS, ...initialSettings };
+        _customCategories = { ...initialCustom };
+      } else {
+        // Normal Load from Firestore
+        if (userDocSnap.exists) {
+          const uData = userDocSnap.data() || {};
+          _budget = uData.budget
+            ? { ...DEFAULT_BUDGET, ...uData.budget, categories: { ...DEFAULT_BUDGET.categories, ...(uData.budget.categories || {}) } }
+            : { ...DEFAULT_BUDGET };
+          _settings = uData.settings ? { ...DEFAULT_SETTINGS, ...uData.settings } : { ...DEFAULT_SETTINGS };
+          _customCategories = uData.customCategories || {};
+        } else {
+          // Document does not exist yet: initialize with defaults
+          _budget = { ...DEFAULT_BUDGET };
+          _settings = { ...DEFAULT_SETTINGS };
+          _customCategories = {};
+          await userDocRef.set({
+            budget: _budget,
+            settings: _settings,
+            customCategories: _customCategories,
+            updatedAt: Date.now(),
+          });
+        }
+
+        _expenses = [];
+        expensesSnap.forEach(doc => {
+          const d = doc.data();
+          _expenses.push({
+            id: doc.id,
+            amount: Number(d.amount) || 0,
+            category: normalizeCategoryKey(d.category),
+            date: d.date || localDateString(),
+            note: d.note || '',
+            createdAt: d.createdAt || Date.now(),
+          });
+        });
+
+        _expenses.sort((a, b) => {
+          const timeA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
+          const timeB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
+          return timeB - timeA || (b.createdAt || 0) - (a.createdAt || 0);
+        });
+      }
+
+      // Detach any previous listeners
+      if (_unsubscribeUserDoc) { _unsubscribeUserDoc(); _unsubscribeUserDoc = null; }
+      if (_unsubscribeExpenses) { _unsubscribeExpenses(); _unsubscribeExpenses = null; }
+
+      // Real-time synchronization listeners
+      _unsubscribeUserDoc = userDocRef.onSnapshot(snap => {
+        if (snap && snap.exists) {
+          const d = snap.data() || {};
+          if (d.budget) {
+            _budget = { ...DEFAULT_BUDGET, ...d.budget, categories: { ...DEFAULT_BUDGET.categories, ...(d.budget.categories || {}) } };
+          }
+          if (d.settings) {
+            _settings = { ...DEFAULT_SETTINGS, ...d.settings };
+          }
+          if (d.customCategories !== undefined) {
+            _customCategories = d.customCategories || {};
+          }
+          notifyChange();
+        }
+      }, err => {
+        console.warn('ExpenseTrack: User doc snapshot listener notice:', err);
+      });
+
+      _unsubscribeExpenses = expensesColRef.onSnapshot(snap => {
+        if (snap) {
+          const updated = [];
+          snap.forEach(doc => {
+            const d = doc.data();
+            updated.push({
+              id: doc.id,
+              amount: Number(d.amount) || 0,
+              category: normalizeCategoryKey(d.category),
+              date: d.date || localDateString(),
+              note: d.note || '',
+              createdAt: d.createdAt || Date.now(),
+            });
+          });
+          updated.sort((a, b) => {
+            const timeA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
+            const timeB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
+            return timeB - timeA || (b.createdAt || 0) - (a.createdAt || 0);
+          });
+          _expenses = updated;
+          notifyChange();
+        }
+      }, err => {
+        console.warn('ExpenseTrack: Expenses snapshot listener notice:', err);
+      });
+
+    } catch (err) {
+      console.error('ExpenseTrack: Error initializing user data from Firestore:', err);
+      // Fallback
+      if (!_budget) _budget = { ...DEFAULT_BUDGET };
+      if (!_settings) _settings = { ...DEFAULT_SETTINGS };
+      if (!_customCategories) _customCategories = {};
+    }
+  }
+
+  /**
+   * Reset in-memory state and clear all stored data on logout
+   */
+  function clearUserData() {
+    if (_unsubscribeUserDoc) {
+      _unsubscribeUserDoc();
+      _unsubscribeUserDoc = null;
+    }
+    if (_unsubscribeExpenses) {
+      _unsubscribeExpenses();
+      _unsubscribeExpenses = null;
+    }
+    _currentUid = null;
+    _expenses = [];
+    _budget = null;
+    _settings = null;
+    _customCategories = null;
+
+    const storage = getStorageEngine();
+    try {
+      storage.removeItem(STORAGE_KEYS.EXPENSES);
+      storage.removeItem(STORAGE_KEYS.BUDGET);
+      storage.removeItem(STORAGE_KEYS.SETTINGS);
+      storage.removeItem(STORAGE_KEYS.CUSTOM_CATEGORIES);
+      storage.removeItem(STORAGE_KEYS.USER_SESSION);
+    } catch (e) {}
+  }
+
   // --- Category Normalization Helper ---
   function normalizeCategoryKey(key) {
     if (!key) return 'food';
@@ -202,8 +509,7 @@
     if (lower === 'entertainment' || lower === 'social' || lower.includes('entertain')) return 'entertainment';
     if (lower === 'personal' || lower === 'subscriptions' || lower.includes('person')) return 'personal';
     if (lower === 'emergency' || lower.includes('emerg') || lower.includes('saving')) return 'emergency';
-    
-    // Check if matches a custom category id or name
+
     const all = getAllCategories(true);
     if (all[key]) return key;
     const found = Object.values(all).find(c => c.name.toLowerCase() === lower);
@@ -213,20 +519,30 @@
   }
 
   // --- Category CRUD Operations ---
-
   function getCustomCategories() {
+    if (_customCategories && typeof _customCategories === 'object') {
+      return { ..._customCategories };
+    }
     const custom = readJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, {});
     return custom && typeof custom === 'object' ? custom : {};
   }
 
   function saveCustomCategories(categories) {
-    return writeJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, categories);
+    _customCategories = { ...(categories || {}) };
+    const db = getDb();
+    if (db && _currentUid) {
+      db.collection('users').doc(_currentUid).set({
+        customCategories: _customCategories,
+        updatedAt: Date.now(),
+      }, { merge: true }).catch(err => {
+        console.error('Firestore saveCustomCategories error:', err);
+      });
+    } else {
+      writeJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, _customCategories);
+    }
+    return true;
   }
 
-  /**
-   * Get all categories (defaults + custom).
-   * @param {boolean} includeArchived - If true, includes archived custom categories.
-   */
   function getAllCategories(includeArchived = false) {
     const custom = getCustomCategories();
     const result = { ...DEFAULT_CATEGORIES };
@@ -239,16 +555,10 @@
     return result;
   }
 
-  /**
-   * Get only active categories for UI selection (Quick Log & Budget Setup).
-   */
   function getActiveCategories() {
     return getAllCategories(false);
   }
 
-  /**
-   * Validate custom category inputs.
-   */
   function validateCategoryInput(name, budgetCap, excludeId = null) {
     const trimmed = (name || '').trim();
     if (!trimmed) {
@@ -275,9 +585,6 @@
     return { valid: true, name: trimmed, budgetCap: Math.round(capNum) };
   }
 
-  /**
-   * Add a new custom category.
-   */
   function addCustomCategory({ name, budgetCap = 500, icon = 'category', color = '#006948' }) {
     const validation = validateCategoryInput(name, budgetCap);
     if (!validation.valid) {
@@ -306,7 +613,6 @@
     custom[id] = newCategory;
     saveCustomCategories(custom);
 
-    // Also update budget config with the new category cap
     const budget = getBudget();
     budget.categories[id] = validation.budgetCap;
     saveBudget(budget);
@@ -314,9 +620,6 @@
     return newCategory;
   }
 
-  /**
-   * Update a custom category (name and/or budgetCap). Stable ID is retained!
-   */
   function updateCustomCategory(id, { name, budgetCap, icon, color }) {
     const custom = getCustomCategories();
     if (!custom[id]) {
@@ -338,7 +641,6 @@
     };
     saveCustomCategories(custom);
 
-    // Update category cap in budget
     const budget = getBudget();
     budget.categories[id] = validation.budgetCap;
     saveBudget(budget);
@@ -346,11 +648,6 @@
     return custom[id];
   }
 
-  /**
-   * Delete or archive category.
-   * If expenses exist with this category: ARCHIVES it (isArchived: true). NEVER deletes expenses!
-   * If 0 expenses: hard deletes from custom categories.
-   */
   function deleteCategory(id) {
     if (DEFAULT_CATEGORIES[id]) {
       throw new Error('Default categories cannot be deleted.');
@@ -366,19 +663,16 @@
 
     let action = '';
     if (hasExpenses) {
-      // Archive so historical expenses and analytics continue to resolve properly
       custom[id].isArchived = true;
       custom[id].archivedAt = Date.now();
       saveCustomCategories(custom);
       action = 'archived';
     } else {
-      // Hard delete from custom categories
       delete custom[id];
       saveCustomCategories(custom);
       action = 'deleted';
     }
 
-    // Clean up from active budget if deleted
     if (action === 'deleted') {
       const budget = getBudget();
       if (budget.categories[id] !== undefined) {
@@ -391,14 +685,20 @@
   }
 
   // --- Expenses CRUD Operations ---
-
   function getExpenses() {
+    if (_expenses && (_expenses.length > 0 || _currentUid)) {
+      return [..._expenses];
+    }
     const expenses = readJSON(STORAGE_KEYS.EXPENSES, []);
     return Array.isArray(expenses) ? expenses : [];
   }
 
   function saveExpenses(expenses) {
-    return writeJSON(STORAGE_KEYS.EXPENSES, Array.isArray(expenses) ? expenses : []);
+    _expenses = Array.isArray(expenses) ? [...expenses] : [];
+    if (!_currentUid) {
+      writeJSON(STORAGE_KEYS.EXPENSES, _expenses);
+    }
+    return true;
   }
 
   function addExpense({ amount, category, date, note }) {
@@ -413,25 +713,39 @@
       throw new Error('Please select a valid category.');
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const todayLocal = localDateString();
+    const expDate = date || todayLocal;
+    const id = 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
     const newExp = {
-      id: 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      id,
       amount: Math.round(num * 100) / 100,
       category: normCat,
-      date: date || today,
+      date: expDate,
       note: (note && String(note).trim()) || all[normCat].name,
       createdAt: Date.now(),
     };
 
-    const expenses = getExpenses();
-    expenses.unshift(newExp);
-    saveExpenses(expenses);
+    _expenses.unshift(newExp);
+    _expenses.sort((a, b) => {
+      const timeA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
+      const timeB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
+      return timeB - timeA || (b.createdAt || 0) - (a.createdAt || 0);
+    });
+
+    const db = getDb();
+    if (db && _currentUid) {
+      db.collection('users').doc(_currentUid).collection('expenses').doc(id).set(newExp).catch(err => {
+        console.error('Firestore addExpense error:', err);
+      });
+    } else {
+      writeJSON(STORAGE_KEYS.EXPENSES, _expenses);
+    }
+
     return newExp;
   }
 
   function updateExpense(id, { amount, category, date, note }) {
-    const expenses = getExpenses();
-    const idx = expenses.findIndex(e => e.id === id);
+    const idx = _expenses.findIndex(e => e.id === id);
     if (idx === -1) {
       throw new Error('Expense not found.');
     }
@@ -444,34 +758,75 @@
     const normCat = normalizeCategoryKey(category);
     const all = getAllCategories(true);
 
-    expenses[idx] = {
-      ...expenses[idx],
+    const updatedExp = {
+      ..._expenses[idx],
       amount: Math.round(num * 100) / 100,
       category: normCat,
-      date: date || expenses[idx].date,
-      note: (note && String(note).trim()) || all[normCat]?.name || expenses[idx].note,
+      date: date || _expenses[idx].date,
+      note: (note && String(note).trim()) || all[normCat]?.name || _expenses[idx].note,
       updatedAt: Date.now(),
     };
 
-    saveExpenses(expenses);
-    return expenses[idx];
+    _expenses[idx] = updatedExp;
+    _expenses.sort((a, b) => {
+      const timeA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
+      const timeB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
+      return timeB - timeA || (b.createdAt || 0) - (a.createdAt || 0);
+    });
+
+    const db = getDb();
+    if (db && _currentUid) {
+      db.collection('users').doc(_currentUid).collection('expenses').doc(id).set(updatedExp, { merge: true }).catch(err => {
+        console.error('Firestore updateExpense error:', err);
+      });
+    } else {
+      writeJSON(STORAGE_KEYS.EXPENSES, _expenses);
+    }
+
+    return updatedExp;
   }
 
   function deleteExpense(id) {
-    const expenses = getExpenses();
-    const filtered = expenses.filter(e => e.id !== id);
-    saveExpenses(filtered);
+    _expenses = _expenses.filter(e => e.id !== id);
+
+    const db = getDb();
+    if (db && _currentUid) {
+      db.collection('users').doc(_currentUid).collection('expenses').doc(id).delete().catch(err => {
+        console.error('Firestore deleteExpense error:', err);
+      });
+    } else {
+      writeJSON(STORAGE_KEYS.EXPENSES, _expenses);
+    }
+
     return true;
   }
 
   function clearAllExpenses() {
-    saveExpenses([]);
+    const db = getDb();
+    if (db && _currentUid) {
+      const colRef = db.collection('users').doc(_currentUid).collection('expenses');
+      colRef.get().then(snap => {
+        const batch = db.batch();
+        snap.forEach(doc => batch.delete(doc.ref));
+        return batch.commit();
+      }).catch(err => {
+        console.error('Firestore clearAllExpenses error:', err);
+      });
+    } else {
+      writeJSON(STORAGE_KEYS.EXPENSES, []);
+    }
+    _expenses = [];
     return true;
   }
 
   // --- Budget CRUD Operations ---
-
   function getBudget() {
+    if (_budget && typeof _budget === 'object') {
+      return {
+        overallCap: Number(_budget.overallCap) || DEFAULT_BUDGET.overallCap,
+        categories: { ...DEFAULT_BUDGET.categories, ...(_budget.categories || {}) },
+      };
+    }
     const stored = readJSON(STORAGE_KEYS.BUDGET, null);
     if (stored && typeof stored === 'object' && stored.overallCap !== undefined) {
       return {
@@ -486,7 +841,23 @@
   }
 
   function saveBudget(budget) {
-    return writeJSON(STORAGE_KEYS.BUDGET, budget);
+    _budget = {
+      overallCap: Number(budget.overallCap) || DEFAULT_BUDGET.overallCap,
+      categories: { ...DEFAULT_BUDGET.categories, ...(budget.categories || {}) },
+    };
+
+    const db = getDb();
+    if (db && _currentUid) {
+      db.collection('users').doc(_currentUid).set({
+        budget: _budget,
+        updatedAt: Date.now(),
+      }, { merge: true }).catch(err => {
+        console.error('Firestore saveBudget error:', err);
+      });
+    } else {
+      writeJSON(STORAGE_KEYS.BUDGET, _budget);
+    }
+    return true;
   }
 
   function resetBudgetDefaults() {
@@ -504,18 +875,31 @@
   }
 
   // --- Settings CRUD Operations ---
-
   function getSettings() {
+    if (_settings && typeof _settings === 'object') {
+      return { ...DEFAULT_SETTINGS, ..._settings };
+    }
     const stored = readJSON(STORAGE_KEYS.SETTINGS, null);
     return (stored && typeof stored === 'object') ? { ...DEFAULT_SETTINGS, ...stored } : { ...DEFAULT_SETTINGS };
   }
 
   function saveSettings(settings) {
-    return writeJSON(STORAGE_KEYS.SETTINGS, settings);
+    _settings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+    const db = getDb();
+    if (db && _currentUid) {
+      db.collection('users').doc(_currentUid).set({
+        settings: _settings,
+        updatedAt: Date.now(),
+      }, { merge: true }).catch(err => {
+        console.error('Firestore saveSettings error:', err);
+      });
+    } else {
+      writeJSON(STORAGE_KEYS.SETTINGS, _settings);
+    }
+    return true;
   }
 
   // --- User Session ---
-
   function getUserSession() {
     return readJSON(STORAGE_KEYS.USER_SESSION, null);
   }
@@ -534,7 +918,16 @@
     DEFAULT_CATEGORIES,
     DEFAULT_BUDGET,
     DEFAULT_SETTINGS,
+    // Local date helpers
+    localDateString,
+    parseLocalDate,
+    isSameMonth,
+    isCurrentMonth,
     normalizeCategoryKey,
+    // Firestore & user lifecycle
+    initUser,
+    clearUserData,
+    onDataChanged,
     // Category operations
     getAllCategories,
     getActiveCategories,

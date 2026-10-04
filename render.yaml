@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: expensetrack
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: .
+    routes:
+      - type: rewrite
+        source: /login
+        destination: /login.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY

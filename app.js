@@ -46,6 +46,8 @@
     budget: null,
     settings: null,
     editingExpenseId: null,
+    analyticsYear: new Date().getFullYear(),
+    analyticsMonth: new Date().getMonth(), // 0-indexed: 0 = Jan, 9 = Oct
     charts: {
       categoryDonut: null,
       monthlyBar: null,
@@ -75,31 +77,70 @@
     DataLayer.saveSettings(state.settings);
   }
 
-  // --- Formatting Helpers ---
+  // --- Formatting & Local Date Helpers ---
   function formatINR(val) {
     const num = Math.round(Number(val) || 0);
     return num.toLocaleString('en-IN');
   }
 
+  const localDateString = (DataLayer && DataLayer.localDateString) || function(date = new Date()) {
+    const d = (date instanceof Date) ? date : new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const parseLocalDate = (DataLayer && DataLayer.parseLocalDate) || function(dateStr) {
+    if (!dateStr) return new Date();
+    if (dateStr instanceof Date) return dateStr;
+    const parts = String(dateStr).split('-');
+    if (parts.length >= 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+    return new Date(dateStr);
+  };
+
+  const isSameMonth = (DataLayer && DataLayer.isSameMonth) || function(dateStr, targetYear, targetMonth) {
+    const d = parseLocalDate(dateStr);
+    return d.getFullYear() === targetYear && d.getMonth() === targetMonth;
+  };
+
+  const isCurrentMonth = (DataLayer && DataLayer.isCurrentMonth) || function(dateStr) {
+    const now = new Date();
+    return isSameMonth(dateStr, now.getFullYear(), now.getMonth());
+  };
+
   function formatDateDisplay(dateStr) {
     if (!dateStr) return '';
     try {
-      const [year, month, day] = dateStr.split('-');
-      const date = new Date(year, month - 1, day);
+      const date = parseLocalDate(dateStr);
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     } catch (e) {
       return dateStr;
     }
   }
 
-  // --- Calculations ---
-  function getCategorySpendingMap() {
+  function getCurrentMonthExpenses() {
+    return state.expenses.filter(exp => isCurrentMonth(exp.date));
+  }
+
+  function getMonthExpenses(year, month) {
+    return state.expenses.filter(exp => isSameMonth(exp.date, year, month));
+  }
+
+  // --- Calculations (Defaulting to Current Month) ---
+  function getCategorySpendingMap(expensesList = null) {
+    const expenses = expensesList !== null ? expensesList : getCurrentMonthExpenses();
     const map = {};
     const allCats = getAllCategories(true);
     Object.keys(allCats).forEach(k => {
       map[k] = 0;
     });
-    state.expenses.forEach(exp => {
+    expenses.forEach(exp => {
       const cat = normalizeCategoryKey(exp.category);
       if (map[cat] !== undefined) {
         map[cat] += Number(exp.amount) || 0;
@@ -110,8 +151,9 @@
     return map;
   }
 
-  function getTotalSpending() {
-    return state.expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+  function getTotalSpending(expensesList = null) {
+    const expenses = expensesList !== null ? expensesList : getCurrentMonthExpenses();
+    return expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
   }
 
   function getTotalAllocatedBudget() {
@@ -173,46 +215,31 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // --- Academic Term & Insights Helper ---
+  // --- Academic Term & Real Month Display (Section 7) ---
   function getAcademicTermInfo() {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth(); // 0-indexed: 0 = Jan, 8 = Sep
-
-    const termName = `Semester ${year}`;
-    let termStartDate;
-
-    if (month >= 6) { // Jul - Dec: Autumn Semester
-      termStartDate = new Date(year, 6, 15);
-    } else { // Jan - Jun: Spring Semester
-      termStartDate = new Date(year, 0, 15);
-    }
-
-    const diffMs = Math.max(0, now - termStartDate);
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const currentWeek = Math.min(16, Math.max(1, Math.ceil(diffDays / 7)));
-
+    const currentMonthYear = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); // e.g. "October 2026"
     return {
-      year,
-      termName,
-      weekText: `Week ${currentWeek} of 16`,
-      termCycle: currentWeek <= 4 ? 'Early Semester' : currentWeek <= 10 ? 'Midterm Cycle' : 'Finals & Wrap-up'
+      year: now.getFullYear(),
+      termName: currentMonthYear,
+      weekText: currentMonthYear,
+      termCycle: currentMonthYear,
     };
   }
 
   function updateAcademicTermDisplay() {
     const info = getAcademicTermInfo();
     const semBadges = document.querySelectorAll('.dynamic-semester-badge');
-    semBadges.forEach(el => { el.textContent = `Semester ${info.year}`; });
+    semBadges.forEach(el => { el.textContent = info.termName; });
 
     const termBadges = document.querySelectorAll('.dynamic-term-badge');
-    termBadges.forEach(el => { el.textContent = info.termName; });
+    termBadges.forEach(el => { el.textContent = `${info.termName} • Campus Living`; });
 
     const weekBadges = document.querySelectorAll('.dynamic-term-week');
-    weekBadges.forEach(el => { el.textContent = info.weekText; });
+    weekBadges.forEach(el => { el.textContent = info.termName; });
 
     const cycleBadges = document.querySelectorAll('.dynamic-term-cycle');
-    cycleBadges.forEach(el => { el.textContent = info.termCycle; });
+    cycleBadges.forEach(el => { el.textContent = info.termName; });
   }
 
   function getTopSpendingCategory(spendingMap) {
@@ -230,6 +257,33 @@
     return { ...catObj, amount: maxVal > 0 ? maxVal : 0 };
   }
 
+  // --- In-App 80% Budget Alert Check ---
+  function checkBudget80Alert() {
+    const banner = document.getElementById('budget-warning-banner');
+    if (!banner) return;
+
+    const totalSpent = getTotalSpending();
+    const overallCap = state.budget?.overallCap || 12000;
+    const isNotifyEnabled = state.settings?.notify80;
+
+    if (isNotifyEnabled && overallCap > 0 && (totalSpent / overallCap) >= 0.8) {
+      const pct = Math.round((totalSpent / overallCap) * 100);
+      const title = document.getElementById('budget-warning-title');
+      const desc = document.getElementById('budget-warning-desc');
+      if (title) {
+        title.textContent = pct >= 100 ? 'Monthly Budget Exceeded!' : 'Budget Warning: 80% Limit Reached';
+      }
+      if (desc) {
+        desc.textContent = pct >= 100
+          ? `You have exceeded your monthly budget of ₹${formatINR(overallCap)} by ₹${formatINR(totalSpent - overallCap)}.`
+          : `You have spent ₹${formatINR(totalSpent)} of your ₹${formatINR(overallCap)} monthly budget (${pct}% used).`;
+      }
+      banner.classList.remove('hidden');
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
   // --- Unified Single Source of Truth Synchronization ---
   function syncAllViewsWithData() {
     updateSidebarWidget();
@@ -238,6 +292,7 @@
     renderBudgetSetup();
     renderAnalytics();
     renderProfile();
+    checkBudget80Alert();
   }
 
   function renderCurrentView() {
@@ -432,11 +487,13 @@
     const countBadge = document.getElementById('dash-transactions-count');
     if (!container) return;
 
+    const currentMonthExpenses = getCurrentMonthExpenses();
+
     if (countBadge) {
-      countBadge.textContent = `${state.expenses.length} Total`;
+      countBadge.textContent = `${currentMonthExpenses.length} This Month`;
     }
 
-    if (!state.expenses || state.expenses.length === 0) {
+    if (!currentMonthExpenses || currentMonthExpenses.length === 0) {
       container.innerHTML = '';
       if (emptyState) emptyState.classList.remove('hidden');
       return;
@@ -444,10 +501,10 @@
 
     if (emptyState) emptyState.classList.add('hidden');
 
-    // Sort descending by date / createdAt
-    const sorted = [...state.expenses].sort((a, b) => {
-      const dateA = new Date(a.date).getTime() || a.createdAt || 0;
-      const dateB = new Date(b.date).getTime() || b.createdAt || 0;
+    // Sort descending by local date / createdAt
+    const sorted = [...currentMonthExpenses].sort((a, b) => {
+      const dateA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
+      const dateB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
       return dateB - dateA;
     });
 
@@ -878,10 +935,21 @@
   // VIEW 3: ANALYTICS (Chart.js Integration)
   // ==========================================
   function renderAnalytics() {
-    const spendingMap = getCategorySpendingMap();
-    const totalSpent = getTotalSpending();
+    const selectedYear = state.analyticsYear !== undefined ? state.analyticsYear : new Date().getFullYear();
+    const selectedMonth = state.analyticsMonth !== undefined ? state.analyticsMonth : new Date().getMonth();
+    const monthExpenses = getMonthExpenses(selectedYear, selectedMonth);
+
+    const spendingMap = getCategorySpendingMap(monthExpenses);
+    const totalSpent = getTotalSpending(monthExpenses);
     const overallCap = state.budget?.overallCap || 0;
     const categoryCaps = state.budget?.categories || {};
+
+    // Update Month Label in Analytics View
+    const monthLabel = document.getElementById('analytics-month-label');
+    if (monthLabel) {
+      const monthObj = new Date(selectedYear, selectedMonth, 1);
+      monthLabel.textContent = monthObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
 
     const totalSpentElem = document.getElementById('analytics-total-spent');
     const emptyElem = document.getElementById('analytics-empty-state');
@@ -890,7 +958,14 @@
     if (totalSpentElem) totalSpentElem.textContent = `₹${formatINR(totalSpent)}`;
 
     if (totalSpent === 0) {
-      if (emptyElem) emptyElem.classList.remove('hidden');
+      if (emptyElem) {
+        emptyElem.classList.remove('hidden');
+        const emptyH3 = emptyElem.querySelector('h3');
+        const emptyP = emptyElem.querySelector('p');
+        const monthName = new Date(selectedYear, selectedMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        if (emptyH3) emptyH3.textContent = `No Expenses in ${monthName}`;
+        if (emptyP) emptyP.textContent = `No transactions logged for ${monthName}. Use Quick Log to add an expense or browse other months using the arrows above.`;
+      }
       if (contentElem) contentElem.classList.add('hidden');
       if (state.charts.categoryDonut) {
         state.charts.categoryDonut.destroy();
@@ -925,9 +1000,10 @@
       topCategoryElem.textContent = `${topCat.name} (₹${formatINR(maxVal)})`;
     }
 
-    // Daily Average (approx 30 days)
+    // Daily Average for the selected month
     if (dailyAvgElem) {
-      const avg = Math.round(totalSpent / 30);
+      const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+      const avg = Math.round(totalSpent / daysInMonth);
       dailyAvgElem.textContent = `₹${formatINR(avg)} / day`;
     }
 
@@ -936,7 +1012,6 @@
     if (breakdownList) {
       const activeCats = getCategories();
       const allCats = getAllCategories(true);
-      // Union of active categories and categories with spending
       const catKeySet = new Set(Object.keys(activeCats));
       Object.keys(spendingMap).forEach(k => {
         if (spendingMap[k] > 0) catKeySet.add(k);
@@ -974,10 +1049,10 @@
     }
 
     // Initialize or Update Chart.js
-    initOrUpdateCharts(spendingMap);
+    initOrUpdateCharts(spendingMap, monthExpenses);
   }
 
-  function initOrUpdateCharts(spendingMap) {
+  function initOrUpdateCharts(spendingMap, monthExpenses = []) {
     if (typeof Chart === 'undefined') {
       console.warn('Chart.js is not loaded.');
       return;
@@ -1001,6 +1076,7 @@
       if (state.charts.categoryDonut) {
         state.charts.categoryDonut.data.labels = catLabels;
         state.charts.categoryDonut.data.datasets[0].data = catData;
+        state.charts.categoryDonut.data.datasets[0].backgroundColor = catColors;
         state.charts.categoryDonut.update();
       } else {
         state.charts.categoryDonut = new Chart(donutCtx, {
@@ -1049,11 +1125,11 @@
     // Weekly/Monthly Velocity Bar Chart
     const barCtx = document.getElementById('chart-monthly-bar')?.getContext?.('2d');
     if (barCtx) {
-      // Group expenses into 4 weeks of the term
+      // Group expenses into 4 weeks of the selected month
       const weekBuckets = [0, 0, 0, 0];
-      state.expenses.forEach(exp => {
+      monthExpenses.forEach(exp => {
         if (!exp.date) return;
-        const day = parseInt(exp.date.split('-')[2], 10) || 1;
+        const day = parseLocalDate(exp.date).getDate() || 1;
         if (day <= 7) weekBuckets[0] += Number(exp.amount) || 0;
         else if (day <= 14) weekBuckets[1] += Number(exp.amount) || 0;
         else if (day <= 21) weekBuckets[2] += Number(exp.amount) || 0;
@@ -1250,13 +1326,9 @@
     if (amountInput) amountInput.value = '';
     if (noteInput) noteInput.value = '';
 
-    // Default to today's date YYYY-MM-DD
+    // Default to today's date YYYY-MM-DD (local time)
     if (dateInput) {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      dateInput.value = `${yyyy}-${mm}-${dd}`;
+      dateInput.value = localDateString();
     }
 
     renderQuickLogCategoryChips('food');
@@ -1340,32 +1412,53 @@
 
     if (state.editingExpenseId) {
       // Update existing
-      const idx = state.expenses.findIndex(x => x.id === state.editingExpenseId);
-      if (idx !== -1) {
-        state.expenses[idx] = {
-          ...state.expenses[idx],
+      if (DataLayer) {
+        DataLayer.updateExpense(state.editingExpenseId, {
           amount: Math.round(amountVal),
           category: normCat,
           date: dateVal,
           note: noteVal || categoryName,
-        };
-        showToast('Expense updated successfully!', 'success');
+        });
+        state.expenses = DataLayer.getExpenses();
+      } else {
+        const idx = state.expenses.findIndex(x => x.id === state.editingExpenseId);
+        if (idx !== -1) {
+          state.expenses[idx] = {
+            ...state.expenses[idx],
+            amount: Math.round(amountVal),
+            category: normCat,
+            date: dateVal,
+            note: noteVal || categoryName,
+          };
+          saveExpenses();
+        }
       }
+      showToast('Expense updated successfully!', 'success');
     } else {
       // Create new
-      const newExp = {
-        id: 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-        amount: Math.round(amountVal),
-        category: normCat,
-        date: dateVal,
-        note: noteVal || categoryName,
-        createdAt: Date.now(),
-      };
-      state.expenses.unshift(newExp);
+      if (DataLayer) {
+        DataLayer.addExpense({
+          amount: Math.round(amountVal),
+          category: normCat,
+          date: dateVal,
+          note: noteVal || categoryName,
+        });
+        state.expenses = DataLayer.getExpenses();
+      } else {
+        const newExp = {
+          id: 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          amount: Math.round(amountVal),
+          category: normCat,
+          date: dateVal,
+          note: noteVal || categoryName,
+          createdAt: Date.now(),
+        };
+        state.expenses.unshift(newExp);
+        saveExpenses();
+      }
       showToast('Expense logged successfully!', 'success');
     }
 
-    saveExpenses();
     closeExpenseModal();
     syncAllViewsWithData();
   }
@@ -1380,25 +1473,42 @@
     if (!allCats[normCat]) {
       throw new Error('Please select a valid expense category.');
     }
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString();
     const categoryName = allCats[normCat]?.name || normCat;
-    const newExp = {
-      id: 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-      amount: Math.round(amountVal),
-      category: normCat,
-      date: date || today,
-      note: (note && String(note).trim()) || categoryName,
-      createdAt: Date.now(),
-    };
-    state.expenses.unshift(newExp);
-    saveExpenses();
+
+    let newExp;
+    if (DataLayer) {
+      newExp = DataLayer.addExpense({
+        amount: Math.round(amountVal),
+        category: normCat,
+        date: date || today,
+        note: (note && String(note).trim()) || categoryName,
+      });
+      state.expenses = DataLayer.getExpenses();
+    } else {
+      newExp = {
+        id: 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        amount: Math.round(amountVal),
+        category: normCat,
+        date: date || today,
+        note: (note && String(note).trim()) || categoryName,
+        createdAt: Date.now(),
+      };
+      state.expenses.unshift(newExp);
+      saveExpenses();
+    }
     syncAllViewsWithData();
     return newExp;
   }
 
   function deleteExpense(id) {
-    state.expenses = state.expenses.filter(e => e.id !== id);
-    saveExpenses();
+    if (DataLayer) {
+      DataLayer.deleteExpense(id);
+      state.expenses = DataLayer.getExpenses();
+    } else {
+      state.expenses = state.expenses.filter(e => e.id !== id);
+      saveExpenses();
+    }
     syncAllViewsWithData();
   }
 
@@ -1812,19 +1922,57 @@
     const cancelExpenseModalBtn = document.getElementById('cancel-expense-modal');
     if (cancelExpenseModalBtn) cancelExpenseModalBtn.addEventListener('click', closeExpenseModal);
 
+    // Month Selector Buttons in Analytics View
+    const prevMonthBtn = document.getElementById('analytics-prev-month');
+    if (prevMonthBtn) {
+      prevMonthBtn.addEventListener('click', () => {
+        state.analyticsMonth--;
+        if (state.analyticsMonth < 0) {
+          state.analyticsMonth = 11;
+          state.analyticsYear--;
+        }
+        renderAnalytics();
+      });
+    }
+
+    const nextMonthBtn = document.getElementById('analytics-next-month');
+    if (nextMonthBtn) {
+      nextMonthBtn.addEventListener('click', () => {
+        state.analyticsMonth++;
+        if (state.analyticsMonth > 11) {
+          state.analyticsMonth = 0;
+          state.analyticsYear++;
+        }
+        renderAnalytics();
+      });
+    }
+
     // Notification Toggles in Budget Setup
     const toggle80 = document.getElementById('toggle-80');
     if (toggle80) {
       toggle80.addEventListener('change', () => {
+        if (!state.settings) state.settings = {};
         state.settings.notify80 = toggle80.checked;
         saveSettings();
-        showToast(toggle80.checked ? '80% threshold ping enabled.' : '80% threshold ping disabled.');
+        syncAllViewsWithData();
+        if (toggle80.checked) {
+          const totalSpent = getTotalSpending();
+          const cap = state.budget?.overallCap || 12000;
+          if (cap > 0 && (totalSpent / cap) >= 0.8) {
+            showToast('Budget Alert: You have used over 80% of your monthly budget!', 'warning');
+          } else {
+            showToast('80% budget alert activated.', 'info');
+          }
+        } else {
+          showToast('80% budget alert deactivated.', 'info');
+        }
       });
     }
 
     const toggleDigest = document.getElementById('toggle-digest');
     if (toggleDigest) {
       toggleDigest.addEventListener('change', () => {
+        if (!state.settings) state.settings = {};
         state.settings.weeklyDigest = toggleDigest.checked;
         saveSettings();
         showToast(toggleDigest.checked ? 'Sunday weekly digest enabled.' : 'Weekly digest disabled.');
@@ -1834,6 +1982,7 @@
     const toggleRoom = document.getElementById('toggle-roommate');
     if (toggleRoom) {
       toggleRoom.addEventListener('change', () => {
+        if (!state.settings) state.settings = {};
         state.settings.roommateAlert = toggleRoom.checked;
         saveSettings();
         showToast(toggleRoom.checked ? 'Roommate split reminder enabled.' : 'Roommate split reminder disabled.');
@@ -1854,7 +2003,7 @@
         if (window.FirebaseService) {
           window.FirebaseService.signOut();
         } else {
-          if (DataLayer) DataLayer.clearUserSession();
+          if (DataLayer) DataLayer.clearUserData();
           window.location.replace('login.html');
         }
       });
@@ -1866,7 +2015,7 @@
         if (window.FirebaseService) {
           window.FirebaseService.signOut();
         } else {
-          if (DataLayer) DataLayer.clearUserSession();
+          if (DataLayer) DataLayer.clearUserData();
           window.location.replace('login.html');
         }
       });
@@ -1923,36 +2072,45 @@
       return;
     }
 
-    let authResolved = false;
-
-    // Safety timeout: If Firebase network resolution takes > 4.5s
-    const timeoutId = setTimeout(() => {
-      if (!authResolved) {
-        authResolved = true;
-        const cached = window.FirebaseService.getCachedSession();
-        if (cached) {
-          applyUserProfile(cached);
-          hideLoadingOverlay();
-        } else {
-          redirectToLogin();
-        }
-      }
-    }, 4500);
-
     // Live Firebase listener - single source of truth for auth
-    window.FirebaseService.onAuthStateChanged(user => {
-      authResolved = true;
-      clearTimeout(timeoutId);
-
-      if (!user) {
+    window.FirebaseService.onAuthStateChanged(async (user) => {
+      if (!user || !user.uid) {
         redirectToLogin();
-      } else {
+        return;
+      }
+
+      try {
+        if (DataLayer && typeof DataLayer.initUser === 'function') {
+          await DataLayer.initUser(user.uid);
+        }
+        loadState();
+
+        // Synchronize toggle-80 input state with user's settings
+        const toggle80 = document.getElementById('toggle-80');
+        if (toggle80 && state.settings) {
+          toggle80.checked = !!state.settings.notify80;
+        }
+
         applyUserProfile({
           displayName: user.displayName || user.phoneNumber || 'Student',
           email: user.email || user.phoneNumber || 'Campus Living',
           photoURL: user.photoURL || '',
           phoneNumber: user.phoneNumber || ''
         });
+
+        navigateTo('dashboard');
+        syncAllViewsWithData();
+
+        // Listen for live Firestore updates across tabs/cloud
+        if (DataLayer && typeof DataLayer.onDataChanged === 'function') {
+          DataLayer.onDataChanged(() => {
+            loadState();
+            syncAllViewsWithData();
+          });
+        }
+      } catch (err) {
+        console.error('ExpenseTrack: Error initializing user data:', err);
+      } finally {
         hideLoadingOverlay();
       }
     });
@@ -1985,9 +2143,11 @@
     selectCategoryChip,
     // Data queries
     getExpenses: () => [...state.expenses],
-    getTotalSpending: () => getTotalSpending(),
-    getCategorySpending: (cat) => {
-      const m = getCategorySpendingMap();
+    getCurrentMonthExpenses: () => getCurrentMonthExpenses(),
+    getMonthExpenses: (y, m) => getMonthExpenses(y, m),
+    getTotalSpending: (list) => getTotalSpending(list),
+    getCategorySpending: (cat, list) => {
+      const m = getCategorySpendingMap(list);
       return m[normalizeCategoryKey(cat)] || 0;
     },
     getActiveCategories: () => getCategories(),
@@ -1995,13 +2155,10 @@
     getState: () => state,
   };
 
-  // Bootstrap Application
+  // Bootstrap Application (Never load data before auth resolves)
   document.addEventListener('DOMContentLoaded', () => {
-    loadState();
     initEventListeners();
     hideExpenseFormError();
     initAuthGuardAndSyncUser();
-    navigateTo('dashboard');
-    syncAllViewsWithData();
   });
 })();

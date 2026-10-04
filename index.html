@@ -6,6 +6,18 @@
   <meta content="web_dashboard" name="shell-type"/>
   <title>ExpenseTrack - Student Finance App</title>
   
+  <meta name="description" content="ExpenseTrack - Mindful, stress-free student budgeting and expense tracking for campus life."/>
+  <meta name="theme-color" content="#006948"/>
+  <meta property="og:title" content="ExpenseTrack - Student Finance App"/>
+  <meta property="og:description" content="Mindful, stress-free student budgeting and expense tracking for college life."/>
+  <meta property="og:image" content="apple-touch-icon.png"/>
+  <meta property="og:type" content="website"/>
+
+  <!-- Favicons & App Icons -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,150 +29,15 @@
   <!-- Chart.js for Analytics -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <style>
-    @layer base {
-      html, body { margin: 0; padding: 0; }
-      body { overscroll-behavior: none; }
-      main > :first-child { margin-top: 0 !important; }
-      main > :last-child { margin-bottom: 0 !important; }
-    }
-    ::-webkit-scrollbar { display: none; }
-    /* Numeric balance font features */
-    .tabular-nums {
-      font-feature-settings: "tnum";
-    }
-
-    /* Enforce Material Symbols Ligature Rendering */
-    .material-symbols-outlined {
-      font-family: 'Material Symbols Outlined' !important;
-      font-weight: normal !important;
-      font-style: normal;
-      font-size: 24px;
-      line-height: 1;
-      letter-spacing: normal;
-      text-transform: none;
-      display: inline-block;
-      white-space: nowrap;
-      word-wrap: normal;
-      direction: ltr;
-      -webkit-font-feature-settings: 'liga' 1;
-      -webkit-font-smoothing: antialiased;
-      font-feature-settings: 'liga' 1;
-    }
-  </style>
+  <!-- Compiled Tailwind CSS -->
+  <link rel="stylesheet" href="dist/styles.css"/>
 
   <!-- Firebase Compat SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
   <!-- Firebase Configuration Module -->
   <script src="firebase-config.js"></script>
-
-  <!-- Tailwind CSS via CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script id="tailwind-config">
-    tailwind.config = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          colors: {
-            "on-primary-container": "#f5fff7",
-            "on-surface": "#0b1c30",
-            "surface-tint": "#006c4a",
-            "inverse-on-surface": "#eaf1ff",
-            "secondary": "#565e74",
-            "surface-variant": "#d3e4fe",
-            "primary-container": "#00855d",
-            "on-surface-variant": "#3d4a42",
-            "on-error-container": "#93000a",
-            "on-secondary": "#ffffff",
-            "secondary-fixed": "#dae2fd",
-            "outline-variant": "#bccac0",
-            "primary": "#006948",
-            "tertiary-fixed": "#ffddb8",
-            "on-tertiary": "#ffffff",
-            "secondary-container": "#dae2fd",
-            "on-primary-fixed-variant": "#005137",
-            "on-secondary-fixed": "#131b2e",
-            "error": "#ba1a1a",
-            "primary-fixed": "#85f8c4",
-            "on-error": "#ffffff",
-            "on-background": "#0b1c30",
-            "surface-dim": "#cbdbf5",
-            "on-secondary-container": "#5c647a",
-            "surface-container-high": "#dce9ff",
-            "inverse-primary": "#68dba9",
-            "background": "#f8f9ff",
-            "secondary-fixed-dim": "#bec6e0",
-            "on-secondary-fixed-variant": "#3f465c",
-            "surface-container-low": "#eff4ff",
-            "on-primary": "#ffffff",
-            "on-tertiary-container": "#fffbff",
-            "surface-container": "#e5eeff",
-            "tertiary-fixed-dim": "#ffb95f",
-            "surface-container-lowest": "#ffffff",
-            "error-container": "#ffdad6",
-            "surface-bright": "#f8f9ff",
-            "inverse-surface": "#213145",
-            "on-tertiary-fixed": "#2a1700",
-            "tertiary": "#825100",
-            "surface-container-highest": "#d3e4fe",
-            "outline": "#6d7a72",
-            "on-tertiary-fixed-variant": "#653e00",
-            "primary-fixed-dim": "#68dba9",
-            "on-primary-fixed": "#002114",
-            "surface": "#f8f9ff",
-            "tertiary-container": "#a36700"
-          },
-          borderRadius: {
-            DEFAULT: "0.25rem",
-            lg: "0.5rem",
-            xl: "0.75rem",
-            full: "9999px"
-          },
-          spacing: {
-            "margin-tablet": "2rem",
-            "space-md": "1rem",
-            "space-xl": "2rem",
-            "margin": "1rem",
-            "space-xs": "0.25rem",
-            "space-sm": "0.5rem",
-            "gutter-tablet": "1.5rem",
-            "space-lg": "1.5rem",
-            "margin-desktop": "3rem",
-            "gutter": "1rem"
-          },
-          fontFamily: {
-            "label-sm": ["Plus Jakarta Sans"],
-            "display-lg-mobile": ["Plus Jakarta Sans"],
-            "numeric-balance": ["Plus Jakarta Sans"],
-            "body-md": ["Inter"],
-            "title-md": ["Plus Jakarta Sans"],
-            "headline-lg": ["Plus Jakarta Sans"],
-            "body-sm": ["Inter"],
-            "headline-lg-mobile": ["Plus Jakarta Sans"],
-            "display-lg": ["Plus Jakarta Sans"],
-            "label-md": ["Plus Jakarta Sans"],
-            "headline-sm": ["Plus Jakarta Sans"],
-            "body-lg": ["Inter"]
-          },
-          fontSize: {
-            "label-sm": ["0.75rem", { lineHeight: "1rem", letterSpacing: "0.02em", fontWeight: "600" }],
-            "display-lg-mobile": ["2.25rem", { lineHeight: "2.75rem", letterSpacing: "-0.025em", fontWeight: "800" }],
-            "numeric-balance": ["2.5rem", { lineHeight: "3rem", letterSpacing: "-0.03em", fontWeight: "800" }],
-            "body-md": ["0.875rem", { lineHeight: "1.375rem", fontWeight: "400" }],
-            "title-md": ["1.125rem", { lineHeight: "1.5rem", fontWeight: "600" }],
-            "headline-lg": ["2rem", { lineHeight: "2.5rem", letterSpacing: "-0.02em", fontWeight: "700" }],
-            "body-sm": ["0.75rem", { lineHeight: "1.125rem", fontWeight: "400" }],
-            "headline-lg-mobile": ["1.5rem", { lineHeight: "2rem", letterSpacing: "-0.015em", fontWeight: "700" }],
-            "display-lg": ["3rem", { lineHeight: "3.5rem", letterSpacing: "-0.03em", fontWeight: "800" }],
-            "label-md": ["0.875rem", { lineHeight: "1.25rem", fontWeight: "600" }],
-            "headline-sm": ["1.25rem", { lineHeight: "1.75rem", letterSpacing: "-0.01em", fontWeight: "600" }],
-            "body-lg": ["1rem", { lineHeight: "1.5rem", fontWeight: "400" }]
-          }
-        }
-      }
-    };
-  </script>
 </head>
 
 <body class="bg-surface font-body-md text-body-md text-on-surface antialiased">
@@ -169,7 +46,7 @@
   <div id="auth-loading-overlay" class="fixed inset-0 bg-surface z-[9999] flex flex-col items-center justify-center gap-4 transition-opacity duration-300">
     <div class="relative flex items-center justify-center">
       <div class="w-14 h-14 rounded-full border-4 border-surface-container border-t-primary animate-spin"></div>
-      <img alt="ExpenseTrack" class="w-7 h-7 object-contain absolute" src="https://lh3.googleusercontent.com/aida/AEtjO1VzIAMlMB5gwZ_4XwCn95HL3vHeDbgfUKeqWUcQB2AL-Zyyv52Le_zlOtXkrVC_WZJNir7NcDG0t0zpQ9l3gv8xwC9WOkxnwzJQgZVxwkLSQFf3PzCD0zfohoqO2gAFYiuQDQGtWgtVyCOGy0MHJ_OcIPzl2y6f4bfwKEEdXaHCqyrULnzSZx5Bo71KIPDDCLuGWAQG5plm77PQgZ38xy7sZuHoCEokSM0l1IDYgUEb7pe6UUTCzZnpKE0"/>
+      <img alt="ExpenseTrack" class="w-7 h-7 object-contain absolute" src="assets/logo.svg"/>
     </div>
     <div class="flex flex-col items-center text-center">
       <span class="font-title-md text-title-md text-on-surface font-bold tracking-tight">ExpenseTrack</span>
@@ -187,7 +64,7 @@
     <div class="flex flex-col gap-space-xl">
       <!-- Logo -->
       <div class="flex items-center gap-space-sm px-space-sm cursor-pointer" onclick="window.ExpenseTrackApp.navigateTo('dashboard')">
-        <img alt="ExpenseTrack Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1VzIAMlMB5gwZ_4XwCn95HL3vHeDbgfUKeqWUcQB2AL-Zyyv52Le_zlOtXkrVC_WZJNir7NcDG0t0zpQ9l3gv8xwC9WOkxnwzJQgZVxwkLSQFf3PzCD0zfohoqO2gAFYiuQDQGtWgtVyCOGy0MHJ_OcIPzl2y6f4bfwKEEdXaHCqyrULnzSZx5Bo71KIPDDCLuGWAQG5plm77PQgZ38xy7sZuHoCEokSM0l1IDYgUEb7pe6UUTCzZnpKE0"/>
+        <img alt="ExpenseTrack Logo" class="h-8 w-auto object-contain" src="assets/logo.svg"/>
         <div class="flex flex-col">
           <span class="font-title-md text-title-md text-on-surface font-bold tracking-tight">ExpenseTrack</span>
           <span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
@@ -252,7 +129,7 @@
       <div class="h-16 w-full px-margin sm:px-margin-tablet lg:px-margin-desktop flex items-center justify-between">
         <!-- Mobile Logo -->
         <div class="flex items-center gap-space-sm lg:hidden cursor-pointer" onclick="window.ExpenseTrackApp.navigateTo('dashboard')">
-          <img alt="ExpenseTrack Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1VzIAMlMB5gwZ_4XwCn95HL3vHeDbgfUKeqWUcQB2AL-Zyyv52Le_zlOtXkrVC_WZJNir7NcDG0t0zpQ9l3gv8xwC9WOkxnwzJQgZVxwkLSQFf3PzCD0zfohoqO2gAFYiuQDQGtWgtVyCOGy0MHJ_OcIPzl2y6f4bfwKEEdXaHCqyrULnzSZx5Bo71KIPDDCLuGWAQG5plm77PQgZ38xy7sZuHoCEokSM0l1IDYgUEb7pe6UUTCzZnpKE0"/>
+          <img alt="ExpenseTrack Logo" class="h-8 w-auto object-contain" src="assets/logo.svg"/>
           <span class="font-title-md text-title-md text-on-surface font-bold">ExpenseTrack</span>
         </div>
 
@@ -317,6 +194,20 @@
               Quick Log Expense
             </button>
           </div>
+        </div>
+
+        <!-- In-App 80% Budget Warning Banner -->
+        <div id="budget-warning-banner" class="hidden mb-space-md p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-on-surface flex items-center justify-between gap-3 transition-all">
+          <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-amber-600 text-2xl flex-shrink-0">warning</span>
+            <div>
+              <span class="font-title-md text-title-md font-bold text-amber-900 block" id="budget-warning-title">Budget Warning: 80% Limit Reached</span>
+              <span class="font-body-sm text-body-sm text-amber-800" id="budget-warning-desc">You have spent over 80% of your allocated monthly budget.</span>
+            </div>
+          </div>
+          <button type="button" onclick="document.getElementById('budget-warning-banner').classList.add('hidden')" class="text-amber-800 hover:text-amber-950 p-1 flex-shrink-0" title="Dismiss" aria-label="Dismiss">
+            <span class="material-symbols-outlined text-lg">close</span>
+          </button>
         </div>
 
         <!-- Hero Balance & Spending Card Bento Grid -->
@@ -890,17 +781,16 @@
                 </div>
               </div>
               <div class="flex flex-col gap-space-md divide-y-0">
-                <!-- Toggle 1 -->
+                <!-- Toggle 1: 80% Budget Alert (Active Feature) -->
                 <div class="flex items-start justify-between gap-space-sm pt-2">
                   <div class="flex flex-col">
                     <div class="flex items-center gap-2">
-                      <span class="font-label-md text-label-md text-on-surface font-semibold">Notify when category hits 80%</span>
-                      <span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[10px] font-bold uppercase tracking-wider">Coming Soon</span>
+                      <span class="font-label-md text-label-md text-on-surface font-semibold">Notify when spending hits 80%</span>
                     </div>
-                    <span class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Sends a gentle push ping to slow dining out pace before overruns.</span>
+                    <span class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Displays an in-app warning banner and alert toast when monthly budget reaches 80%.</span>
                   </div>
-                  <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1 opacity-70">
-                    <input class="sr-only peer" id="toggle-80" type="checkbox" disabled/>
+                  <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                    <input class="sr-only peer" id="toggle-80" type="checkbox"/>
                     <div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                   </label>
                 </div>
@@ -990,9 +880,21 @@
               </span>
             </div>
           </div>
-          <button class="flex items-center gap-space-xs px-space-lg py-2.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all duration-200" onclick="window.ExpenseTrackApp.openAddExpenseModal()">
-            <span class="material-symbols-outlined text-lg">add_circle</span> Quick Log
-          </button>
+          <div class="flex items-center gap-space-sm flex-wrap">
+            <!-- Month Selector Controls -->
+            <div class="flex items-center gap-1 bg-surface-container-lowest border border-slate-200 rounded-full px-2 py-1 shadow-sm">
+              <button id="analytics-prev-month" type="button" class="w-8 h-8 rounded-full hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors" title="Previous Month" aria-label="Previous Month">
+                <span class="material-symbols-outlined text-lg">chevron_left</span>
+              </button>
+              <span id="analytics-month-label" class="font-label-md text-label-md font-semibold text-on-surface px-2 select-none min-w-[120px] text-center">October 2026</span>
+              <button id="analytics-next-month" type="button" class="w-8 h-8 rounded-full hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors" title="Next Month" aria-label="Next Month">
+                <span class="material-symbols-outlined text-lg">chevron_right</span>
+              </button>
+            </div>
+            <button class="flex items-center gap-space-xs px-space-lg py-2.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all duration-200" onclick="window.ExpenseTrackApp.openAddExpenseModal()">
+              <span class="material-symbols-outlined text-lg">add_circle</span> Quick Log
+            </button>
+          </div>
         </div>
 
         <!-- Empty State Container -->
