@@ -4,6 +4,21 @@
   "private": true,
   "description": "Test suite for ExpenseTrack",
   "scripts": {
-    "test": "node --test budget.test.js data-layer.test.js integration.test.js && node test-browser-env.js"
+    "test": "node --test budget.test.js data-layer.test.js integration.test.js persistence.test.js limits.test.js categories.test.js expense-tools.test.js payments.test.js caps.test.js p2.test.js theme.test.js && node test-browser-env.js",
+    "test:e2e": "npm --prefix .. run build && playwright test",
+    "test:all": "npm test && npm run test:rules && npm run test:e2e",
+    "test:network": "npm --prefix .. run build && playwright test --config playwright.network.config.js",
+    "test:rules": "firebase emulators:exec --config ../firebase.json --only firestore --project demo-expensetrack \"node --test rules/firestore.rules.test.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "@playwright/test": "^1.64.1",
+    "chart.js": "4.5.1",
+    "firebase": "^13.1.0",
+    "firebase-tools": "^15.34.2"
   }
 }
+
+
+
+

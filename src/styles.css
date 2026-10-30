@@ -2,6 +2,120 @@
 @tailwind components;
 @tailwind utilities;
 
+/* THEME TOKENS: light values first, dark values under .dark. tailwind.config.js points every colour here. */
+:root {
+  color-scheme: light;
+  --c-on-primary-container: 245 255 247;
+  --c-on-surface: 11 28 48;
+  --c-surface-tint: 0 108 74;
+  --c-inverse-on-surface: 234 241 255;
+  --c-secondary: 86 94 116;
+  --c-surface-variant: 211 228 254;
+  --c-primary-container: 0 133 93;
+  --c-on-surface-variant: 61 74 66;
+  --c-on-error-container: 147 0 10;
+  --c-on-secondary: 255 255 255;
+  --c-secondary-fixed: 218 226 253;
+  --c-outline-variant: 188 202 192;
+  --c-primary: 0 105 72;
+  --c-tertiary-fixed: 255 221 184;
+  --c-on-tertiary: 255 255 255;
+  --c-secondary-container: 218 226 253;
+  --c-on-primary-fixed-variant: 0 81 55;
+  --c-on-secondary-fixed: 19 27 46;
+  --c-error: 186 26 26;
+  --c-primary-fixed: 133 248 196;
+  --c-on-error: 255 255 255;
+  --c-on-background: 11 28 48;
+  --c-surface-dim: 203 219 245;
+  --c-on-secondary-container: 92 100 122;
+  --c-surface-container-high: 220 233 255;
+  --c-inverse-primary: 104 219 169;
+  --c-background: 248 249 255;
+  --c-secondary-fixed-dim: 190 198 224;
+  --c-on-secondary-fixed-variant: 63 70 92;
+  --c-surface-container-low: 239 244 255;
+  --c-on-primary: 255 255 255;
+  --c-on-tertiary-container: 255 251 255;
+  --c-surface-container: 229 238 255;
+  --c-tertiary-fixed-dim: 255 185 95;
+  --c-surface-container-lowest: 255 255 255;
+  --c-error-container: 255 218 214;
+  --c-surface-bright: 248 249 255;
+  --c-inverse-surface: 33 49 69;
+  --c-on-tertiary-fixed: 42 23 0;
+  --c-tertiary: 130 81 0;
+  --c-surface-container-highest: 211 228 254;
+  --c-outline: 109 122 114;
+  --c-on-tertiary-fixed-variant: 101 62 0;
+  --c-primary-fixed-dim: 104 219 169;
+  --c-on-primary-fixed: 0 33 20;
+  --c-surface: 248 249 255;
+  --c-tertiary-container: 163 103 0;
+}
+.dark {
+  color-scheme: dark;
+  --c-on-primary-container: 133 248 196;
+  --c-on-surface: 227 235 248;
+  --c-surface-tint: 104 219 169;
+  --c-inverse-on-surface: 26 36 56;
+  --c-secondary: 190 198 224;
+  --c-surface-variant: 42 52 71;
+  --c-primary-container: 0 81 58;
+  --c-on-surface-variant: 170 182 200;
+  --c-on-error-container: 255 218 214;
+  --c-on-secondary: 40 48 68;
+  --c-secondary-fixed: 63 70 92;
+  --c-outline-variant: 58 71 92;
+  --c-primary: 104 219 169;
+  --c-tertiary-fixed: 90 55 0;
+  --c-on-tertiary: 69 43 0;
+  --c-secondary-container: 63 70 92;
+  --c-on-primary-fixed-variant: 143 232 194;
+  --c-on-secondary-fixed: 218 226 253;
+  --c-error: 255 180 171;
+  --c-primary-fixed: 18 80 59;
+  --c-on-error: 105 0 5;
+  --c-on-background: 227 235 248;
+  --c-surface-dim: 8 14 25;
+  --c-on-secondary-container: 218 226 253;
+  --c-surface-container-high: 42 56 83;
+  --c-inverse-primary: 0 105 72;
+  --c-background: 11 18 32;
+  --c-secondary-fixed-dim: 86 94 116;
+  --c-on-secondary-fixed-variant: 190 198 224;
+  --c-surface-container-low: 26 36 56;
+  --c-on-primary: 0 56 38;
+  --c-on-tertiary-container: 255 221 184;
+  --c-surface-container: 33 45 69;
+  --c-tertiary-fixed-dim: 122 75 0;
+  --c-surface-container-lowest: 19 28 46;
+  --c-error-container: 147 0 10;
+  --c-surface-bright: 43 53 72;
+  --c-inverse-surface: 227 235 248;
+  --c-on-tertiary-fixed: 255 221 184;
+  --c-tertiary: 255 185 95;
+  --c-surface-container-highest: 52 68 95;
+  --c-outline: 138 152 174;
+  --c-on-tertiary-fixed-variant: 255 224 189;
+  --c-primary-fixed-dim: 27 106 80;
+  --c-on-primary-fixed: 182 245 216;
+  --c-surface: 11 18 32;
+  --c-tertiary-container: 101 62 0;
+}
+
+/* Dark-mode fixes for colours that are not tokens */
+.dark .border-slate-100, .dark .border-slate-200 { border-color: rgb(var(--c-outline-variant) / 0.55); }
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--c-outline-variant) / 0.55); }
+.dark .bg-on-surface\/40 { background-color: rgb(0 0 0 / 0.6); }
+.dark .bg-black\/40 { background-color: rgb(0 0 0 / 0.6); }
+.dark .text-amber-950, .dark .text-amber-900, .dark .text-amber-800 { color: #fde7b0; }
+.dark .text-amber-600 { color: #fbbf24; }
+.dark .bg-amber-500\/10 { background-color: rgb(245 158 11 / 0.16); }
+.dark .bg-white\/60 { background-color: rgb(255 255 255 / 0.14); }
+.dark .bg-white\/20 { background-color: rgb(255 255 255 / 0.14); }
+.dark .hover\:bg-white:hover { background-color: rgb(255 255 255 / 0.24); }
+
 @layer base {
   html, body {
     margin: 0;
@@ -22,6 +136,44 @@
   display: none;
 }
 
+/* Keyboard focus is always visible */
+:focus-visible {
+  outline: 2px solid #006948;
+  outline-offset: 2px;
+}
+
+/* Icon names are plain text until the icon font loads: do not show them */
+html:not(.icons-ready) .material-symbols-outlined {
+  color: transparent !important;
+}
+
+/* While the first data loads, the page content is hidden (not removed), so nothing jumps when it appears */
+body[data-loading="true"] > *:not(#auth-loading-overlay) {
+  visibility: hidden;
+}
+
+/* Placeholder blocks shown until the first data arrives */
+[data-loading="true"] .skel {
+  color: transparent !important;
+  background-color: #dce9ff;
+  border-radius: 0.5rem;
+  animation: skel-pulse 1.4s ease-in-out infinite;
+  user-select: none;
+}
+@keyframes skel-pulse {
+  50% { opacity: 0.45; }
+}
+
+/* Respect the "reduce motion" setting */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Numeric balance font features */
 .tabular-nums {
   font-feature-settings: "tnum";
@@ -37,6 +189,10 @@
   letter-spacing: normal;
   text-transform: none;
   display: inline-block;
+  /* One icon wide, even if the icon font has not loaded: the fallback text is clipped, not laid out */
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
   white-space: nowrap;
   word-wrap: normal;
   direction: ltr;

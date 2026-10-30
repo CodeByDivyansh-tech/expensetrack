@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: expensetrack
+    name: expensetrack-app
     runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: public
@@ -8,7 +8,28 @@ services:
       - type: rewrite
         source: /login
         destination: /login.html
+      - type: rewrite
+        source: /dashboard
+        destination: /index.html
     headers:
       - path: /*
         name: X-Frame-Options
         value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net https://apis.google.com; style-src-elem 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.googleusercontent.com; connect-src 'self' https://*.googleapis.com https://www.gstatic.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; frame-src https://expensetrack-bff94.firebaseapp.com https://accounts.google.com https://apis.google.com https://*.googleapis.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
+      - path: /manifest.webmanifest
+        name: Cache-Control
+        value: no-cache

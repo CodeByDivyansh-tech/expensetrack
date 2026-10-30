@@ -28,3 +28,7 @@ public/
 .env
 .env.*
 *serviceAccount*.json
+
+# Playwright output
+test-results/
+playwright-report/

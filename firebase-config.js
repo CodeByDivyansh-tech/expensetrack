@@ -38,10 +38,11 @@
   // Enable Firestore offline persistence
   if (db) {
     db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+      // Expected situations, not problems: the app works fine without the offline cache.
       if (err.code === 'failed-precondition') {
-        console.warn('Firestore persistence warning: Multiple tabs open; persistence restricted to first tab.');
+        console.info('Firestore offline cache is limited because another tab is using it.');
       } else if (err.code === 'unimplemented') {
-        console.warn('Firestore persistence is not supported by this browser environment.');
+        console.info('Firestore offline cache is not supported by this browser.');
       } else {
         console.warn('Firestore persistence error:', err);
       }
@@ -106,7 +107,36 @@
       if (!auth || !googleProvider) {
         throw new Error('Firebase Auth not initialized.');
       }
-      return auth.signInWithPopup(googleProvider);
+      const result = await auth.signInWithPopup(googleProvider);
+      // Leave a session marker before the page moves on: the app's first script sends visitors without one to sign-in.
+      try {
+        const u = result && result.user;
+        if (u) localStorage.setItem('expensetrack_user_session', JSON.stringify({ uid: u.uid, email: u.email || '', displayName: u.displayName || 'Student', photoURL: u.photoURL || '', phoneNumber: u.phoneNumber || '' }));
+      } catch (e) { /* storage unavailable: the app's own listener will cope */ }
+      return result;
+    },
+
+    /**
+     * Ask the signed-in person to confirm it is them (a Google popup). Needed before deleting an
+     * account, so the deletion cannot fail halfway for lack of a recent sign-in.
+     */
+    async reauthenticate() {
+      if (!auth || !auth.currentUser || !googleProvider) {
+        throw new Error('You are not signed in.');
+      }
+      return auth.currentUser.reauthenticateWithPopup(googleProvider);
+    },
+
+    /**
+     * Remove the sign-in itself (the data is deleted separately), then leave through signOut so the
+     * offline cache is cleared and the page returns to the login screen.
+     */
+    async deleteAccount() {
+      if (!auth || !auth.currentUser) {
+        throw new Error('You are not signed in.');
+      }
+      await auth.currentUser.delete();
+      return this.signOut();
     },
 
     /**
@@ -130,6 +160,18 @@
         localStorage.removeItem('expensetrack_custom_categories');
       } catch (e) {
         console.warn('Error clearing localStorage on sign out:', e);
+      }
+
+      // Firestore keeps an offline copy of the data in IndexedDB. Remove it so the next person
+      // on a shared computer cannot find this account's data in the browser profile. This runs
+      // before auth.signOut(), because that triggers the auth listener, which redirects the page.
+      if (db) {
+        try {
+          await db.terminate();
+          await db.clearPersistence();
+        } catch (e) {
+          console.warn('Could not clear the offline data cache on sign out:', e);
+        }
       }
 
       if (auth) {

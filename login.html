@@ -3,13 +3,30 @@
 <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta name="color-scheme" content="light dark"/>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="ExpenseTrack"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <script src="theme-init.js"></script>
   <title>Login - ExpenseTrack Student Finance</title>
   
   <meta name="description" content="ExpenseTrack - Mindful, stress-free student budgeting and expense tracking for campus life."/>
   <meta name="theme-color" content="#006948"/>
   <meta property="og:title" content="Login - ExpenseTrack Student Finance"/>
   <meta property="og:description" content="Mindful, stress-free student budgeting and expense tracking for campus life."/>
-  <meta property="og:image" content="apple-touch-icon.png"/>
+  <meta property="og:image" content="https://expensetrack-app.onrender.com/assets/og-image.png"/>
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+  <meta property="og:image:alt" content="ExpenseTrack: simple monthly budgeting for students"/>
+  <meta property="og:url" content="https://expensetrack-app.onrender.com/login"/>
+  <meta property="og:site_name" content="ExpenseTrack"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="Login - ExpenseTrack Student Finance"/>
+  <meta name="twitter:description" content="Mindful, stress-free student budgeting and expense tracking."/>
+  <meta name="twitter:image" content="https://expensetrack-app.onrender.com/assets/og-image.png"/>
+  <link rel="canonical" href="https://expensetrack-app.onrender.com/login"/>
   <meta property="og:type" content="website"/>
 
   <!-- Favicons & App Icons -->
@@ -19,21 +36,22 @@
   
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=optional" rel="stylesheet" media="print" data-async-css/>
   
   <!-- Material Symbols Outlined (Full Variable Font Range) -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance_wallet,add,add_circle,auto_stories,bar_chart,category,celebration,check_circle,chevron_left,chevron_right,close,cloud_done,cloud_off,delete,directions_bus,donut_large,download,edit,error,fitness_center,flight,home,info,insights,local_cafe,local_laundry_service,local_mall,lock,logout,manage_accounts,medical_services,menu_book,notifications,notifications_active,payments,person,phone_android,pie_chart,psychology_alt,receipt_long,repeat,restaurant,save,savings,school,search_off,security,shopping_bag,show_chart,sports_esports,subscriptions,sync,trending_up,tune,upload_file,verified,verified_user,warning&display=block"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance_wallet,add,add_circle,auto_stories,bar_chart,category,celebration,check_circle,chevron_left,chevron_right,close,cloud_done,cloud_off,delete,directions_bus,donut_large,download,edit,error,fitness_center,flight,home,info,insights,local_cafe,local_laundry_service,local_mall,lock,logout,manage_accounts,medical_services,menu_book,notifications,notifications_active,payments,person,phone_android,pie_chart,psychology_alt,receipt_long,repeat,restaurant,save,savings,school,search_off,security,shopping_bag,show_chart,sports_esports,subscriptions,sync,trending_up,tune,upload_file,verified,verified_user,warning&display=block" media="print" data-async-css/>
   
   <!-- Compiled Tailwind CSS -->
   <link rel="stylesheet" href="dist/styles.css"/>
 
   <!-- Firebase Compat SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js" defer></script>
   <!-- Firebase Configuration Module -->
-  <script src="firebase-config.js"></script>
+  <script src="firebase-config.js" defer></script>
 </head>
 
 <body class="bg-surface font-body-md text-body-md text-on-surface antialiased min-h-screen flex flex-col justify-between">
@@ -45,13 +63,13 @@
       <div class="flex flex-col">
         <span class="font-title-md text-title-md text-on-surface font-bold tracking-tight">ExpenseTrack</span>
         <span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
-          <span class="w-2 h-2 rounded-full bg-primary inline-block"></span> Saved on this device
+          <span class="w-2 h-2 rounded-full bg-primary inline-block"></span> Synced to your Google account
         </span>
       </div>
     </div>
     <div class="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">
       <span class="material-symbols-outlined text-sm text-primary">verified</span>
-      <span>Semester Term • Campus Living</span>
+      <span>Student budgeting made simple</span>
     </div>
   </header>
 
@@ -77,6 +95,12 @@
       <div id="auth-alert" style="display: none;" class="p-3.5 rounded-2xl text-label-md font-label-md items-center gap-2.5">
         <span class="material-symbols-outlined text-xl flex-shrink-0" id="auth-alert-icon">error</span>
         <span id="auth-alert-text" class="flex-1"></span>
+      </div>
+
+      <!-- In-app browser notice (shown by login.js) -->
+      <div id="inapp-warning" class="hidden p-3.5 rounded-2xl bg-tertiary-fixed text-on-tertiary-fixed text-label-md font-label-md flex flex-col gap-2" role="note">
+        <span>You seem to be inside another app's browser. Google sign-in usually does not work here. Open this page in Chrome or Safari instead.</span>
+        <button type="button" id="btn-copy-link" class="self-start px-4 py-2 min-h-[44px] rounded-full bg-white/60 hover:bg-white font-label-md text-label-md">Copy link</button>
       </div>
 
       <!-- Sign-In Method 1: Google Sign-In -->
@@ -111,76 +135,8 @@
   <footer class="w-full py-4 text-center text-on-surface-variant font-body-sm text-body-sm">
     <span>ExpenseTrack • Student Financial Vitality</span>
   </footer>
-
   <!-- Login Page Controller Logic -->
-  <script>
-    (function() {
-      'use strict';
-
-      const alertBox = document.getElementById('auth-alert');
-      const alertIcon = document.getElementById('auth-alert-icon');
-      const alertText = document.getElementById('auth-alert-text');
-      const googleBtn = document.getElementById('btn-google-signin');
-      const googleBtnText = document.getElementById('google-btn-text');
-
-
-      function showAlert(msg, isError = true) {
-        if (!alertBox || !alertText) return;
-        alertText.textContent = msg;
-        if (isError) {
-          alertBox.className = 'p-3.5 rounded-2xl bg-error-container text-on-error-container text-label-md font-label-md flex items-center gap-2.5';
-          alertIcon.textContent = 'error';
-        } else {
-          alertBox.className = 'p-3.5 rounded-2xl bg-primary-fixed text-on-primary-fixed text-label-md font-label-md flex items-center gap-2.5';
-          alertIcon.textContent = 'check_circle';
-        }
-        alertBox.style.display = 'flex';
-      }
-
-      function hideAlert() {
-        if (alertBox) alertBox.style.display = 'none';
-      }
-
-      // 1. Auth Guard: If genuinely logged in, redirect to index.html
-      if (window.FirebaseService) {
-        window.FirebaseService.onAuthStateChanged(user => {
-          if (user && user.uid) {
-            const currentPath = window.location.pathname.toLowerCase();
-            // Strictly prevent loops: Only redirect if currently on login page
-            if (currentPath.endsWith('login.html') || currentPath.endsWith('/login') || currentPath === '/login') {
-              window.location.replace('index.html');
-            }
-          }
-          // When !user: Remain on login.html! NEVER redirect to login.html or self!
-        });
-      }
-
-      // 2. Google Sign-In
-      googleBtn.addEventListener('click', async () => {
-        hideAlert();
-        googleBtnText.textContent = 'Signing in...';
-        googleBtn.disabled = true;
-
-        try {
-          await window.FirebaseService.signInWithGoogle();
-          showAlert('Google sign-in successful! Redirecting...', false);
-          setTimeout(() => {
-            window.location.replace('index.html');
-          }, 500);
-        } catch (err) {
-          console.error('Google Sign-in Error:', err);
-          googleBtnText.textContent = 'Sign in with Google';
-          googleBtn.disabled = false;
-          if (err.code === 'auth/popup-closed-by-user') {
-            showAlert('Sign-in cancelled. Please try again.');
-          } else if (err.code === 'auth/popup-blocked') {
-            showAlert('Sign-in popup was blocked by browser. Please allow popups.');
-          } else {
-            showAlert(err.message || 'Google sign-in failed. Please try again.');
-          }
-        }
-      });
-    })();
-  </script>
+  <script src="login.js" defer></script>
+  <script src="pwa.js" defer></script>
 </body>
 </html>
