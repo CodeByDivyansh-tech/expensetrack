@@ -1,8 +1,10 @@
-const { defineConfig } = require('@playwright/test');
+﻿const { defineConfig } = require('@playwright/test');
 
 // Runs the real build in public/ (run `npm run build` first; `npm run test:e2e` does it for you).
 module.exports = defineConfig({
   testDir: './e2e',
+  // Needs internet and Google's popup; run separately with `npm run test:network`.
+  testIgnore: '**/csp-real.spec.js',
   timeout: 30000,
   retries: 0,
   reporter: 'list',

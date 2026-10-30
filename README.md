@@ -1,6 +1,6 @@
-# ExpenseTrack
+﻿# ExpenseTrack
 
-A simple monthly budget and expense tracker for students (amounts in ₹). Sign in with Google, log what
+A simple monthly budget and expense tracker for students (amounts in â‚¹). Sign in with Google, log what
 you spend, set a monthly budget with per-category caps, and see where the money goes.
 
 **Live site:** https://expensetrack-app.onrender.com
@@ -78,10 +78,12 @@ npm test
 | `npm test` | Unit tests for the data layer and calculator, with an in-memory fake Firestore |
 | `npm run test:rules` | Security-rules tests in the Firestore emulator (needs Java 11 or newer) |
 | `npm run test:e2e` | Builds, then runs Playwright against `public/` in Chrome, with Firebase stubbed |
-| `npm run test:all` | All of the above |
+| `npm run test:all` | All of the above (not `test:network`) |
+| `npm run test:network` | The two tests that use the real Firebase SDK and Google's sign-in popup |
 
-Two browser tests use the real Firebase SDK and Google's sign-in popup to prove the Content-Security-Policy
-does not block sign-in; they skip themselves when there is no internet.
+The two `test:network` tests use the real Firebase SDK and Google's sign-in popup to prove the Content-Security-Policy
+does not block sign-in. They need internet and can be flaky, so they are not part of `npm test`; they skip themselves
+when there is no internet.
 
 ## Deploying
 
