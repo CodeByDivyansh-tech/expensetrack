@@ -33,12 +33,12 @@ describe('Phase A Integration Flow Verification', () => {
     assert.match(r3.statusText, /1,000 over budget/);
   });
 
-  test('Requirement 4: 7 default categories preserved, custom categories addable, editable, archivable', () => {
+  test('Requirement 4: 7 default categories preserved, custom categories addable, editable, archivable', async () => {
     const defaults = DataLayer.getActiveCategories();
     assert.equal(Object.keys(defaults).length, 7);
 
     // 1. Add custom category
-    const cat = DataLayer.addCustomCategory({
+    const cat = await DataLayer.addCustomCategory({
       name: 'College Fest',
       budgetCap: 2500,
       icon: 'celebration',
@@ -52,7 +52,7 @@ describe('Phase A Integration Flow Verification', () => {
     assert.equal(Object.keys(DataLayer.getActiveCategories()).length, 8);
 
     // 2. Edit custom category (name + budget)
-    const updated = DataLayer.updateCustomCategory(cat.id, {
+    const updated = await DataLayer.updateCustomCategory(cat.id, {
       name: 'Campus Fest & Culturals',
       budgetCap: 3000,
     });
@@ -60,7 +60,7 @@ describe('Phase A Integration Flow Verification', () => {
     assert.equal(updated.defaultCap, 3000);
 
     // 3. Log expense in custom category
-    const exp = DataLayer.addExpense({
+    const exp = await DataLayer.addExpense({
       amount: 500,
       category: cat.id,
       note: 'Fest merchandise',
@@ -68,7 +68,7 @@ describe('Phase A Integration Flow Verification', () => {
     assert.equal(exp.category, cat.id);
 
     // 4. Archive category (attempting delete when expenses exist)
-    const delResult = DataLayer.deleteCategory(cat.id);
+    const delResult = await DataLayer.deleteCategory(cat.id);
     assert.equal(delResult.action, 'archived');
 
     // Category no longer in active categories
@@ -83,14 +83,14 @@ describe('Phase A Integration Flow Verification', () => {
     assert.equal(exps[0].amount, 500);
   });
 
-  test('Requirement 5: Data access layer handles budget and settings without direct localStorage', () => {
+  test('Requirement 5: Data access layer handles budget and settings without direct localStorage', async () => {
     // Initial default budget
     const budget = DataLayer.getBudget();
     assert.equal(budget.overallCap, 12000);
 
     // Update overall cap (never auto-changed)
     budget.overallCap = 15000;
-    DataLayer.saveBudget(budget);
+    await DataLayer.saveBudget(budget);
 
     const reloaded = DataLayer.getBudget();
     assert.equal(reloaded.overallCap, 15000);
@@ -99,9 +99,10 @@ describe('Phase A Integration Flow Verification', () => {
     const settings = DataLayer.getSettings();
     assert.equal(settings.notify80, false);
     settings.notify80 = true;
-    DataLayer.saveSettings(settings);
+    await DataLayer.saveSettings(settings);
 
     const reloadedSettings = DataLayer.getSettings();
     assert.equal(reloadedSettings.notify80, true);
   });
 });
+

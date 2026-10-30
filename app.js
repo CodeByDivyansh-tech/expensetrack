@@ -67,15 +67,34 @@
     DataLayer.saveExpenses(state.expenses);
   }
 
-  function saveBudget() {
+  async function saveBudget() {
     if (!DataLayer) return;
-    DataLayer.saveBudget(state.budget);
+    await DataLayer.saveBudget(state.budget);
   }
 
-  function saveSettings() {
+  async function saveSettings() {
     if (!DataLayer) return;
-    DataLayer.saveSettings(state.settings);
+    await DataLayer.saveSettings(state.settings);
   }
+
+  // Shown in toasts: say so when a save was only queued for later.
+  function savedMessage(message) {
+    return DataLayer && DataLayer.isOffline && DataLayer.isOffline()
+      ? "Saved offline. It will sync when you're back online."
+      : message;
+  }
+
+  function errorDetail(err) {
+    return (err && err.message) ? err.message : 'Something went wrong.';
+  }
+
+  // Put the in-memory state back in line with what the data layer really holds.
+  function reloadFromDataLayer() {
+    loadState();
+    syncAllViewsWithData();
+  }
+
+  const safeIcon = (icon) => (DataLayer && DataLayer.safeIcon ? DataLayer.safeIcon(icon) : 'category');
 
   // --- Formatting & Local Date Helpers ---
   function formatINR(val) {
@@ -457,8 +476,8 @@
       html += `
         <div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div class="flex items-center justify-between mb-2">
-            <div class="w-10 h-10 rounded-xl ${cat.iconBgClass || 'bg-surface-container text-primary'} flex items-center justify-center">
-              <span class="material-symbols-outlined text-xl">${escapeHtml(cat.icon || 'category')}</span>
+            <div class="w-10 h-10 rounded-xl ${escapeHtml(cat.iconBgClass || 'bg-surface-container text-primary')} flex items-center justify-center">
+              <span class="material-symbols-outlined text-xl">${escapeHtml(safeIcon(cat.icon))}</span>
             </div>
             <span class="px-2 py-0.5 rounded-full ${badgeColor} text-label-sm font-label-sm flex items-center gap-1">
               <span class="material-symbols-outlined text-xs">${badgeIcon}</span>
@@ -516,15 +535,15 @@
       html += `
         <div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-slate-100 flex items-center justify-between gap-space-sm hover:border-surface-container-high transition-colors group">
           <div class="flex items-center gap-space-md min-w-0">
-            <div class="w-10 h-10 rounded-xl ${cat.iconBgClass} flex items-center justify-center flex-shrink-0">
-              <span class="material-symbols-outlined text-xl">${cat.icon}</span>
+            <div class="w-10 h-10 rounded-xl ${escapeHtml(cat.iconBgClass)} flex items-center justify-center flex-shrink-0">
+              <span class="material-symbols-outlined text-xl">${escapeHtml(safeIcon(cat.icon))}</span>
             </div>
             <div class="flex flex-col min-w-0">
               <span class="font-title-md text-title-md text-on-surface font-bold truncate">${escapeHtml(exp.note || cat.name)}</span>
               <div class="flex items-center gap-2 mt-0.5 text-on-surface-variant font-body-sm text-body-sm">
-                <span class="truncate">${cat.name}</span>
+                <span class="truncate">${escapeHtml(cat.name)}</span>
                 <span>•</span>
-                <span>${formatDateDisplay(exp.date)}</span>
+                <span>${escapeHtml(formatDateDisplay(exp.date))}</span>
               </div>
             </div>
           </div>
@@ -535,18 +554,20 @@
             </span>
             <!-- Edit & Delete Action Buttons matching Stitch Design Style -->
             <div class="flex items-center gap-1">
-              <button 
+              <button
                 type="button"
-                onclick="window.ExpenseTrackApp.openEditExpenseModal('${exp.id}')"
+                data-action="edit-expense"
+                data-id="${escapeHtml(exp.id)}"
                 class="w-8 h-8 rounded-xl bg-surface-container-low hover:bg-surface-container hover:text-primary text-on-surface-variant flex items-center justify-center transition-colors"
                 title="Edit Expense"
                 aria-label="Edit Expense"
               >
                 <span class="material-symbols-outlined text-base">edit</span>
               </button>
-              <button 
+              <button
                 type="button"
-                onclick="window.ExpenseTrackApp.confirmDeleteExpense('${exp.id}')"
+                data-action="delete-expense"
+                data-id="${escapeHtml(exp.id)}"
                 class="w-8 h-8 rounded-xl bg-surface-container-low hover:bg-error-container hover:text-error text-on-surface-variant flex items-center justify-center transition-colors"
                 title="Delete Expense"
                 aria-label="Delete Expense"
@@ -667,7 +688,9 @@
     // Dynamic Custom Categories Rendering
     const customContainer = document.getElementById('custom-category-cards-container');
     if (customContainer) {
-      const customCats = Object.values(activeCategories).filter(c => c.isCustom);
+      // Built-in categories have static cards in index.html; everything else is a custom category
+      // (stored custom categories do not carry an isCustom flag, so test for "not built-in").
+      const customCats = Object.values(activeCategories).filter(c => !c.isDefault);
       if (customCats.length === 0) {
         customContainer.innerHTML = '';
       } else {
@@ -698,11 +721,11 @@
           }
 
           customHtml += `
-            <div id="cat-card-${catKey}" class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm flex flex-col gap-space-md hover:shadow-md transition-shadow duration-200">
+            <div id="cat-card-${escapeHtml(catKey)}" class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm flex flex-col gap-space-md hover:shadow-md transition-shadow duration-200">
               <div class="flex items-start justify-between gap-space-sm">
                 <div class="flex items-center gap-space-md min-w-0">
-                  <div class="w-12 h-12 rounded-2xl ${cat.iconBgClass || 'bg-surface-container text-primary'} flex items-center justify-center flex-shrink-0">
-                    <span class="material-symbols-outlined text-2xl">${escapeHtml(cat.icon || 'category')}</span>
+                  <div class="w-12 h-12 rounded-2xl ${escapeHtml(cat.iconBgClass || 'bg-surface-container text-primary')} flex items-center justify-center flex-shrink-0">
+                    <span class="material-symbols-outlined text-2xl">${escapeHtml(safeIcon(cat.icon))}</span>
                   </div>
                   <div class="min-w-0">
                     <div class="flex items-center gap-2">
@@ -717,7 +740,8 @@
                 <div class="flex items-center gap-1 flex-shrink-0">
                   <button 
                     type="button"
-                    onclick="window.ExpenseTrackApp.openEditCustomCategoryModal('${catKey}')"
+                    data-action="edit-category"
+                    data-id="${escapeHtml(catKey)}"
                     class="w-8 h-8 rounded-xl bg-surface-container-low hover:bg-surface-container hover:text-primary text-on-surface-variant flex items-center justify-center transition-colors"
                     title="Edit Category"
                     aria-label="Edit Category"
@@ -726,7 +750,8 @@
                   </button>
                   <button 
                     type="button"
-                    onclick="window.ExpenseTrackApp.confirmDeleteCategory('${catKey}')"
+                    data-action="delete-category"
+                    data-id="${escapeHtml(catKey)}"
                     class="w-8 h-8 rounded-xl bg-surface-container-low hover:bg-error-container hover:text-error text-on-surface-variant flex items-center justify-center transition-colors"
                     title="Delete Category"
                     aria-label="Delete Category"
@@ -738,8 +763,8 @@
 
               <div>
                 <div class="flex items-baseline justify-between mb-1">
-                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-${catKey}">${formatINR(spent)}</span></span>
-                  <span class="font-body-sm text-body-sm text-on-surface-variant">of ₹<span id="cap-${catKey}">${formatINR(cap)}</span> cap</span>
+                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-${escapeHtml(catKey)}">${formatINR(spent)}</span></span>
+                  <span class="font-body-sm text-body-sm text-on-surface-variant">of ₹<span id="cap-${escapeHtml(catKey)}">${formatINR(cap)}</span> cap</span>
                 </div>
                 <div class="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
                   <div class="category-progress-fill ${progressColor} h-full rounded-full transition-all duration-300" style="width: ${Math.min(100, Math.max(0, pct))}%"></div>
@@ -757,8 +782,8 @@
                 </label>
                 <div class="flex items-center gap-space-md flex-1 max-w-sm">
                   <span class="font-body-sm text-body-sm text-on-surface-variant">₹${formatINR(cat.minCap || 200)}</span>
-                  <input class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" data-category="${catKey}" max="${cat.maxCap || 10000}" min="${cat.minCap || 200}" step="${cat.step || 100}" type="range" value="${cap}"/>
-                  <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-${catKey}">${formatINR(cap)}</span></span>
+                  <input class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" data-category="${escapeHtml(catKey)}" max="${Number(cat.maxCap) || 10000}" min="${Number(cat.minCap) || 200}" step="${Number(cat.step) || 100}" type="range" value="${Number(cap) || 0}"/>
+                  <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-${escapeHtml(catKey)}">${formatINR(cap)}</span></span>
                 </div>
               </div>
             </div>
@@ -922,12 +947,18 @@
     updateCategoryCardLive(cat, spendingMap[cat] || 0, val);
   }
 
-  function handleSliderChange(slider) {
+  async function handleSliderChange(slider) {
     const cat = slider.dataset.category;
     const val = parseInt(slider.value, 10);
     if (!state.budget.categories) state.budget.categories = {};
     state.budget.categories[cat] = val;
-    saveBudget();
+    try {
+      await saveBudget();
+    } catch (err) {
+      showToast(`Couldn't save your budget: ${errorDetail(err)}`, 'error');
+      reloadFromDataLayer();
+      return;
+    }
     syncAllViewsWithData();
   }
 
@@ -1028,8 +1059,8 @@
         rowsHtml += `
           <div class="flex items-center justify-between p-space-sm rounded-xl hover:bg-surface-container-low transition-colors">
             <div class="flex items-center gap-space-sm">
-              <div class="w-8 h-8 rounded-lg ${cat.iconBgClass || 'bg-surface-container text-primary'} flex items-center justify-center">
-                <span class="material-symbols-outlined text-lg">${escapeHtml(cat.icon || 'category')}</span>
+              <div class="w-8 h-8 rounded-lg ${escapeHtml(cat.iconBgClass || 'bg-surface-container text-primary')} flex items-center justify-center">
+                <span class="material-symbols-outlined text-lg">${escapeHtml(safeIcon(cat.icon))}</span>
               </div>
               <div class="flex flex-col">
                 <span class="font-label-md text-label-md text-on-surface font-bold">${escapeHtml(cat.name)}</span>
@@ -1253,8 +1284,8 @@
       const iconClass = isSelected ? 'text-on-primary' : 'text-primary';
 
       html += `
-        <button type="button" data-category="${escapeHtml(cat.id)}" class="${baseClass}">
-          <span class="material-symbols-outlined text-xl ${iconClass} flex-shrink-0">${escapeHtml(cat.icon || 'category')}</span>
+        <button type="button" data-category="${escapeHtml(cat.id)}" aria-pressed="${isSelected}" class="${baseClass}">
+          <span class="material-symbols-outlined text-xl ${iconClass} flex-shrink-0">${escapeHtml(safeIcon(cat.icon))}</span>
           <span class="font-label-sm text-label-sm leading-snug break-words hyphens-auto flex-1">${escapeHtml(cat.name)}</span>
         </button>
       `;
@@ -1292,6 +1323,7 @@
     chips.forEach(chip => {
       const key = chip.dataset.category;
       const icon = chip.querySelector('.material-symbols-outlined');
+      chip.setAttribute('aria-pressed', String(key === catKey));
       if (key === catKey) {
         chip.className = 'expense-category-chip flex items-center gap-2 p-2.5 rounded-2xl bg-primary text-on-primary text-left transition-all min-h-[48px] shadow-sm';
         if (icon) icon.className = 'material-symbols-outlined text-xl text-on-primary flex-shrink-0';
@@ -1375,7 +1407,7 @@
     state.editingExpenseId = null;
   }
 
-  function handleExpenseFormSubmit(e) {
+  async function handleExpenseFormSubmit(e) {
     e.preventDefault();
     const amountInput = document.getElementById('expense-amount');
     const noteInput = document.getElementById('expense-note');
@@ -1409,11 +1441,14 @@
     hideExpenseFormError();
 
     const categoryName = allCats[normCat]?.name || normCat;
+    const submitBtn = document.getElementById('expense-modal-submit');
+    if (submitBtn) submitBtn.disabled = true;
 
+    try {
     if (state.editingExpenseId) {
       // Update existing
       if (DataLayer) {
-        DataLayer.updateExpense(state.editingExpenseId, {
+        await DataLayer.updateExpense(state.editingExpenseId, {
           amount: Math.round(amountVal),
           category: normCat,
           date: dateVal,
@@ -1433,11 +1468,11 @@
           saveExpenses();
         }
       }
-      showToast('Expense updated successfully!', 'success');
+      showToast(savedMessage('Expense updated successfully!'), 'success');
     } else {
       // Create new
       if (DataLayer) {
-        DataLayer.addExpense({
+        await DataLayer.addExpense({
           amount: Math.round(amountVal),
           category: normCat,
           date: dateVal,
@@ -1456,14 +1491,23 @@
         state.expenses.unshift(newExp);
         saveExpenses();
       }
-      showToast('Expense logged successfully!', 'success');
+      showToast(savedMessage('Expense logged successfully!'), 'success');
+    }
+    } catch (err) {
+      const message = `Couldn't save your expense: ${errorDetail(err)}`;
+      showExpenseFormError(message);
+      showToast(message, 'error');
+      reloadFromDataLayer();
+      return;
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
 
     closeExpenseModal();
     syncAllViewsWithData();
   }
 
-  function addExpense({ amount, category, date, note } = {}) {
+  async function addExpense({ amount, category, date, note } = {}) {
     const amountVal = parseFloat(amount);
     if (isNaN(amountVal) || amountVal <= 0) {
       throw new Error('Please enter an amount greater than ₹0.');
@@ -1478,7 +1522,7 @@
 
     let newExp;
     if (DataLayer) {
-      newExp = DataLayer.addExpense({
+      newExp = await DataLayer.addExpense({
         amount: Math.round(amountVal),
         category: normCat,
         date: date || today,
@@ -1501,9 +1545,14 @@
     return newExp;
   }
 
-  function deleteExpense(id) {
+  async function deleteExpense(id) {
     if (DataLayer) {
-      DataLayer.deleteExpense(id);
+      try {
+        await DataLayer.deleteExpense(id);
+      } catch (err) {
+        reloadFromDataLayer();
+        throw err;
+      }
       state.expenses = DataLayer.getExpenses();
     } else {
       state.expenses = state.expenses.filter(e => e.id !== id);
@@ -1512,7 +1561,7 @@
     syncAllViewsWithData();
   }
 
-  function confirmDeleteExpense(id) {
+  async function confirmDeleteExpense(id) {
     const exp = state.expenses.find(e => e.id === id);
     if (!exp) return;
 
@@ -1520,8 +1569,12 @@
     const cat = allCats[normalizeCategoryKey(exp.category)]?.name || 'Expense';
     const msg = `Delete transaction: "${exp.note || cat}" for ₹${formatINR(exp.amount)}?`;
     if (window.confirm(msg)) {
-      deleteExpense(id);
-      showToast('Expense deleted.', 'info');
+      try {
+        await deleteExpense(id);
+        showToast(savedMessage('Expense deleted.'), 'info');
+      } catch (err) {
+        showToast(`Couldn't delete the expense: ${errorDetail(err)}`, 'error');
+      }
     }
   }
 
@@ -1543,7 +1596,7 @@
     if (modal) modal.classList.add('hidden');
   }
 
-  function saveBudgetModal() {
+  async function saveBudgetModal() {
     const input = document.getElementById('overall-cap-input');
     const val = parseInt(input.value, 10);
 
@@ -1553,31 +1606,48 @@
     }
 
     state.budget.overallCap = val;
-    saveBudget();
+    try {
+      await saveBudget();
+    } catch (err) {
+      showToast(`Couldn't save your budget: ${errorDetail(err)}`, 'error');
+      reloadFromDataLayer();
+      return;
+    }
     closeBudgetModal();
-    showToast(`Monthly budget ceiling updated to ₹${formatINR(val)}!`, 'success');
+    showToast(savedMessage(`Monthly budget ceiling updated to ₹${formatINR(val)}!`), 'success');
     syncAllViewsWithData();
   }
 
-  function resetBudgetDefaults() {
+  async function resetBudgetDefaults() {
     if (window.confirm('Reset all category caps and monthly ceiling to default semester targets?')) {
-      const defBudget = DataLayer ? DataLayer.resetBudgetDefaults() : {
-        overallCap: 12000,
-        categories: { food: 3500, groceries: 2000, transport: 1000, textbooks: 1200, entertainment: 1500, personal: 600, emergency: 1200 }
-      };
-      state.budget = defBudget;
-      saveBudget();
-      showToast('Budget caps reset to defaults.', 'info');
+      try {
+        state.budget = DataLayer ? await DataLayer.resetBudgetDefaults() : {
+          overallCap: 12000,
+          categories: { food: 3500, groceries: 2000, transport: 1000, textbooks: 1200, entertainment: 1500, personal: 600, emergency: 1200 }
+        };
+        if (!DataLayer) await saveBudget();
+      } catch (err) {
+        showToast(`Couldn't reset your budget: ${errorDetail(err)}`, 'error');
+        reloadFromDataLayer();
+        return;
+      }
+      showToast(savedMessage('Budget caps reset to defaults.'), 'info');
       syncAllViewsWithData();
     }
   }
 
-  function clearAllExpenses() {
+  async function clearAllExpenses() {
     if (window.confirm('Are you sure you want to delete ALL logged expenses? This will reset the app to an empty state.')) {
-      state.expenses = [];
-      if (DataLayer) DataLayer.clearAllExpenses();
-      saveExpenses();
-      showToast('All expenses cleared. Empty state activated.', 'info');
+      try {
+        if (DataLayer) await DataLayer.clearAllExpenses();
+        state.expenses = [];
+        saveExpenses();
+      } catch (err) {
+        showToast(`Couldn't clear your expenses: ${errorDetail(err)}`, 'error');
+        reloadFromDataLayer();
+        return;
+      }
+      showToast(savedMessage('All expenses cleared. Empty state activated.'), 'info');
       syncAllViewsWithData();
     }
   }
@@ -1693,7 +1763,7 @@
     });
   }
 
-  function handleCustomCategoryFormSubmit(e) {
+  async function handleCustomCategoryFormSubmit(e) {
     e.preventDefault();
     const idInput = document.getElementById('custom-category-id');
     const nameInput = document.getElementById('custom-category-name');
@@ -1709,43 +1779,45 @@
 
     if (!DataLayer) return;
 
-    const validation = DataLayer.validateCategoryInput({ name, defaultCap: cap, icon, color }, !!id, id);
+    const validation = DataLayer.validateCategoryInput(name, cap, id);
     if (!validation.valid) {
-      showCustomCategoryError(validation.errors.join(' '));
+      showCustomCategoryError(validation.error);
       return;
     }
 
+    const submitBtn = document.querySelector('#custom-category-form button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
     try {
+      // The data layer saves the category and its cap together, so there is no second budget write here.
+      let savedId = id;
       if (id) {
-        // Edit existing category
-        const updated = DataLayer.updateCustomCategory(id, { name, defaultCap: cap, icon, color });
-        if (!state.budget.categories) state.budget.categories = {};
-        state.budget.categories[id] = cap;
-        saveBudget();
-        showToast(`Category "${updated.name}" updated!`, 'success');
+        const updated = await DataLayer.updateCustomCategory(id, { name, budgetCap: cap, icon, color });
+        showToast(savedMessage(`Category "${updated.name}" updated!`), 'success');
       } else {
-        // Add new custom category
-        const created = DataLayer.addCustomCategory({ name, defaultCap: cap, icon, color });
-        if (!state.budget.categories) state.budget.categories = {};
-        state.budget.categories[created.id] = cap;
-        saveBudget();
-        showToast(`Category "${created.name}" created!`, 'success');
+        const created = await DataLayer.addCustomCategory({ name, budgetCap: cap, icon, color });
+        savedId = created.id;
+        showToast(savedMessage(`Category "${created.name}" created!`), 'success');
       }
 
+      loadState();
       closeCustomCategoryModal();
       syncAllViewsWithData();
 
-      // If Quick Log modal is open, re-render its chips
+      // If Quick Log modal is open, re-render its chips and select the category just saved
       const expenseModal = document.getElementById('expense-modal');
       if (expenseModal && !expenseModal.classList.contains('hidden')) {
-        renderQuickLogCategoryChips(id || undefined);
+        renderQuickLogCategoryChips(savedId);
+        selectCategoryChip(savedId);
       }
     } catch (err) {
       showCustomCategoryError(err.message || 'Failed to save category');
+      reloadFromDataLayer();
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   }
 
-  function confirmDeleteCategory(catId) {
+  async function confirmDeleteCategory(catId) {
     if (!catId || !DataLayer) return;
     const allCats = getAllCategories(true);
     const cat = allCats[catId];
@@ -1769,16 +1841,19 @@
       if (!proceed) return;
     }
 
-    const result = DataLayer.deleteCategory(catId);
-    if (result.action === 'archived') {
-      showToast(`Category "${cat.name}" archived.`, 'info');
-    } else {
-      if (state.budget?.categories?.[catId] !== undefined) {
-        delete state.budget.categories[catId];
-        saveBudget();
-      }
-      showToast(`Category "${cat.name}" deleted.`, 'info');
+    let result;
+    try {
+      result = await DataLayer.deleteCategory(catId);
+    } catch (err) {
+      showToast(`Couldn't remove the category: ${errorDetail(err)}`, 'error');
+      reloadFromDataLayer();
+      return;
     }
+    loadState();
+    showToast(
+      savedMessage(result.action === 'archived' ? `Category "${cat.name}" archived.` : `Category "${cat.name}" deleted.`),
+      'info'
+    );
 
     syncAllViewsWithData();
 
@@ -1832,6 +1907,28 @@
   // EVENT LISTENERS & INITIALIZATION
   // ==========================================
   function initEventListeners() {
+    // Row actions in rendered lists (no inline handlers: ids come from stored data)
+    document.addEventListener('click', e => {
+      const actionBtn = e.target.closest('[data-action]');
+      if (!actionBtn) return;
+      const id = actionBtn.getAttribute('data-id');
+      switch (actionBtn.getAttribute('data-action')) {
+        case 'edit-expense': openEditExpenseModal(id); break;
+        case 'delete-expense': confirmDeleteExpense(id); break;
+        case 'edit-category': openEditCustomCategoryModal(id); break;
+        case 'delete-category': confirmDeleteCategory(id); break;
+        default: break;
+      }
+    });
+
+    // Writes that were queued offline and later rejected by the server
+    if (DataLayer && typeof DataLayer.onWriteError === 'function') {
+      DataLayer.onWriteError(err => {
+        showToast(`A change could not be synced and was undone: ${errorDetail(err)}`, 'error');
+        reloadFromDataLayer();
+      });
+    }
+
     // Navigation clicks
     document.addEventListener('click', e => {
       const navLink = e.target.closest('a[data-path]');
@@ -1950,10 +2047,16 @@
     // Notification Toggles in Budget Setup
     const toggle80 = document.getElementById('toggle-80');
     if (toggle80) {
-      toggle80.addEventListener('change', () => {
+      toggle80.addEventListener('change', async () => {
         if (!state.settings) state.settings = {};
         state.settings.notify80 = toggle80.checked;
-        saveSettings();
+        try {
+          await saveSettings();
+        } catch (err) {
+          showToast(`Couldn't save your setting: ${errorDetail(err)}`, 'error');
+          reloadFromDataLayer();
+          return;
+        }
         syncAllViewsWithData();
         if (toggle80.checked) {
           const totalSpent = getTotalSpending();
@@ -1971,20 +2074,32 @@
 
     const toggleDigest = document.getElementById('toggle-digest');
     if (toggleDigest) {
-      toggleDigest.addEventListener('change', () => {
+      toggleDigest.addEventListener('change', async () => {
         if (!state.settings) state.settings = {};
         state.settings.weeklyDigest = toggleDigest.checked;
-        saveSettings();
+        try {
+          await saveSettings();
+        } catch (err) {
+          showToast(`Couldn't save your setting: ${errorDetail(err)}`, 'error');
+          reloadFromDataLayer();
+          return;
+        }
         showToast(toggleDigest.checked ? 'Sunday weekly digest enabled.' : 'Weekly digest disabled.');
       });
     }
 
     const toggleRoom = document.getElementById('toggle-roommate');
     if (toggleRoom) {
-      toggleRoom.addEventListener('change', () => {
+      toggleRoom.addEventListener('change', async () => {
         if (!state.settings) state.settings = {};
         state.settings.roommateAlert = toggleRoom.checked;
-        saveSettings();
+        try {
+          await saveSettings();
+        } catch (err) {
+          showToast(`Couldn't save your setting: ${errorDetail(err)}`, 'error');
+          reloadFromDataLayer();
+          return;
+        }
         showToast(toggleRoom.checked ? 'Roommate split reminder enabled.' : 'Roommate split reminder disabled.');
       });
     }

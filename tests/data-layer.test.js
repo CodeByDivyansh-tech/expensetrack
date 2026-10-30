@@ -23,8 +23,8 @@ describe('Data Access Layer - Categories & Expenses', () => {
     assert.ok(cats.emergency);
   });
 
-  test('Add custom category creates stable ID and updates budget', () => {
-    const gym = DataLayer.addCustomCategory({
+  test('Add custom category creates stable ID and updates budget', async () => {
+    const gym = await DataLayer.addCustomCategory({
       name: 'Gym & Fitness',
       budgetCap: 1500,
       icon: 'fitness_center',
@@ -44,36 +44,28 @@ describe('Data Access Layer - Categories & Expenses', () => {
     assert.equal(budget.categories[gym.id], 1500);
   });
 
-  test('Validation: Rejects empty name, duplicate names, negative budget', () => {
+  test('Validation: Rejects empty name, duplicate names, negative budget', async () => {
     // Empty name
-    assert.throws(() => {
-      DataLayer.addCustomCategory({ name: '   ', budgetCap: 500 });
-    }, /cannot be empty/);
+    await assert.rejects(() => DataLayer.addCustomCategory({ name: '   ', budgetCap: 500 }), /cannot be empty/);
 
     // Duplicate name (existing default)
-    assert.throws(() => {
-      DataLayer.addCustomCategory({ name: 'food & dining', budgetCap: 500 });
-    }, /already exists/);
+    await assert.rejects(() => DataLayer.addCustomCategory({ name: 'food & dining', budgetCap: 500 }), /already exists/);
 
     // Add first custom
-    DataLayer.addCustomCategory({ name: 'Laundry', budgetCap: 400 });
+    await DataLayer.addCustomCategory({ name: 'Laundry', budgetCap: 400 });
 
     // Duplicate name (existing custom, case-insensitive)
-    assert.throws(() => {
-      DataLayer.addCustomCategory({ name: 'laundry', budgetCap: 600 });
-    }, /already exists/);
+    await assert.rejects(() => DataLayer.addCustomCategory({ name: 'laundry', budgetCap: 600 }), /already exists/);
 
     // Negative budget
-    assert.throws(() => {
-      DataLayer.addCustomCategory({ name: 'Books', budgetCap: -100 });
-    }, /non-negative/);
+    await assert.rejects(() => DataLayer.addCustomCategory({ name: 'Books', budgetCap: -100 }), /non-negative/);
   });
 
-  test('Update custom category retains stable ID', () => {
-    const cat = DataLayer.addCustomCategory({ name: 'Recharge', budgetCap: 300 });
+  test('Update custom category retains stable ID', async () => {
+    const cat = await DataLayer.addCustomCategory({ name: 'Recharge', budgetCap: 300 });
     const originalId = cat.id;
 
-    const updated = DataLayer.updateCustomCategory(originalId, {
+    const updated = await DataLayer.updateCustomCategory(originalId, {
       name: 'Phone & WiFi Recharge',
       budgetCap: 500,
     });
@@ -90,21 +82,21 @@ describe('Data Access Layer - Categories & Expenses', () => {
     assert.equal(budget.categories[originalId], 500);
   });
 
-  test('Delete custom category with 0 expenses -> hard deletes', () => {
-    const cat = DataLayer.addCustomCategory({ name: 'Swimming', budgetCap: 1000 });
+  test('Delete custom category with 0 expenses -> hard deletes', async () => {
+    const cat = await DataLayer.addCustomCategory({ name: 'Swimming', budgetCap: 1000 });
     assert.ok(DataLayer.getActiveCategories()[cat.id]);
 
-    const result = DataLayer.deleteCategory(cat.id);
+    const result = await DataLayer.deleteCategory(cat.id);
     assert.equal(result.action, 'deleted');
     assert.equal(DataLayer.getActiveCategories()[cat.id], undefined);
     assert.equal(DataLayer.getAllCategories(true)[cat.id], undefined);
   });
 
-  test('Delete custom category with expenses -> ARCHIVES category, NEVER deletes expenses', () => {
-    const cat = DataLayer.addCustomCategory({ name: 'Dance Class', budgetCap: 1200 });
+  test('Delete custom category with expenses -> ARCHIVES category, NEVER deletes expenses', async () => {
+    const cat = await DataLayer.addCustomCategory({ name: 'Dance Class', budgetCap: 1200 });
 
     // Log an expense in this category
-    const exp = DataLayer.addExpense({
+    const exp = await DataLayer.addExpense({
       amount: 600,
       category: cat.id,
       note: 'Monthly dance fee',
@@ -114,7 +106,7 @@ describe('Data Access Layer - Categories & Expenses', () => {
     assert.equal(DataLayer.getExpenses().length, 1);
 
     // Attempt delete
-    const result = DataLayer.deleteCategory(cat.id);
+    const result = await DataLayer.deleteCategory(cat.id);
     assert.equal(result.action, 'archived');
 
     // Expense MUST STILL EXIST
@@ -133,17 +125,17 @@ describe('Data Access Layer - Categories & Expenses', () => {
     assert.equal(all[cat.id].name, 'Dance Class');
   });
 
-  test('Renaming category does not orphan existing expenses', () => {
-    const cat = DataLayer.addCustomCategory({ name: 'Tuck Shop', budgetCap: 800 });
+  test('Renaming category does not orphan existing expenses', async () => {
+    const cat = await DataLayer.addCustomCategory({ name: 'Tuck Shop', budgetCap: 800 });
 
-    const exp = DataLayer.addExpense({
+    const exp = await DataLayer.addExpense({
       amount: 150,
       category: cat.id,
       note: 'Midnight snack',
     });
 
     // Rename
-    DataLayer.updateCustomCategory(cat.id, {
+    await DataLayer.updateCustomCategory(cat.id, {
       name: 'Night Canteen & Tuck',
       budgetCap: 900,
     });
@@ -157,3 +149,4 @@ describe('Data Access Layer - Categories & Expenses', () => {
     assert.equal(all[retrievedExp.category].name, 'Night Canteen & Tuck');
   });
 });
+

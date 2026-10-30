@@ -257,6 +257,100 @@
     };
   }
 
+  // --- Appearance validation (icons and colours end up in the DOM) ---
+  const ALLOWED_ICONS = [
+    'category', 'fitness_center', 'local_laundry_service', 'home', 'phone_android', 'medical_services',
+    'flight', 'local_cafe', 'shopping_bag', 'sports_esports', 'school', 'savings',
+    'restaurant', 'local_mall', 'directions_bus', 'menu_book', 'celebration', 'subscriptions', 'lock', 'receipt_long',
+  ];
+  const DEFAULT_CATEGORY_COLOR = '#006948';
+
+  function isValidColor(color) {
+    return typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color);
+  }
+
+  function safeIcon(icon) {
+    return ALLOWED_ICONS.includes(icon) ? icon : 'category';
+  }
+
+  function safeColor(color) {
+    return isValidColor(color) ? color : DEFAULT_CATEGORY_COLOR;
+  }
+
+  // --- Write handling ---
+  let _writeErrorListeners = [];
+
+  function onWriteError(listener) {
+    if (typeof listener === 'function') _writeErrorListeners.push(listener);
+    return () => {
+      _writeErrorListeners = _writeErrorListeners.filter(l => l !== listener);
+    };
+  }
+
+  function notifyWriteError(err) {
+    _writeErrorListeners.forEach(fn => {
+      try { fn(err); } catch (e) { console.error('Write error listener failed:', e); }
+    });
+  }
+
+  function isOffline() {
+    return typeof navigator !== 'undefined' && navigator.onLine === false;
+  }
+
+  /**
+   * Wait for a Firestore write. Offline, the server never acknowledges, so the write stays queued
+   * in the SDK and we resolve right away; a later rejection is reported through onWriteError.
+   */
+  async function commitWrite(promise) {
+    if (isOffline()) {
+      promise.catch(err => {
+        console.error('Queued Firestore write failed:', err);
+        notifyWriteError(err);
+      });
+      return { queued: true };
+    }
+    await promise;
+    return { queued: false };
+  }
+
+  /**
+   * Persist top-level user-doc fields (budget, settings, customCategories) in one write.
+   * Each field is replaced as a whole, so deleted keys really disappear from Firestore.
+   */
+  async function persistUserFields(fields) {
+    const db = getDb();
+    if (db && _currentUid) {
+      const names = Object.keys(fields);
+      return commitWrite(db.collection('users').doc(_currentUid).set(
+        { ...fields, updatedAt: Date.now() },
+        { mergeFields: [...names, 'updatedAt'] }
+      ));
+    }
+    const keyFor = {
+      budget: STORAGE_KEYS.BUDGET,
+      settings: STORAGE_KEYS.SETTINGS,
+      customCategories: STORAGE_KEYS.CUSTOM_CATEGORIES,
+    };
+    for (const [name, value] of Object.entries(fields)) {
+      if (!writeJSON(keyFor[name], value)) {
+        throw new Error('Could not save to this browser\'s storage. It may be full or blocked.');
+      }
+    }
+    return { queued: false };
+  }
+
+  async function persistExpense(id, data, merge) {
+    const db = getDb();
+    if (db && _currentUid) {
+      const ref = db.collection('users').doc(_currentUid).collection('expenses').doc(id);
+      return commitWrite(merge ? ref.set(data, { merge: true }) : ref.set(data));
+    }
+    if (!writeJSON(STORAGE_KEYS.EXPENSES, _expenses)) {
+      throw new Error('Could not save to this browser\'s storage. It may be full or blocked.');
+    }
+    return { queued: false };
+  }
+
   /**
    * Initialize Firestore state for the authenticated user with one-time migration.
    */
@@ -527,18 +621,14 @@
     return custom && typeof custom === 'object' ? custom : {};
   }
 
-  function saveCustomCategories(categories) {
+  async function saveCustomCategories(categories) {
+    const previous = _customCategories;
     _customCategories = { ...(categories || {}) };
-    const db = getDb();
-    if (db && _currentUid) {
-      db.collection('users').doc(_currentUid).set({
-        customCategories: _customCategories,
-        updatedAt: Date.now(),
-      }, { merge: true }).catch(err => {
-        console.error('Firestore saveCustomCategories error:', err);
-      });
-    } else {
-      writeJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, _customCategories);
+    try {
+      await persistUserFields({ customCategories: _customCategories });
+    } catch (err) {
+      _customCategories = previous;
+      throw err;
     }
     return true;
   }
@@ -557,6 +647,16 @@
 
   function getActiveCategories() {
     return getAllCategories(false);
+  }
+
+  function validateAppearance(icon, color) {
+    if (icon !== undefined && !ALLOWED_ICONS.includes(icon)) {
+      return 'Please choose an icon from the list.';
+    }
+    if (color !== undefined && !isValidColor(color)) {
+      return 'Please choose a colour from the list.';
+    }
+    return null;
   }
 
   function validateCategoryInput(name, budgetCap, excludeId = null) {
@@ -585,10 +685,36 @@
     return { valid: true, name: trimmed, budgetCap: Math.round(capNum) };
   }
 
-  function addCustomCategory({ name, budgetCap = 500, icon = 'category', color = '#006948' }) {
+  /** Save a custom-category change and its budget cap together; undo both if the write fails. */
+  async function persistCategoryAndBudget(custom, budget) {
+    const prevCustom = _customCategories;
+    const prevBudget = _budget;
+    _customCategories = { ...custom };
+    _budget = budget;
+    try {
+      await persistUserFields({ customCategories: _customCategories, budget: _budget });
+    } catch (err) {
+      _customCategories = prevCustom;
+      _budget = prevBudget;
+      throw err;
+    }
+  }
+
+  function normalizeBudget(budget) {
+    return {
+      overallCap: Number(budget.overallCap) || DEFAULT_BUDGET.overallCap,
+      categories: { ...DEFAULT_BUDGET.categories, ...(budget.categories || {}) },
+    };
+  }
+
+  async function addCustomCategory({ name, budgetCap = 500, icon = 'category', color = DEFAULT_CATEGORY_COLOR }) {
     const validation = validateCategoryInput(name, budgetCap);
     if (!validation.valid) {
       throw new Error(validation.error);
+    }
+    const appearanceError = validateAppearance(icon || 'category', color || DEFAULT_CATEGORY_COLOR);
+    if (appearanceError) {
+      throw new Error(appearanceError);
     }
 
     const id = 'custom_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -611,16 +737,15 @@
 
     const custom = getCustomCategories();
     custom[id] = newCategory;
-    saveCustomCategories(custom);
 
     const budget = getBudget();
     budget.categories[id] = validation.budgetCap;
-    saveBudget(budget);
+    await persistCategoryAndBudget(custom, normalizeBudget(budget));
 
     return newCategory;
   }
 
-  function updateCustomCategory(id, { name, budgetCap, icon, color }) {
+  async function updateCustomCategory(id, { name, budgetCap, icon, color }) {
     const custom = getCustomCategories();
     if (!custom[id]) {
       throw new Error('Custom category not found or cannot edit default categories.');
@@ -629,6 +754,10 @@
     const validation = validateCategoryInput(name, budgetCap, id);
     if (!validation.valid) {
       throw new Error(validation.error);
+    }
+    const appearanceError = validateAppearance(icon, color);
+    if (appearanceError) {
+      throw new Error(appearanceError);
     }
 
     custom[id] = {
@@ -639,16 +768,15 @@
       color: color || custom[id].color,
       updatedAt: Date.now(),
     };
-    saveCustomCategories(custom);
 
     const budget = getBudget();
     budget.categories[id] = validation.budgetCap;
-    saveBudget(budget);
+    await persistCategoryAndBudget(custom, normalizeBudget(budget));
 
     return custom[id];
   }
 
-  function deleteCategory(id) {
+  async function deleteCategory(id) {
     if (DEFAULT_CATEGORIES[id]) {
       throw new Error('Default categories cannot be deleted.');
     }
@@ -662,24 +790,16 @@
     const hasExpenses = expenses.some(exp => normalizeCategoryKey(exp.category) === id || exp.category === id);
 
     let action = '';
+    const budget = getBudget();
     if (hasExpenses) {
-      custom[id].isArchived = true;
-      custom[id].archivedAt = Date.now();
-      saveCustomCategories(custom);
+      custom[id] = { ...custom[id], isArchived: true, archivedAt: Date.now() };
       action = 'archived';
     } else {
       delete custom[id];
-      saveCustomCategories(custom);
+      delete budget.categories[id];
       action = 'deleted';
     }
-
-    if (action === 'deleted') {
-      const budget = getBudget();
-      if (budget.categories[id] !== undefined) {
-        delete budget.categories[id];
-        saveBudget(budget);
-      }
-    }
+    await persistCategoryAndBudget(custom, normalizeBudget(budget));
 
     return { action, categoryId: id };
   }
@@ -701,7 +821,7 @@
     return true;
   }
 
-  function addExpense({ amount, category, date, note }) {
+  async function addExpense({ amount, category, date, note }) {
     const num = parseFloat(amount);
     if (isNaN(num) || num <= 0) {
       throw new Error('Please enter an amount greater than ₹0.');
@@ -725,26 +845,25 @@
       createdAt: Date.now(),
     };
 
-    _expenses.unshift(newExp);
+    const previous = _expenses;
+    _expenses = [newExp, ...previous];
     _expenses.sort((a, b) => {
       const timeA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
       const timeB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
       return timeB - timeA || (b.createdAt || 0) - (a.createdAt || 0);
     });
 
-    const db = getDb();
-    if (db && _currentUid) {
-      db.collection('users').doc(_currentUid).collection('expenses').doc(id).set(newExp).catch(err => {
-        console.error('Firestore addExpense error:', err);
-      });
-    } else {
-      writeJSON(STORAGE_KEYS.EXPENSES, _expenses);
+    try {
+      await persistExpense(id, newExp, false);
+    } catch (err) {
+      _expenses = previous;
+      throw err;
     }
 
     return newExp;
   }
 
-  function updateExpense(id, { amount, category, date, note }) {
+  async function updateExpense(id, { amount, category, date, note }) {
     const idx = _expenses.findIndex(e => e.id === id);
     if (idx === -1) {
       throw new Error('Expense not found.');
@@ -767,53 +886,53 @@
       updatedAt: Date.now(),
     };
 
-    _expenses[idx] = updatedExp;
+    const previous = _expenses;
+    _expenses = previous.map(e => (e.id === id ? updatedExp : e));
     _expenses.sort((a, b) => {
       const timeA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
       const timeB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
       return timeB - timeA || (b.createdAt || 0) - (a.createdAt || 0);
     });
 
-    const db = getDb();
-    if (db && _currentUid) {
-      db.collection('users').doc(_currentUid).collection('expenses').doc(id).set(updatedExp, { merge: true }).catch(err => {
-        console.error('Firestore updateExpense error:', err);
-      });
-    } else {
-      writeJSON(STORAGE_KEYS.EXPENSES, _expenses);
+    try {
+      await persistExpense(id, updatedExp, true);
+    } catch (err) {
+      _expenses = previous;
+      throw err;
     }
 
     return updatedExp;
   }
 
-  function deleteExpense(id) {
-    _expenses = _expenses.filter(e => e.id !== id);
+  async function deleteExpense(id) {
+    const previous = _expenses;
+    _expenses = previous.filter(e => e.id !== id);
 
-    const db = getDb();
-    if (db && _currentUid) {
-      db.collection('users').doc(_currentUid).collection('expenses').doc(id).delete().catch(err => {
-        console.error('Firestore deleteExpense error:', err);
-      });
-    } else {
-      writeJSON(STORAGE_KEYS.EXPENSES, _expenses);
+    try {
+      const db = getDb();
+      if (db && _currentUid) {
+        await commitWrite(db.collection('users').doc(_currentUid).collection('expenses').doc(id).delete());
+      } else if (!writeJSON(STORAGE_KEYS.EXPENSES, _expenses)) {
+        throw new Error('Could not save to this browser\'s storage. It may be full or blocked.');
+      }
+    } catch (err) {
+      _expenses = previous;
+      throw err;
     }
 
     return true;
   }
 
-  function clearAllExpenses() {
+  async function clearAllExpenses() {
     const db = getDb();
     if (db && _currentUid) {
       const colRef = db.collection('users').doc(_currentUid).collection('expenses');
-      colRef.get().then(snap => {
-        const batch = db.batch();
-        snap.forEach(doc => batch.delete(doc.ref));
-        return batch.commit();
-      }).catch(err => {
-        console.error('Firestore clearAllExpenses error:', err);
-      });
-    } else {
-      writeJSON(STORAGE_KEYS.EXPENSES, []);
+      const snap = await colRef.get();
+      const batch = db.batch();
+      snap.forEach(doc => batch.delete(doc.ref));
+      await commitWrite(batch.commit());
+    } else if (!writeJSON(STORAGE_KEYS.EXPENSES, [])) {
+      throw new Error('Could not save to this browser\'s storage. It may be full or blocked.');
     }
     _expenses = [];
     return true;
@@ -840,27 +959,19 @@
     };
   }
 
-  function saveBudget(budget) {
-    _budget = {
-      overallCap: Number(budget.overallCap) || DEFAULT_BUDGET.overallCap,
-      categories: { ...DEFAULT_BUDGET.categories, ...(budget.categories || {}) },
-    };
-
-    const db = getDb();
-    if (db && _currentUid) {
-      db.collection('users').doc(_currentUid).set({
-        budget: _budget,
-        updatedAt: Date.now(),
-      }, { merge: true }).catch(err => {
-        console.error('Firestore saveBudget error:', err);
-      });
-    } else {
-      writeJSON(STORAGE_KEYS.BUDGET, _budget);
+  async function saveBudget(budget) {
+    const previous = _budget;
+    _budget = normalizeBudget(budget);
+    try {
+      await persistUserFields({ budget: _budget });
+    } catch (err) {
+      _budget = previous;
+      throw err;
     }
     return true;
   }
 
-  function resetBudgetDefaults() {
+  async function resetBudgetDefaults() {
     const active = getActiveCategories();
     const categories = {};
     for (const [id, cat] of Object.entries(active)) {
@@ -870,7 +981,7 @@
       overallCap: DEFAULT_BUDGET.overallCap,
       categories,
     };
-    saveBudget(defaultBudget);
+    await saveBudget(defaultBudget);
     return defaultBudget;
   }
 
@@ -883,18 +994,14 @@
     return (stored && typeof stored === 'object') ? { ...DEFAULT_SETTINGS, ...stored } : { ...DEFAULT_SETTINGS };
   }
 
-  function saveSettings(settings) {
+  async function saveSettings(settings) {
+    const previous = _settings;
     _settings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
-    const db = getDb();
-    if (db && _currentUid) {
-      db.collection('users').doc(_currentUid).set({
-        settings: _settings,
-        updatedAt: Date.now(),
-      }, { merge: true }).catch(err => {
-        console.error('Firestore saveSettings error:', err);
-      });
-    } else {
-      writeJSON(STORAGE_KEYS.SETTINGS, _settings);
+    try {
+      await persistUserFields({ settings: _settings });
+    } catch (err) {
+      _settings = previous;
+      throw err;
     }
     return true;
   }
@@ -928,6 +1035,13 @@
     initUser,
     clearUserData,
     onDataChanged,
+    onWriteError,
+    isOffline,
+    // Appearance validation
+    ALLOWED_ICONS,
+    isValidColor,
+    safeIcon,
+    safeColor,
     // Category operations
     getAllCategories,
     getActiveCategories,
