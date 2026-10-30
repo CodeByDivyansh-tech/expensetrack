@@ -4,7 +4,7 @@
   "private": true,
   "description": "Test suite for ExpenseTrack",
   "scripts": {
-    "test": "node --test budget.test.js data-layer.test.js integration.test.js persistence.test.js limits.test.js && node test-browser-env.js",
+    "test": "node --test budget.test.js data-layer.test.js integration.test.js persistence.test.js limits.test.js categories.test.js && node test-browser-env.js",
     "test:e2e": "npm --prefix .. run build && playwright test",
     "test:all": "npm test && npm run test:e2e"
   },
@@ -12,3 +12,4 @@
     "@playwright/test": "^1.64.1"
   }
 }
+

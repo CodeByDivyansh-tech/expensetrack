@@ -115,6 +115,7 @@ describe('B8: more than 500 documents', () => {
     globalThis._mockStorage.setItem('expensetrack_expenses', JSON.stringify(legacy));
     globalThis._mockStorage.setItem('expensetrack_budget', JSON.stringify({ overallCap: 15000, categories: {} }));
     await DataLayer.initUser(UID);
+    await DataLayer.importLegacyData(); // the user confirmed the import
     assert.equal([...db._store.keys()].filter((k) => k.includes('/expenses/')).length, 600);
     assert.equal(db._store.get(`users/${UID}`).budget.overallCap, 15000);
     assert.equal(DataLayer.getExpenses().length, 600);

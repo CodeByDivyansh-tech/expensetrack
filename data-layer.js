@@ -75,7 +75,7 @@
     },
     textbooks: {
       id: 'textbooks',
-      name: 'Education & Textbooks',
+      name: 'Textbooks & Coursework',
       icon: 'menu_book',
       color: '#ba1a1a',
       iconBgClass: 'bg-error-container text-error',
@@ -402,8 +402,133 @@
     return { queued: false };
   }
 
+  // Data saved in this browser by the first, localStorage-only version of the app. It is never
+  // imported silently: whoever signs in first on a shared computer must not inherit it.
+  let _pendingLegacy = null;
+
+  function readLegacyData() {
+    const storage = getStorageEngine();
+    const parse = (key, fallback) => {
+      try {
+        const raw = storage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    };
+    const expenses = parse(STORAGE_KEYS.EXPENSES, []);
+    const budget = parse(STORAGE_KEYS.BUDGET, null);
+    const settings = parse(STORAGE_KEYS.SETTINGS, null);
+    const customCategories = parse(STORAGE_KEYS.CUSTOM_CATEGORIES, {});
+    const hasExpenses = Array.isArray(expenses) && expenses.length > 0;
+    const hasBudget = !!(budget && budget.overallCap);
+    if (!hasExpenses && !hasBudget) return null;
+    return {
+      expenses: hasExpenses ? expenses : [],
+      budget: hasBudget ? budget : null,
+      settings: settings && typeof settings === 'object' ? settings : null,
+      customCategories: customCategories && typeof customCategories === 'object' ? customCategories : {},
+    };
+  }
+
+  function removeLegacyKeys() {
+    const storage = getStorageEngine();
+    [STORAGE_KEYS.EXPENSES, STORAGE_KEYS.BUDGET, STORAGE_KEYS.SETTINGS, STORAGE_KEYS.CUSTOM_CATEGORIES]
+      .forEach(key => storage.removeItem(key));
+  }
+
+  function sortExpenses(list) {
+    return list.sort((a, b) => {
+      const timeA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
+      const timeB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
+      return timeB - timeA || (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  }
+
+  function expenseFromDoc(doc) {
+    const d = doc.data();
+    return {
+      id: doc.id,
+      amount: Number(d.amount) || 0,
+      category: normalizeCategoryKey(d.category),
+      date: d.date || localDateString(),
+      note: d.note || '',
+      createdAt: d.createdAt || Date.now(),
+    };
+  }
+
+  function mergeBudget(stored) {
+    return { ...DEFAULT_BUDGET, ...stored, categories: { ...DEFAULT_BUDGET.categories, ...((stored && stored.categories) || {}) } };
+  }
+
+  /** What an earlier version left in this browser, or null. Shown to the user to import or discard. */
+  function getPendingLegacyImport() {
+    if (!_pendingLegacy) return null;
+    return {
+      expenseCount: _pendingLegacy.expenses.length,
+      hasBudget: !!_pendingLegacy.budget,
+      customCategoryCount: Object.keys(_pendingLegacy.customCategories).length,
+    };
+  }
+
+  /** Copy the pending legacy data into the signed-in account, then remove it from this browser. */
+  async function importLegacyData() {
+    const db = getDb();
+    if (!_pendingLegacy || !db || !_currentUid) return { imported: 0 };
+    const legacy = _pendingLegacy;
+    const userDocRef = db.collection('users').doc(_currentUid);
+    const expensesColRef = userDocRef.collection('expenses');
+
+    // Fix ids once so the cloud copy and the in-memory copy agree.
+    const expenses = legacy.expenses.map(exp => ({
+      id: exp.id || ('exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000000)),
+      amount: Number(exp.amount) || 0,
+      category: normalizeCategoryKey(exp.category),
+      date: exp.date || localDateString(),
+      note: exp.note || '',
+      createdAt: exp.createdAt || Date.now(),
+    }));
+    const budget = mergeBudget(legacy.budget || _budget || DEFAULT_BUDGET);
+    const settings = { ...DEFAULT_SETTINGS, ...(legacy.settings || _settings || {}) };
+    const customCategories = { ..._customCategories, ...legacy.customCategories };
+
+    // Expenses first (a batch holds at most 500 writes), the user doc last. Ids are reused, so a
+    // retry after a partial failure just rewrites the same documents.
+    const writes = expenses.map(exp => {
+      const { id, ...data } = exp;
+      return { ref: expensesColRef.doc(id), data };
+    });
+    writes.push({
+      ref: userDocRef,
+      data: { budget, settings, customCategories, legacyImportHandled: true, updatedAt: Date.now() },
+      options: { merge: true },
+    });
+    await commitInBatches(db, writes);
+
+    removeLegacyKeys();
+    _expenses = sortExpenses([..._expenses.filter(e => !expenses.some(x => x.id === e.id)), ...expenses]);
+    _budget = budget;
+    _settings = settings;
+    _customCategories = customCategories;
+    _pendingLegacy = null;
+    notifyChange();
+    return { imported: expenses.length };
+  }
+
+  /** Throw the pending legacy data away (and remember that the question was answered). */
+  async function discardLegacyData() {
+    const db = getDb();
+    removeLegacyKeys();
+    _pendingLegacy = null;
+    if (db && _currentUid) {
+      await commitWrite(db.collection('users').doc(_currentUid).set({ legacyImportHandled: true }, { merge: true }));
+    }
+  }
+
   /**
-   * Initialize Firestore state for the authenticated user with one-time migration.
+   * Load the signed-in user's data and keep it live. Real-time listeners are always attached, even
+   * when the first read fails (for example offline on a first visit): they serve the cache and
+   * catch up once the connection is back.
    */
   async function initUser(uid) {
     if (!uid) {
@@ -412,6 +537,7 @@
     }
 
     _currentUid = uid;
+    _pendingLegacy = null;
     const db = getDb();
 
     if (!db) {
@@ -423,197 +549,73 @@
       return;
     }
 
+    const userDocRef = db.collection('users').doc(uid);
+    const expensesColRef = userDocRef.collection('expenses');
+
+    let userDocSnap = null;
+    let expensesSnap = null;
     try {
-      const userDocRef = db.collection('users').doc(uid);
-      const expensesColRef = userDocRef.collection('expenses');
-
-      // Fetch existing data
-      const [userDocSnap, expensesSnap] = await Promise.all([
-        userDocRef.get(),
-        expensesColRef.get(),
-      ]);
-
-      const isFirestoreEmpty = (!userDocSnap.exists || !userDocSnap.data() || Object.keys(userDocSnap.data()).length === 0) && expensesSnap.empty;
-
-      // Check for legacy localStorage data
-      const storage = getStorageEngine();
-      const legacyExpensesRaw = storage.getItem(STORAGE_KEYS.EXPENSES);
-      const legacyBudgetRaw = storage.getItem(STORAGE_KEYS.BUDGET);
-      const legacySettingsRaw = storage.getItem(STORAGE_KEYS.SETTINGS);
-      const legacyCustomCategoriesRaw = storage.getItem(STORAGE_KEYS.CUSTOM_CATEGORIES);
-
-      let hasLegacyData = false;
-      let legacyExpenses = [];
-      let legacyBudget = null;
-      let legacySettings = null;
-      let legacyCustomCategories = {};
-
-      if (legacyExpensesRaw) {
-        try {
-          legacyExpenses = JSON.parse(legacyExpensesRaw);
-          if (Array.isArray(legacyExpenses) && legacyExpenses.length > 0) hasLegacyData = true;
-        } catch (e) {}
-      }
-      if (legacyBudgetRaw) {
-        try {
-          legacyBudget = JSON.parse(legacyBudgetRaw);
-          if (legacyBudget && legacyBudget.overallCap) hasLegacyData = true;
-        } catch (e) {}
-      }
-      if (legacySettingsRaw) {
-        try { legacySettings = JSON.parse(legacySettingsRaw); } catch (e) {}
-      }
-      if (legacyCustomCategoriesRaw) {
-        try { legacyCustomCategories = JSON.parse(legacyCustomCategoriesRaw); } catch (e) {}
-      }
-
-      if (isFirestoreEmpty && hasLegacyData) {
-        // --- One-Time Migration to Firestore ---
-        console.log('ExpenseTrack: Performing one-time migration of localStorage data to Firestore for user', uid);
-        // Fix ids once so the cloud copy and the in-memory copy agree.
-        legacyExpenses = legacyExpenses.map(exp => ({
-          ...exp,
-          id: exp.id || ('exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000000)),
-        }));
-
-        const initialBudget = legacyBudget || DEFAULT_BUDGET;
-        const initialSettings = legacySettings || DEFAULT_SETTINGS;
-        const initialCustom = legacyCustomCategories || {};
-
-        // Expenses first (chunked: a batch holds at most 500 writes), the user doc last.
-        const writes = legacyExpenses.map(exp => ({
-          ref: expensesColRef.doc(exp.id),
-          data: {
-            amount: Number(exp.amount) || 0,
-            category: normalizeCategoryKey(exp.category),
-            date: exp.date || localDateString(),
-            note: exp.note || '',
-            createdAt: exp.createdAt || Date.now(),
-          },
-        }));
-        writes.push({
-          ref: userDocRef,
-          data: { budget: initialBudget, settings: initialSettings, customCategories: initialCustom, updatedAt: Date.now() },
-          options: { merge: true },
-        });
-        await commitInBatches(db, writes);
-
-        // Delete old localStorage keys
-        storage.removeItem(STORAGE_KEYS.EXPENSES);
-        storage.removeItem(STORAGE_KEYS.BUDGET);
-        storage.removeItem(STORAGE_KEYS.SETTINGS);
-        storage.removeItem(STORAGE_KEYS.CUSTOM_CATEGORIES);
-
-        // Update in-memory state
-        _expenses = legacyExpenses.map(e => ({
-          id: e.id || ('exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
-          amount: Number(e.amount) || 0,
-          category: normalizeCategoryKey(e.category),
-          date: e.date || localDateString(),
-          note: e.note || '',
-          createdAt: e.createdAt || Date.now(),
-        }));
-        _budget = { ...DEFAULT_BUDGET, ...initialBudget, categories: { ...DEFAULT_BUDGET.categories, ...(initialBudget.categories || {}) } };
-        _settings = { ...DEFAULT_SETTINGS, ...initialSettings };
-        _customCategories = { ...initialCustom };
-      } else {
-        // Normal Load from Firestore
-        if (userDocSnap.exists) {
-          const uData = userDocSnap.data() || {};
-          _budget = uData.budget
-            ? { ...DEFAULT_BUDGET, ...uData.budget, categories: { ...DEFAULT_BUDGET.categories, ...(uData.budget.categories || {}) } }
-            : { ...DEFAULT_BUDGET };
-          _settings = uData.settings ? { ...DEFAULT_SETTINGS, ...uData.settings } : { ...DEFAULT_SETTINGS };
-          _customCategories = uData.customCategories || {};
-        } else {
-          // Document does not exist yet: initialize with defaults
-          _budget = { ...DEFAULT_BUDGET };
-          _settings = { ...DEFAULT_SETTINGS };
-          _customCategories = {};
-          await userDocRef.set({
-            budget: _budget,
-            settings: _settings,
-            customCategories: _customCategories,
-            updatedAt: Date.now(),
-          });
-        }
-
-        _expenses = [];
-        expensesSnap.forEach(doc => {
-          const d = doc.data();
-          _expenses.push({
-            id: doc.id,
-            amount: Number(d.amount) || 0,
-            category: normalizeCategoryKey(d.category),
-            date: d.date || localDateString(),
-            note: d.note || '',
-            createdAt: d.createdAt || Date.now(),
-          });
-        });
-
-        _expenses.sort((a, b) => {
-          const timeA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
-          const timeB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
-          return timeB - timeA || (b.createdAt || 0) - (a.createdAt || 0);
-        });
-      }
-
-      // Detach any previous listeners
-      if (_unsubscribeUserDoc) { _unsubscribeUserDoc(); _unsubscribeUserDoc = null; }
-      if (_unsubscribeExpenses) { _unsubscribeExpenses(); _unsubscribeExpenses = null; }
-
-      // Real-time synchronization listeners
-      _unsubscribeUserDoc = userDocRef.onSnapshot(snap => {
-        if (snap && snap.exists) {
-          const d = snap.data() || {};
-          if (d.budget) {
-            _budget = { ...DEFAULT_BUDGET, ...d.budget, categories: { ...DEFAULT_BUDGET.categories, ...(d.budget.categories || {}) } };
-          }
-          if (d.settings) {
-            _settings = { ...DEFAULT_SETTINGS, ...d.settings };
-          }
-          if (d.customCategories !== undefined) {
-            _customCategories = d.customCategories || {};
-          }
-          notifyChange();
-        }
-      }, err => {
-        console.warn('ExpenseTrack: User doc snapshot listener notice:', err);
-      });
-
-      _unsubscribeExpenses = expensesColRef.onSnapshot(snap => {
-        if (snap) {
-          const updated = [];
-          snap.forEach(doc => {
-            const d = doc.data();
-            updated.push({
-              id: doc.id,
-              amount: Number(d.amount) || 0,
-              category: normalizeCategoryKey(d.category),
-              date: d.date || localDateString(),
-              note: d.note || '',
-              createdAt: d.createdAt || Date.now(),
-            });
-          });
-          updated.sort((a, b) => {
-            const timeA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
-            const timeB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
-            return timeB - timeA || (b.createdAt || 0) - (a.createdAt || 0);
-          });
-          _expenses = updated;
-          notifyChange();
-        }
-      }, err => {
-        console.warn('ExpenseTrack: Expenses snapshot listener notice:', err);
-      });
-
+      [userDocSnap, expensesSnap] = await Promise.all([userDocRef.get(), expensesColRef.get()]);
     } catch (err) {
-      console.error('ExpenseTrack: Error initializing user data from Firestore:', err);
-      // Fallback
+      console.warn('ExpenseTrack: first read failed, continuing with live listeners:', err);
+    }
+
+    if (userDocSnap && expensesSnap) {
+      const uData = (userDocSnap.exists && userDocSnap.data()) || {};
+
+      // Offer data an earlier version left in this browser, only to an account with no expenses yet
+      if (expensesSnap.empty && !uData.legacyImportHandled) {
+        const legacy = readLegacyData();
+        if (legacy) _pendingLegacy = legacy;
+      }
+
+      _budget = uData.budget ? mergeBudget(uData.budget) : { ...DEFAULT_BUDGET };
+      _settings = uData.settings ? { ...DEFAULT_SETTINGS, ...uData.settings } : { ...DEFAULT_SETTINGS };
+      _customCategories = uData.customCategories || {};
+      if (!userDocSnap.exists) {
+        // First visit: create the document with defaults
+        try {
+          await userDocRef.set({ budget: _budget, settings: _settings, customCategories: _customCategories, updatedAt: Date.now() });
+        } catch (err) {
+          console.warn('ExpenseTrack: could not create the user document yet:', err);
+        }
+      }
+
+      _expenses = [];
+      expensesSnap.forEach(doc => _expenses.push(expenseFromDoc(doc)));
+      sortExpenses(_expenses);
+    } else {
       if (!_budget) _budget = { ...DEFAULT_BUDGET };
       if (!_settings) _settings = { ...DEFAULT_SETTINGS };
       if (!_customCategories) _customCategories = {};
     }
+
+    // Detach any previous listeners
+    if (_unsubscribeUserDoc) { _unsubscribeUserDoc(); _unsubscribeUserDoc = null; }
+    if (_unsubscribeExpenses) { _unsubscribeExpenses(); _unsubscribeExpenses = null; }
+
+    _unsubscribeUserDoc = userDocRef.onSnapshot(snap => {
+      if (snap && snap.exists) {
+        const d = snap.data() || {};
+        if (d.budget) _budget = mergeBudget(d.budget);
+        if (d.settings) _settings = { ...DEFAULT_SETTINGS, ...d.settings };
+        if (d.customCategories !== undefined) _customCategories = d.customCategories || {};
+        notifyChange();
+      }
+    }, err => {
+      console.warn('ExpenseTrack: User doc snapshot listener notice:', err);
+    });
+
+    _unsubscribeExpenses = expensesColRef.onSnapshot(snap => {
+      if (snap) {
+        const updated = [];
+        snap.forEach(doc => updated.push(expenseFromDoc(doc)));
+        _expenses = sortExpenses(updated);
+        notifyChange();
+      }
+    }, err => {
+      console.warn('ExpenseTrack: Expenses snapshot listener notice:', err);
+    });
   }
 
   /**
@@ -629,6 +631,7 @@
       _unsubscribeExpenses = null;
     }
     _currentUid = null;
+    _pendingLegacy = null;
     _expenses = [];
     _budget = null;
     _settings = null;
@@ -645,23 +648,39 @@
   }
 
   // --- Category Normalization Helper ---
+  // Exact spellings older versions (or imports) used for the built-in categories.
+  const LEGACY_CATEGORY_ALIASES = {
+    dining: 'food',
+    grocery: 'groceries',
+    transportation: 'transport',
+    commute: 'transport',
+    bus: 'transport',
+    metro: 'transport',
+    education: 'textbooks',
+    coursework: 'textbooks',
+    books: 'textbooks',
+    'education & textbooks': 'textbooks',
+    subscriptions: 'personal',
+  };
+
+  const UNCATEGORIZED = 'uncategorized';
+
+  /**
+   * Map a stored category value to a category id. Matching is exact: an id, then a category name,
+   * then a known legacy spelling. Anything else is kept as it is (it shows as "Uncategorized"),
+   * never silently relabelled as Food.
+   */
   function normalizeCategoryKey(key) {
-    if (!key) return 'food';
-    const lower = String(key).trim().toLowerCase();
-    if (lower === 'food' || lower === 'dining' || lower.includes('food')) return 'food';
-    if (lower === 'groceries' || lower === 'grocery') return 'groceries';
-    if (lower === 'transport' || lower === 'transportation' || lower === 'commute' || lower === 'travel' || lower === 'bus' || lower === 'metro') return 'transport';
-    if (lower === 'textbooks' || lower === 'education' || lower === 'coursework' || lower === 'books') return 'textbooks';
-    if (lower === 'entertainment' || lower === 'social' || lower.includes('entertain')) return 'entertainment';
-    if (lower === 'personal' || lower === 'subscriptions' || lower.includes('person')) return 'personal';
-    if (lower === 'emergency' || lower.includes('emerg') || lower.includes('saving')) return 'emergency';
-
+    if (key === undefined || key === null || String(key).trim() === '') return UNCATEGORIZED;
+    const raw = String(key).trim();
     const all = getAllCategories(true);
-    if (all[key]) return key;
-    const found = Object.values(all).find(c => c.name.toLowerCase() === lower);
-    if (found) return found.id;
-
-    return DEFAULT_CATEGORIES[lower] ? lower : key;
+    if (Object.prototype.hasOwnProperty.call(all, raw)) return raw;
+    const lower = raw.toLowerCase();
+    const byName = Object.values(all).find(c => String(c.name).toLowerCase() === lower);
+    if (byName) return byName.id;
+    if (Object.prototype.hasOwnProperty.call(all, lower)) return lower;
+    if (Object.prototype.hasOwnProperty.call(LEGACY_CATEGORY_ALIASES, lower)) return LEGACY_CATEGORY_ALIASES[lower];
+    return raw;
   }
 
   // --- Category CRUD Operations ---
@@ -977,6 +996,22 @@
     return true;
   }
 
+  /** Put back an expense that was just deleted (the Undo action). It keeps its id and fields. */
+  async function restoreExpense(expense) {
+    const { id } = expense || {};
+    if (!id) throw new Error('Nothing to restore.');
+    const previous = _expenses;
+    const restored = { ...expense, amount: BudgetCalc.roundMoney(expense.amount) };
+    _expenses = sortExpenses([restored, ...previous.filter(e => e.id !== id)]);
+    try {
+      await persistExpense(id, restored, false);
+    } catch (err) {
+      _expenses = previous;
+      throw err;
+    }
+    return restored;
+  }
+
   async function clearAllExpenses() {
     const db = getDb();
     if (db && _currentUid) {
@@ -1098,7 +1133,12 @@
     // Firestore & user lifecycle
     initUser,
     clearUserData,
+    getPendingLegacyImport,
+    importLegacyData,
+    discardLegacyData,
+    UNCATEGORIZED,
     onDataChanged,
+    getDataListenerCount: () => _changeListeners.length,
     onWriteError,
     isOffline,
     // Appearance validation
@@ -1120,6 +1160,7 @@
     addExpense,
     updateExpense,
     deleteExpense,
+    restoreExpense,
     clearAllExpenses,
     // Budget operations
     getBudget,

@@ -24,7 +24,7 @@
   function createFakeFirestore() {
     const store = new Map();
     const listeners = [];
-    const db = { _store: store, failWrites: null, hang: false };
+    const db = { _store: store, failWrites: null, failReads: null, hang: false };
 
     const parent = (path) => path.slice(0, path.lastIndexOf('/'));
     const notify = () => listeners.slice().forEach((l) => l.fire());
@@ -74,7 +74,7 @@
       return {
         id: path.split('/').pop(),
         path,
-        get: () => Promise.resolve(docSnap(path)),
+        get: () => (db.failReads ? Promise.reject(db.failReads) : Promise.resolve(docSnap(path))),
         set(data, opts) {
           const g = guardWrite();
           if (g) return g;
@@ -98,7 +98,7 @@
       return {
         path,
         doc: (id) => docRef(path + '/' + id),
-        get: () => Promise.resolve(colSnap(path)),
+        get: () => (db.failReads ? Promise.reject(db.failReads) : Promise.resolve(colSnap(path))),
         onSnapshot: (cb) => subscribe(() => colSnap(path), cb),
       };
     }
@@ -120,8 +120,9 @@
       };
     };
     db.enablePersistence = () => Promise.resolve();
-    db.terminate = () => Promise.resolve();
-    db.clearPersistence = () => Promise.resolve();
+    db.calls = [];
+    db.terminate = () => { db.calls.push('terminate'); return Promise.resolve(); };
+    db.clearPersistence = () => { db.calls.push('clearPersistence'); return Promise.resolve(); };
     return db;
   }
 

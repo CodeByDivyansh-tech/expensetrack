@@ -52,6 +52,22 @@
       categoryDonut: null,
       monthlyBar: null,
     },
+    renderCounts: { dashboard: 0, 'budget-setup': 0, analytics: 0, 'profile-&-settings': 0 },
+  };
+
+  function prefersReducedMotion() {
+    return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  // Stored expenses whose category is not a known id show up under this placeholder.
+  const UNCATEGORIZED_ID = 'uncategorized';
+  const UNCATEGORIZED_CATEGORY = {
+    id: UNCATEGORIZED_ID,
+    name: 'Uncategorized',
+    icon: 'category',
+    color: '#6d7a72',
+    iconBgClass: 'bg-surface-container text-on-surface-variant',
+    defaultCap: 0,
   };
 
   // --- Storage via Data Access Layer ---
@@ -95,6 +111,7 @@
   }
 
   const safeIcon = (icon) => (DataLayer && DataLayer.safeIcon ? DataLayer.safeIcon(icon) : 'category');
+  const safeColor = (color) => (DataLayer && DataLayer.safeColor ? DataLayer.safeColor(color) : '#006948');
 
   // --- Formatting & Local Date Helpers ---
   function formatINR(val) {
@@ -164,13 +181,12 @@
       map[k] = 0;
     });
     expenses.forEach(exp => {
-      const cat = normalizeCategoryKey(exp.category);
-      if (map[cat] !== undefined) {
-        map[cat] += Number(exp.amount) || 0;
-      } else {
-        map[cat] = (map[cat] || 0) + (Number(exp.amount) || 0);
-      }
+      const known = normalizeCategoryKey(exp.category);
+      // Anything that is not a known category id is grouped as "Uncategorized"
+      const cat = allCats[known] ? known : UNCATEGORIZED_ID;
+      map[cat] = (map[cat] || 0) + (Number(exp.amount) || 0);
     });
+    Object.keys(map).forEach(k => { map[k] = roundMoney(map[k]); });
     return map;
   }
 
@@ -238,7 +254,7 @@
 
     // Refresh view specific content
     syncAllViewsWithData();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   }
 
   // --- Academic Term & Real Month Display (Section 7) ---
@@ -312,13 +328,17 @@
   }
 
   // --- Unified Single Source of Truth Synchronization ---
+  // Shared widgets plus the view that is on screen; other views render when you open them.
   function syncAllViewsWithData() {
     updateSidebarWidget();
     updateAcademicTermDisplay();
-    renderDashboard();
-    renderBudgetSetup();
-    renderAnalytics();
-    renderProfile();
+    switch (state.currentView) {
+      case 'dashboard': renderDashboard(); break;
+      case 'budget-setup': renderBudgetSetup(); break;
+      case 'analytics': renderAnalytics(); break;
+      case 'profile-&-settings': renderProfile(); break;
+      default: break;
+    }
     checkBudget80Alert();
   }
 
@@ -368,6 +388,7 @@
   // VIEW 1: DASHBOARD
   // ==========================================
   function renderDashboard() {
+    state.renderCounts.dashboard++;
     const totalSpent = getTotalSpending();
     const overallCap = state.budget?.overallCap || 0;
     const remaining = overallCap - totalSpent;
@@ -422,7 +443,7 @@
 
     if (dashProgressSubtitle) {
       if (!hasBudget) {
-        dashProgressSubtitle.innerHTML = `<span class="text-on-surface-variant">Tap <button class="text-primary font-bold underline" onclick="window.ExpenseTrackApp.openBudgetModal()">Set Budget</button> to configure your semester ceiling.</span>`;
+        dashProgressSubtitle.innerHTML = `<span class="text-on-surface-variant">Tap <button class="text-primary font-bold underline" onclick="window.ExpenseTrackApp.openBudgetModal()">Set Budget</button> to configure your monthly budget.</span>`;
       } else if (isOverBudget) {
         dashProgressSubtitle.innerHTML = `<span class="text-error font-bold flex items-center gap-1"><span class="material-symbols-outlined text-sm">warning</span> Monthly limit exceeded by ₹${formatINR(Math.abs(remaining))}</span>`;
       } else {
@@ -542,7 +563,7 @@
     let html = '';
     sorted.forEach(exp => {
       const normKey = normalizeCategoryKey(exp.category);
-      const cat = allCats[exp.category] || allCats[normKey] || { name: exp.category, icon: 'receipt_long', iconBgClass: 'bg-surface-container text-primary', color: '#006948' };
+      const cat = allCats[exp.category] || allCats[normKey] || UNCATEGORIZED_CATEGORY;
       html += `
         <div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-slate-100 flex items-center justify-between gap-space-sm hover:border-surface-container-high transition-colors group">
           <div class="flex items-center gap-space-md min-w-0">
@@ -597,6 +618,7 @@
   // VIEW 2: BUDGET SETUP (Matches code.html Stitch UI)
   // ==========================================
   function renderBudgetSetup() {
+    state.renderCounts['budget-setup']++;
     const overallCap = state.budget?.overallCap || 12000;
     const spendingMap = getCategorySpendingMap();
     const categoryCaps = state.budget?.categories || {};
@@ -632,6 +654,9 @@
     const macroCapDisplay = document.getElementById('macro-cap-display');
     const macroAllocatedLabel = document.getElementById('macro-allocated-label');
     const macroBufferLabel = document.getElementById('macro-buffer-label');
+
+    const activeCountBadge = document.getElementById('active-categories-count-badge');
+    if (activeCountBadge) activeCountBadge.textContent = `${Object.keys(activeCategories).length} Active Budgets`;
 
     if (totalAllocatedElem) totalAllocatedElem.textContent = formatINR(alloc.totalAllocated);
     if (macroDenominatorElem) macroDenominatorElem.textContent = formatINR(alloc.monthlyBudget);
@@ -679,9 +704,16 @@
       if (!cat) return;
       const cap = categoryCaps[catKey] !== undefined ? categoryCaps[catKey] : cat.defaultCap;
 
-      // Update Slider value and displays
+      // Update Slider range and value from the category definition (not from static markup)
       const slider = document.querySelector(`.budget-slider[data-category="${catKey}"]`);
-      if (slider) slider.value = cap;
+      if (slider) {
+        slider.min = cat.minCap;
+        slider.max = Math.max(cat.maxCap, cap);
+        slider.step = cat.step;
+        slider.value = cap;
+        const minLabel = slider.previousElementSibling;
+        if (minLabel) minLabel.textContent = `₹${formatINR(cat.minCap)}`;
+      }
 
       const display = document.getElementById(`slider-display-${catKey}`);
       const capDisplay = document.getElementById(`cap-${catKey}`);
@@ -788,12 +820,12 @@
               </div>
 
               <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm border-t border-slate-100">
-                <label class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5">
+                <label for="slider-${escapeHtml(catKey)}" class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-base">tune</span> Adjust Cap Target:
                 </label>
                 <div class="flex items-center gap-space-md flex-1 max-w-sm">
                   <span class="font-body-sm text-body-sm text-on-surface-variant">₹${formatINR(cat.minCap || 200)}</span>
-                  <input class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" data-category="${escapeHtml(catKey)}" max="${Number(cat.maxCap) || 10000}" min="${Number(cat.minCap) || 200}" step="${Number(cat.step) || 100}" type="range" value="${Number(cap) || 0}"/>
+                  <input id="slider-${escapeHtml(catKey)}" class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" data-category="${escapeHtml(catKey)}" max="${Number(cat.maxCap) || 10000}" min="${Number(cat.minCap) || 200}" step="${Number(cat.step) || 100}" type="range" value="${Number(cap) || 0}"/>
                   <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-${escapeHtml(catKey)}">${formatINR(cap)}</span></span>
                 </div>
               </div>
@@ -977,6 +1009,7 @@
   // VIEW 3: ANALYTICS (Chart.js Integration)
   // ==========================================
   function renderAnalytics() {
+    state.renderCounts.analytics++;
     const selectedYear = state.analyticsYear !== undefined ? state.analyticsYear : new Date().getFullYear();
     const selectedMonth = state.analyticsMonth !== undefined ? state.analyticsMonth : new Date().getMonth();
     const monthExpenses = getMonthExpenses(selectedYear, selectedMonth);
@@ -1049,7 +1082,7 @@
     });
     if (topCategoryElem) {
       const allCats = getAllCategories(true);
-      const topCat = allCats[topCatKey] || { name: 'Food & Dining' };
+      const topCat = allCats[topCatKey] || UNCATEGORIZED_CATEGORY;
       topCategoryElem.textContent = `${topCat.name} (₹${formatINR(maxVal)})`;
     }
 
@@ -1077,7 +1110,7 @@
 
       let rowsHtml = '';
       catKeySet.forEach(catKey => {
-        const cat = allCats[catKey] || { name: catKey, icon: 'category', iconBgClass: 'bg-surface-container text-primary', defaultCap: 1000 };
+        const cat = allCats[catKey] || UNCATEGORIZED_CATEGORY;
         const spent = spendingMap[catKey] || 0;
         const cap = categoryCaps[catKey] !== undefined ? categoryCaps[catKey] : (cat.defaultCap || 1000);
         const sharePct = totalSpent > 0 ? Math.round((spent / totalSpent) * 100) : 0;
@@ -1124,9 +1157,9 @@
     });
     const catKeys = Array.from(catKeySet);
 
-    const catLabels = catKeys.map(k => (allCats[k]?.name || k));
+    const catLabels = catKeys.map(k => (allCats[k]?.name || UNCATEGORIZED_CATEGORY.name));
     const catData = catKeys.map(k => spendingMap[k] || 0);
-    const catColors = catKeys.map(k => allCats[k]?.color || '#006948');
+    const catColors = catKeys.map(k => safeColor(allCats[k]?.color || UNCATEGORIZED_CATEGORY.color));
 
     // Donut Chart
     const donutCtx = document.getElementById('chart-category-donut')?.getContext?.('2d');
@@ -1250,6 +1283,7 @@
   // VIEW 4: SETTINGS & PROFILE
   // ==========================================
   function renderProfile() {
+    state.renderCounts['profile-&-settings']++;
     const totalSpent = getTotalSpending();
     const overallCap = state.budget?.overallCap || 0;
 
@@ -1389,8 +1423,8 @@
     renderQuickLogCategoryChips('food');
     selectCategoryChip('food');
 
-    if (modal) modal.classList.remove('hidden');
-    if (amountInput) setTimeout(() => amountInput.focus(), 100);
+    showModal(modal);
+    if (amountInput) focusSoon(amountInput);
   }
 
   function openEditExpenseModal(id) {
@@ -1422,13 +1456,13 @@
     renderQuickLogCategoryChips(exp.category);
     selectCategoryChip(exp.category);
 
-    if (modal) modal.classList.remove('hidden');
-    if (amountInput) setTimeout(() => amountInput.focus(), 100);
+    showModal(modal);
+    if (amountInput) focusSoon(amountInput);
   }
 
   function closeExpenseModal() {
     const modal = document.getElementById('expense-modal');
-    if (modal) modal.classList.add('hidden');
+    hideModal(modal);
     hideExpenseFormError();
     state.editingExpenseId = null;
   }
@@ -1595,17 +1629,27 @@
     const exp = state.expenses.find(e => e.id === id);
     if (!exp) return;
 
-    const allCats = getAllCategories(true);
-    const cat = allCats[normalizeCategoryKey(exp.category)]?.name || 'Expense';
-    const msg = `Delete transaction: "${exp.note || cat}" for ₹${formatINR(exp.amount)}?`;
-    if (window.confirm(msg)) {
-      try {
-        await deleteExpense(id);
-        showToast(savedMessage('Expense deleted.'), 'info');
-      } catch (err) {
-        showToast(`Couldn't delete the expense: ${errorDetail(err)}`, 'error');
-      }
+    // No confirmation: delete at once and offer Undo for a few seconds
+    const removed = { ...exp };
+    try {
+      await deleteExpense(id);
+    } catch (err) {
+      showToast(`Couldn't delete the expense: ${errorDetail(err)}`, 'error');
+      return;
     }
+    showToast(savedMessage('Expense deleted.'), 'info', {
+      actionLabel: 'Undo',
+      duration: 6000,
+      onAction: async () => {
+        try {
+          await DataLayer.restoreExpense(removed);
+          reloadFromDataLayer();
+          showToast('Expense restored.', 'success');
+        } catch (err) {
+          showToast(`Couldn't restore the expense: ${errorDetail(err)}`, 'error');
+        }
+      },
+    });
   }
 
   // ==========================================
@@ -1638,13 +1682,13 @@
     if (input) {
       input.value = state.budget?.overallCap || 12000;
     }
-    if (modal) modal.classList.remove('hidden');
-    if (input) setTimeout(() => input.focus(), 100);
+    showModal(modal);
+    if (input) focusSoon(input);
   }
 
   function closeBudgetModal() {
     const modal = document.getElementById('budget-modal');
-    if (modal) modal.classList.add('hidden');
+    hideModal(modal);
   }
 
   async function saveBudgetModal() {
@@ -1672,7 +1716,11 @@
   }
 
   async function resetBudgetDefaults() {
-    if (window.confirm('Reset all category caps and monthly ceiling to default semester targets?')) {
+    if (await confirmDialog({
+      title: 'Reset budget to defaults?',
+      message: 'All category caps and your monthly budget go back to the default targets. Your expenses are not touched.',
+      confirmLabel: 'Reset budget',
+    })) {
       try {
         state.budget = DataLayer ? await DataLayer.resetBudgetDefaults() : {
           overallCap: 12000,
@@ -1690,7 +1738,13 @@
   }
 
   async function clearAllExpenses() {
-    if (window.confirm('Are you sure you want to delete ALL logged expenses? This will reset the app to an empty state.')) {
+    if (await confirmDialog({
+      title: 'Delete ALL expenses?',
+      message: `This permanently deletes all ${state.expenses.length} logged expenses from your account. It cannot be undone.`,
+      confirmLabel: 'Delete everything',
+      danger: true,
+      requireText: 'DELETE',
+    })) {
       try {
         if (DataLayer) await DataLayer.clearAllExpenses();
         state.expenses = [];
@@ -1728,8 +1782,8 @@
     selectCustomIcon('category');
     selectCustomColor('#006948');
 
-    if (modal) modal.classList.remove('hidden');
-    if (nameInput) setTimeout(() => nameInput.focus(), 100);
+    showModal(modal);
+    if (nameInput) focusSoon(nameInput);
   }
 
   function openEditCustomCategoryModal(catId) {
@@ -1764,13 +1818,13 @@
     selectCustomIcon(icon);
     selectCustomColor(color);
 
-    if (modal) modal.classList.remove('hidden');
-    if (nameInput) setTimeout(() => nameInput.focus(), 100);
+    showModal(modal);
+    if (nameInput) focusSoon(nameInput);
   }
 
   function closeCustomCategoryModal() {
     const modal = document.getElementById('custom-category-modal');
-    if (modal) modal.classList.add('hidden');
+    hideModal(modal);
     hideCustomCategoryError();
   }
 
@@ -1793,11 +1847,15 @@
     const buttons = document.querySelectorAll('#custom-icon-selector .icon-option');
     buttons.forEach(btn => {
       const ic = btn.getAttribute('data-icon');
-      if (ic === iconName) {
-        btn.className = 'icon-option p-2 rounded-xl bg-primary-container text-on-primary-container flex items-center justify-center ring-2 ring-primary';
-      } else {
-        btn.className = 'icon-option p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center';
-      }
+      const selected = ic === iconName;
+      btn.setAttribute('aria-pressed', String(selected));
+      btn.classList.toggle('bg-primary-container', selected);
+      btn.classList.toggle('text-on-primary-container', selected);
+      btn.classList.toggle('ring-2', selected);
+      btn.classList.toggle('ring-primary', selected);
+      btn.classList.toggle('bg-surface-container', !selected);
+      btn.classList.toggle('hover:bg-surface-container-high', !selected);
+      btn.classList.toggle('text-on-surface', !selected);
     });
   }
 
@@ -1808,11 +1866,12 @@
     const buttons = document.querySelectorAll('#custom-color-selector .color-option');
     buttons.forEach(btn => {
       const col = btn.getAttribute('data-color');
-      if (col === hexColor) {
-        btn.className = 'color-option w-7 h-7 rounded-full ring-2 ring-offset-2 ring-primary transition-all';
-      } else {
-        btn.className = 'color-option w-7 h-7 rounded-full transition-all';
-      }
+      // The swatch colour is an inline style, so toggling the ring never loses it
+      const selected = col === hexColor;
+      btn.setAttribute('aria-pressed', String(selected));
+      btn.classList.toggle('ring-2', selected);
+      btn.classList.toggle('ring-offset-2', selected);
+      btn.classList.toggle('ring-primary', selected);
     });
   }
 
@@ -1877,22 +1936,26 @@
     if (!cat) return;
 
     if (cat.isDefault) {
-      alert('Default categories cannot be deleted.');
+      showToast('Built-in categories cannot be deleted.', 'info');
       return;
     }
 
     const expenses = DataLayer.getExpenses();
     const hasExpenses = expenses.some(e => normalizeCategoryKey(e.category) === catId);
 
-    if (hasExpenses) {
-      const proceed = window.confirm(
-        `"${cat.name}" has active expenses recorded.\n\nArchiving will hide it from future logging but keep all historical transaction data intact. Proceed?`
-      );
-      if (!proceed) return;
-    } else {
-      const proceed = window.confirm(`Permanently delete custom category "${cat.name}"?`);
-      if (!proceed) return;
-    }
+    const proceed = hasExpenses
+      ? await confirmDialog({
+          title: `Archive "${cat.name}"?`,
+          message: 'It has expenses, so it will be hidden from new entries but all past transactions stay intact.',
+          confirmLabel: 'Archive',
+        })
+      : await confirmDialog({
+          title: `Delete "${cat.name}"?`,
+          message: 'This category has no expenses. It will be removed permanently.',
+          confirmLabel: 'Delete',
+          danger: true,
+        });
+    if (!proceed) return;
 
     let result;
     try {
@@ -1920,7 +1983,150 @@
   // ==========================================
   // TOAST NOTIFICATIONS
   // ==========================================
-  function showToast(message, type = 'info') {
+  // ==========================================
+  // MODALS (focus trap, Escape, backdrop click, focus return) AND DIALOGS
+  // ==========================================
+  const openModals = []; // most recent last: { el, opener }
+
+  function closeFnFor(modalEl) {
+    const closers = {
+      'expense-modal': closeExpenseModal,
+      'budget-modal': closeBudgetModal,
+      'custom-category-modal': closeCustomCategoryModal,
+      'confirm-modal': () => settleDialog('cancel'),
+    };
+    return closers[modalEl.id];
+  }
+
+  function focusableIn(el) {
+    return Array.from(el.querySelectorAll('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+      .filter(n => !n.disabled && n.type !== 'hidden' && n.offsetParent !== null);
+  }
+
+  // Autofocus a field shortly after a dialog opens, unless the user has already clicked into one.
+  function focusSoon(el) {
+    setTimeout(() => {
+      const active = document.activeElement;
+      const typing = active && active !== el && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName) && el.form && el.form.contains(active);
+      if (!typing && el.isConnected) el.focus();
+    }, 100);
+  }
+
+  function showModal(modal) {
+    if (!modal) return;
+    if (!openModals.some(m => m.el === modal)) {
+      openModals.push({ el: modal, opener: document.activeElement });
+    }
+    modal.classList.remove('hidden');
+    modal.removeAttribute('aria-hidden');
+    setTimeout(() => {
+      if (!modal.contains(document.activeElement)) {
+        const first = focusableIn(modal)[0];
+        if (first) first.focus();
+      }
+    }, 0);
+  }
+
+  function hideModal(modal) {
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    const idx = openModals.findIndex(m => m.el === modal);
+    if (idx !== -1) {
+      const { opener } = openModals.splice(idx, 1)[0];
+      if (opener && opener.isConnected && typeof opener.focus === 'function') opener.focus();
+    }
+  }
+
+  function handleModalKeydown(e) {
+    const top = openModals[openModals.length - 1];
+    if (!top) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      const close = closeFnFor(top.el);
+      if (close) close();
+    } else if (e.key === 'Tab') {
+      const items = focusableIn(top.el);
+      if (items.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!top.el.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+
+  function handleModalBackdropClick(e) {
+    const top = openModals[openModals.length - 1];
+    if (top && e.target === top.el) {
+      const close = closeFnFor(top.el);
+      if (close) close();
+    }
+  }
+
+  // In-app replacement for window.confirm / alert. Resolves 'confirm', 'extra' or 'cancel'.
+  let dialogResolver = null;
+
+  function settleDialog(result) {
+    const resolve = dialogResolver;
+    dialogResolver = null;
+    hideModal(document.getElementById('confirm-modal'));
+    if (resolve) resolve(result);
+  }
+
+  function askDialog({ title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', extraLabel = null, danger = false, requireText = null }) {
+    const modal = document.getElementById('confirm-modal');
+    if (!modal) return Promise.resolve('cancel');
+    if (dialogResolver) settleDialog('cancel');
+
+    document.getElementById('confirm-modal-title').textContent = title;
+    document.getElementById('confirm-modal-message').textContent = message;
+    const okBtn = document.getElementById('confirm-modal-ok');
+    const cancelBtn = document.getElementById('confirm-modal-cancel');
+    const extraBtn = document.getElementById('confirm-modal-extra');
+    const inputWrap = document.getElementById('confirm-modal-input-wrap');
+    const input = document.getElementById('confirm-modal-input');
+
+    okBtn.textContent = confirmLabel;
+    okBtn.className = `px-space-lg py-2.5 rounded-full font-label-md text-label-md transition-colors shadow-sm min-h-[44px] ${
+      danger ? 'bg-error hover:bg-red-700 text-on-error' : 'bg-primary hover:bg-primary-container text-on-primary'
+    } disabled:opacity-50 disabled:cursor-not-allowed`;
+    cancelBtn.textContent = cancelLabel;
+    extraBtn.textContent = extraLabel || '';
+    extraBtn.classList.toggle('hidden', !extraLabel);
+
+    input.value = '';
+    inputWrap.classList.toggle('hidden', !requireText);
+    document.getElementById('confirm-modal-input-label').textContent = requireText ? `Type ${requireText} to confirm` : '';
+    okBtn.disabled = !!requireText;
+    input.oninput = () => { okBtn.disabled = input.value.trim() !== requireText; };
+
+    return new Promise(resolve => {
+      dialogResolver = resolve;
+      okBtn.onclick = () => settleDialog('confirm');
+      cancelBtn.onclick = () => settleDialog('cancel');
+      extraBtn.onclick = () => settleDialog('extra');
+      showModal(modal);
+      // Focus the safe button for destructive prompts, the input when typing is required
+      setTimeout(() => (requireText ? input : danger ? cancelBtn : okBtn).focus(), 10);
+    });
+  }
+
+  async function confirmDialog(options) {
+    return (await askDialog(options)) === 'confirm';
+  }
+
+  function showToast(message, type = 'info', options = {}) {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
@@ -1940,6 +2146,19 @@
 
     toast.className = `flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-label-md font-label-md transition-all duration-300 transform translate-y-4 opacity-0 ${bg}`;
     toast.innerHTML = `<span class="material-symbols-outlined text-lg">${icon}</span> <span>${escapeHtml(message)}</span>`;
+    toast.classList.add('pointer-events-auto');
+    if (options.actionLabel && typeof options.onAction === 'function') {
+      const actionBtn = document.createElement('button');
+      actionBtn.type = 'button';
+      actionBtn.className = 'ml-2 px-3 py-1 min-h-[32px] rounded-full bg-white/20 hover:bg-white/30 font-bold underline-offset-2';
+      actionBtn.textContent = options.actionLabel;
+      actionBtn.addEventListener('click', () => {
+        actionBtn.disabled = true;
+        toast.remove();
+        options.onAction();
+      });
+      toast.appendChild(actionBtn);
+    }
 
     if (container.appendChild) {
       container.appendChild(toast);
@@ -1950,10 +2169,11 @@
       toast.classList?.remove?.('translate-y-4', 'opacity-0');
     });
 
+    const visibleFor = options.duration || (isError ? 6000 : 3200);
     setTimeout(() => {
       toast.classList?.add?.('opacity-0', 'translate-y-2');
       setTimeout(() => toast.remove?.(), 300);
-    }, 3200);
+    }, visibleFor);
   }
 
   // ==========================================
@@ -2216,7 +2436,7 @@
     if (headerAvatar) headerAvatar.src = photo;
 
     if (profileName) profileName.textContent = name;
-    if (profileEmail) profileEmail.textContent = `${contact} • Saved on this device`;
+    if (profileEmail) profileEmail.textContent = `${contact} • Synced to your Google account`;
     if (profileAvatar) profileAvatar.src = photo;
   }
 
@@ -2271,11 +2491,16 @@
           phoneNumber: user.phoneNumber || ''
         });
 
-        navigateTo('dashboard');
+        // Only the first sign-in event moves you to the dashboard; later events keep your place
+        if (!hasShownFirstView) {
+          hasShownFirstView = true;
+          navigateTo('dashboard');
+        }
         syncAllViewsWithData();
 
-        // Listen for live Firestore updates across tabs/cloud
-        if (DataLayer && typeof DataLayer.onDataChanged === 'function') {
+        // Listen for live Firestore updates across tabs/cloud (once, however many auth events fire)
+        if (!dataListenerRegistered && DataLayer && typeof DataLayer.onDataChanged === 'function') {
+          dataListenerRegistered = true;
           DataLayer.onDataChanged(() => {
             loadState();
             syncAllViewsWithData();
@@ -2286,7 +2511,48 @@
       } finally {
         hideLoadingOverlay();
       }
+
+      promptLegacyImport();
     });
+  }
+
+  let hasShownFirstView = false;
+  let dataListenerRegistered = false;
+
+  // Data an earlier, localStorage-only version left in this browser is never imported silently.
+  async function promptLegacyImport() {
+    const pending = DataLayer && DataLayer.getPendingLegacyImport && DataLayer.getPendingLegacyImport();
+    if (!pending) return;
+    const parts = [];
+    if (pending.expenseCount) parts.push(`${pending.expenseCount} expense${pending.expenseCount === 1 ? '' : 's'}`);
+    if (pending.hasBudget) parts.push('a budget');
+    if (pending.customCategoryCount) parts.push(`${pending.customCategoryCount} custom categor${pending.customCategoryCount === 1 ? 'y' : 'ies'}`);
+    const choice = await askDialog({
+      title: 'Import data saved in this browser?',
+      message: `An earlier version of ExpenseTrack saved ${parts.join(', ')} in this browser. Import it into this account? Only do this if the data is yours.`,
+      confirmLabel: 'Import it',
+      cancelLabel: 'Ask me later',
+      extraLabel: 'Delete it',
+    });
+    try {
+      if (choice === 'confirm') {
+        const { imported } = await DataLayer.importLegacyData();
+        reloadFromDataLayer();
+        showToast(`Imported ${imported} expense${imported === 1 ? '' : 's'} into your account.`, 'success');
+      } else if (choice === 'extra') {
+        await DataLayer.discardLegacyData();
+        showToast('The old data in this browser was deleted.', 'info');
+      }
+    } catch (err) {
+      showToast(`Couldn't finish that: ${errorDetail(err)}`, 'error');
+    }
+  }
+
+  function updateOfflineBanner() {
+    const banner = document.getElementById('offline-banner');
+    if (!banner) return;
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    banner.classList.toggle('hidden', !offline);
   }
 
   // Expose API for inline onclick handlers and testing
@@ -2326,12 +2592,19 @@
     getActiveCategories: () => getCategories(),
     getAllCategories: (archived = false) => getAllCategories(archived),
     getState: () => state,
+    // Testing aid: the data layer's active change listeners
+    getDataListenerCount: () => (DataLayer && DataLayer.getDataListenerCount ? DataLayer.getDataListenerCount() : 0),
   };
 
   // Bootstrap Application (Never load data before auth resolves)
   document.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
     hideExpenseFormError();
+    updateOfflineBanner();
+    window.addEventListener('online', updateOfflineBanner);
+    window.addEventListener('offline', updateOfflineBanner);
+    document.addEventListener('keydown', handleModalKeydown);
+    document.addEventListener('mousedown', handleModalBackdropClick);
     initAuthGuardAndSyncUser();
   });
 })();

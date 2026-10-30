@@ -132,6 +132,18 @@
         console.warn('Error clearing localStorage on sign out:', e);
       }
 
+      // Firestore keeps an offline copy of the data in IndexedDB. Remove it so the next person
+      // on a shared computer cannot find this account's data in the browser profile. This runs
+      // before auth.signOut(), because that triggers the auth listener, which redirects the page.
+      if (db) {
+        try {
+          await db.terminate();
+          await db.clearPersistence();
+        } catch (e) {
+          console.warn('Could not clear the offline data cache on sign out:', e);
+        }
+      }
+
       if (auth) {
         await auth.signOut();
       }

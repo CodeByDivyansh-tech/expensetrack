@@ -33,9 +33,26 @@ async function openApp(page, { useFirestore = false, seed = {} } = {}) {
     const authObj = {
       currentUser: user,
       setPersistence: () => Promise.resolve(),
-      onAuthStateChanged(cb) { listener = cb; setTimeout(() => cb(user), 0); return () => {}; },
-      signOut() { if (listener) listener(null); return Promise.resolve(); },
+      onAuthStateChanged(cb) {
+        listener = cb;
+        setTimeout(() => cb(sessionStorage.getItem('__signedOut') ? null : user), 0);
+        return () => {};
+      },
+      signOut() {
+        sessionStorage.setItem('__signedOut', '1');
+        if (listener) listener(null);
+        return Promise.resolve();
+      },
     };
+    window.__fireAuth = () => { if (listener) listener(user); };
+    // Remember cache-clearing calls across the redirect to login.html
+    ['terminate', 'clearPersistence'].forEach((name) => {
+      const original = db[name];
+      db[name] = () => {
+        sessionStorage.setItem('__fsCalls', (sessionStorage.getItem('__fsCalls') || '') + name + ',');
+        return original();
+      };
+    });
     const auth = () => authObj;
     auth.Auth = { Persistence: { LOCAL: 'local' } };
     auth.GoogleAuthProvider = function () { this.setCustomParameters = () => {}; };
