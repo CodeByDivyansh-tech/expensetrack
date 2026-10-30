@@ -42,7 +42,8 @@ function createServer() {
       status = 404;
     }
     const out = { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' };
-    headers.forEach((h) => { out[h.name] = h.value; });
+    const requested = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    headers.forEach((h) => { if (h.path === '/*' || h.path === requested) out[h.name] = h.value; });
     res.writeHead(status, out);
     fs.createReadStream(file).pipe(res);
   });

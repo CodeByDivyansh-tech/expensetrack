@@ -3,6 +3,13 @@
 <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta name="color-scheme" content="light dark"/>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="ExpenseTrack"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <script src="theme-init.js"></script>
   <meta content="web_dashboard" name="shell-type"/>
   <title>ExpenseTrack - Student Finance App</title>
   
@@ -110,6 +117,14 @@
           <span class="material-symbols-outlined text-2xl">account_balance_wallet</span>
           <span class="font-label-md text-label-md">Budget Setup</span>
         </a>
+        <a class="flex items-center gap-space-md px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="goals" href="#">
+          <span class="material-symbols-outlined text-2xl">savings</span>
+          <span class="font-label-md text-label-md">Savings goals</span>
+        </a>
+        <a class="flex items-center gap-space-md px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="recurring" href="#">
+          <span class="material-symbols-outlined text-2xl">repeat</span>
+          <span class="font-label-md text-label-md">Recurring</span>
+        </a>
         <a class="flex items-center gap-space-md px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="profile-&-settings" href="#">
           <span class="material-symbols-outlined text-2xl">manage_accounts</span>
           <span class="font-label-md text-label-md">Settings &amp; Profile</span>
@@ -189,10 +204,6 @@
             <div class="flex items-center gap-2 text-on-surface-variant mb-1 flex-wrap">
               <span class="material-symbols-outlined text-sm text-primary">verified</span>
               <span class="font-label-sm text-label-sm font-semibold text-on-surface">Student Overview • <span class="dynamic-semester-badge">This month</span></span>
-              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">
-                <span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
-                Campus Living
-              </span>
             </div>
             <div class="flex items-baseline gap-space-sm flex-wrap">
               <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Spending Dashboard</h1>
@@ -302,6 +313,17 @@
               </button>
             </div>
           </div>
+        </div>
+
+        <!-- Savings goal -->
+        <div id="dash-goal-card" class="hidden mb-space-xl bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex items-center gap-space-md">
+          <div id="dash-goal-ring" class="shrink-0"></div>
+          <div class="flex flex-col min-w-0 flex-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Savings goal</span>
+            <span id="dash-goal-name" class="font-title-md text-title-md text-on-surface font-bold truncate"></span>
+            <span id="dash-goal-text" class="font-body-sm text-body-sm text-on-surface-variant"></span>
+          </div>
+          <button type="button" data-click="navigateTo" data-arg="goals" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors shrink-0">Manage</button>
         </div>
 
         <!-- Category Quick Overview Grid -->
@@ -949,6 +971,38 @@
             </div>
           </div>
 
+          <!-- Projection and six-month trend -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-space-md">
+            <div id="analytics-projection-card" class="lg:col-span-4 bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-space-xs">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-xl bg-surface-container flex items-center justify-center text-primary"><span class="material-symbols-outlined text-lg">trending_up</span></div>
+                <h3 class="font-title-md text-title-md text-on-surface font-bold">Projected month-end</h3>
+              </div>
+              <span id="analytics-projection" class="font-numeric-balance text-numeric-balance text-on-surface tracking-tight">—</span>
+              <span id="analytics-projection-note" class="font-body-sm text-body-sm text-on-surface-variant"></span>
+              <span id="analytics-projection-cap" class="font-body-sm text-body-sm font-semibold"></span>
+            </div>
+            <div class="lg:col-span-8 bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col">
+              <div class="flex items-center justify-between mb-space-md">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-xl bg-surface-container flex items-center justify-center text-primary"><span class="material-symbols-outlined text-lg">show_chart</span></div>
+                  <h3 class="font-title-md text-title-md text-on-surface font-bold">Last 6 months</h3>
+                </div>
+                <span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-2.5 py-0.5 rounded-full">Total spent</span>
+              </div>
+              <div class="relative h-56 w-full"><canvas id="chart-trend" role="img" aria-label="Line chart of total spending in each of the last six months"></canvas></div>
+            </div>
+          </div>
+
+          <!-- This month against last month -->
+          <div class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-space-md">
+            <div>
+              <h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Compared with last month</h3>
+              <p id="analytics-compare-summary" class="font-body-sm text-body-sm text-on-surface-variant"></p>
+            </div>
+            <div id="analytics-compare-list" class="flex flex-col divide-y divide-slate-100"></div>
+          </div>
+
           <!-- Category-wise Detailed Breakdown Table/List -->
           <div class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-space-md">
             <div>
@@ -1061,6 +1115,47 @@
         </div>
       </section>
 
+
+      <!-- =================================================================== -->
+      <!-- VIEW: RECURRING EXPENSES                                            -->
+      <!-- =================================================================== -->
+      <section id="view-recurring" class="app-view hidden flex flex-col w-full">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-lg">
+          <div class="flex flex-col">
+            <div class="flex items-center gap-space-xs text-on-surface-variant mb-1"><span class="material-symbols-outlined text-sm text-primary">repeat</span><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Automatic entries</span></div>
+            <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Recurring expenses</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Rent, a phone plan, a subscription. They are added for you when the date comes round, the next time you open the app.</p>
+          </div>
+          <button type="button" id="rec-add" class="flex items-center gap-space-xs px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all"><span class="material-symbols-outlined text-lg">add_circle</span> Add recurring</button>
+        </div>
+        <div id="rec-empty" class="hidden flex flex-col items-center justify-center py-12 px-4 text-center bg-surface-container-lowest rounded-3xl border border-slate-100">
+          <div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-space-sm"><span class="material-symbols-outlined text-3xl">repeat</span></div>
+          <h2 class="font-title-md text-title-md text-on-surface font-bold">Nothing repeats yet</h2>
+          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm mt-1">Add the bills you pay every month or every week and stop typing them in.</p>
+        </div>
+        <div id="rec-list" class="flex flex-col gap-space-sm"></div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- VIEW: SAVINGS GOALS                                                 -->
+      <!-- =================================================================== -->
+      <section id="view-goals" class="app-view hidden flex flex-col w-full">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-lg">
+          <div class="flex flex-col">
+            <div class="flex items-center gap-space-xs text-on-surface-variant mb-1"><span class="material-symbols-outlined text-sm text-primary">savings</span><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Put money aside</span></div>
+            <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Savings goals</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">You add the money you set aside yourself. Nothing is saved for you automatically.</p>
+          </div>
+          <button type="button" id="goal-add" class="flex items-center gap-space-xs px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all"><span class="material-symbols-outlined text-lg">add_circle</span> New goal</button>
+        </div>
+        <div id="goal-empty" class="hidden flex flex-col items-center justify-center py-12 px-4 text-center bg-surface-container-lowest rounded-3xl border border-slate-100">
+          <div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-space-sm"><span class="material-symbols-outlined text-3xl">savings</span></div>
+          <h2 class="font-title-md text-title-md text-on-surface font-bold">No goals yet</h2>
+          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm mt-1">A laptop, a trip, an emergency cushion. Set a target and add to it whenever you can.</p>
+        </div>
+        <div id="goal-list" class="grid grid-cols-1 lg:grid-cols-2 gap-space-md"></div>
+      </section>
+
       <!-- =================================================================== -->
       <!-- VIEW 4: SETTINGS & PROFILE                                          -->
       <!-- =================================================================== -->
@@ -1146,6 +1241,67 @@
               <span class="font-body-sm text-body-sm">Your data is stored in your own private space in your Google-linked account and is only visible to you.</span>
             </div>
           </div>
+          <!-- Preferences -->
+          <div id="prefs-card" class="lg:col-span-12 bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-space-md">
+            <div>
+              <h3 class="font-title-md text-title-md text-on-surface font-bold">Preferences</h3>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Saved to your account and used on every device.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+              <div class="flex flex-col gap-1">
+                <span id="pref-theme-label" class="font-label-sm text-label-sm text-on-surface-variant">Appearance</span>
+                <div role="group" aria-labelledby="pref-theme-label" class="flex flex-wrap gap-2"><button type="button" data-theme-choice="system" aria-pressed="false" class="theme-choice px-5 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface">Device setting</button><button type="button" data-theme-choice="light" aria-pressed="false" class="theme-choice px-5 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface">Light</button><button type="button" data-theme-choice="dark" aria-pressed="false" class="theme-choice px-5 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface">Dark</button></div>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label for="pref-currency" class="font-label-sm text-label-sm text-on-surface-variant">Currency symbol</label>
+                <select id="pref-currency" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"><option value="INR">₹ Indian rupee</option><option value="USD">$ US dollar</option><option value="EUR">€ Euro</option><option value="GBP">£ Pound sterling</option></select>
+                <span class="font-body-sm text-body-sm text-on-surface-variant">Display only. Amounts are never converted.</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label for="pref-week-start" class="font-label-sm text-label-sm text-on-surface-variant">First day of the week</label>
+                <select id="pref-week-start" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label for="pref-month-start" class="font-label-sm text-label-sm text-on-surface-variant">My budget month starts on</label>
+                <select id="pref-month-start" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"><option value="1">1st (calendar month)</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th</option><option value="5">5th</option><option value="6">6th</option><option value="7">7th</option><option value="8">8th</option><option value="9">9th</option><option value="10">10th</option><option value="11">11th</option><option value="12">12th</option><option value="13">13th</option><option value="14">14th</option><option value="15">15th</option><option value="16">16th</option><option value="17">17th</option><option value="18">18th</option><option value="19">19th</option><option value="20">20th</option><option value="21">21st</option><option value="22">22nd</option><option value="23">23rd</option><option value="24">24th</option><option value="25">25th</option><option value="26">26th</option><option value="27">27th</option><option value="28">28th</option></select>
+                <span class="font-body-sm text-body-sm text-on-surface-variant">For example the day your allowance arrives.</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label for="pref-warn-pct" class="font-label-sm text-label-sm text-on-surface-variant">Warn me when a budget reaches</label>
+                <select id="pref-warn-pct" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"><option value="50">50%</option><option value="55">55%</option><option value="60">60%</option><option value="65">65%</option><option value="70">70%</option><option value="75">75%</option><option value="80">80%</option><option value="85">85%</option><option value="90">90%</option><option value="95">95%</option></select>
+                <span class="font-body-sm text-body-sm text-on-surface-variant">You are warned again at 100%. Turn warnings on under Budget Setup.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Install -->
+          <div id="install-card" class="hidden lg:col-span-6 bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex items-center justify-between gap-space-md">
+            <div class="flex flex-col">
+              <h3 class="font-title-md text-title-md text-on-surface font-bold">Install ExpenseTrack</h3>
+              <p id="install-text" class="font-body-sm text-body-sm text-on-surface-variant">Add it to your home screen to open it like an app, even offline.</p>
+            </div>
+            <button type="button" id="btn-install" class="px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm disabled:opacity-50 shrink-0">Install</button>
+          </div>
+
+          <!-- Shortcuts to the other tools -->
+          <div class="lg:col-span-6 bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-space-sm">
+            <h3 class="font-title-md text-title-md text-on-surface font-bold">Your data</h3>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" data-click="navigateTo" data-arg="recurring" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Recurring expenses</button>
+              <button type="button" data-click="navigateTo" data-arg="goals" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Savings goals</button>
+              <button type="button" data-click="navigateTo" data-arg="transactions" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Export or import CSV</button>
+            </div>
+          </div>
+
+          <!-- Delete account -->
+          <div class="lg:col-span-12 rounded-3xl p-space-lg border border-error/40 bg-error-container/30 flex flex-col sm:flex-row sm:items-center justify-between gap-space-md">
+            <div class="flex flex-col">
+              <h3 class="font-title-md text-title-md text-error font-bold">Delete my account</h3>
+              <p class="font-body-sm text-body-sm text-on-surface-variant">Permanently deletes every expense, budget, goal and setting, then removes your sign-in. This cannot be undone.</p>
+            </div>
+            <button type="button" id="btn-delete-account" class="px-space-lg py-2.5 min-h-[44px] rounded-full bg-error hover:bg-red-700 text-on-error font-label-md text-label-md shrink-0 transition-colors">Delete account</button>
+          </div>
+
         </div>
       </section>
 
@@ -1546,6 +1702,74 @@
     </div>
   </div>
 
+
+  <div id="recurring-modal" role="dialog" aria-modal="true" aria-labelledby="recurring-modal-title" aria-hidden="true" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-on-surface/40 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-surface-container-lowest rounded-3xl p-space-lg max-w-md w-full shadow-2xl flex flex-col gap-space-md max-h-[92vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-space-sm">
+        <h3 id="recurring-modal-title" class="font-title-md text-title-md text-on-surface font-bold">Recurring expense</h3>
+        <button type="button" id="recurring-modal-close" aria-label="Close dialog" class="w-11 h-11 shrink-0 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center"><span class="material-symbols-outlined text-lg">close</span></button>
+      </div>
+      <p id="recurring-modal-error" role="alert" class="hidden p-3 rounded-2xl bg-error-container text-on-error-container font-label-md text-label-md"></p>
+      <form id="rec-form" novalidate class="flex flex-col gap-space-md">
+        <input type="hidden" id="rec-id" value=""/>
+        <div class="flex flex-col gap-1"><label for="rec-name" class="font-label-sm text-label-sm text-on-surface-variant">What is it? *</label><input id="rec-name" type="text" maxlength="100" placeholder="e.g. Hostel rent, Spotify" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+        <div class="grid grid-cols-2 gap-space-md">
+          <div class="flex flex-col gap-1"><label for="rec-amount" class="font-label-sm text-label-sm text-on-surface-variant">Amount (₹) *</label><input id="rec-amount" type="number" step="0.01" min="0.01" max="1000000" inputmode="decimal" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+          <div class="flex flex-col gap-1"><label for="rec-frequency" class="font-label-sm text-label-sm text-on-surface-variant">Repeats *</label><select id="rec-frequency" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"><option value="monthly">Every month</option><option value="weekly">Every week</option></select></div>
+        </div>
+        <div class="grid grid-cols-2 gap-space-md">
+          <div class="flex flex-col gap-1"><label for="rec-category" class="font-label-sm text-label-sm text-on-surface-variant">Category *</label><select id="rec-category" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"></select></div>
+          <div class="flex flex-col gap-1"><label for="rec-payment" class="font-label-sm text-label-sm text-on-surface-variant">Paid with</label><select id="rec-payment" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"><option value="">Not recorded</option><option>UPI</option><option>Cash</option><option>Card</option><option>Wallet</option><option>Other</option></select></div>
+        </div>
+        <div class="grid grid-cols-2 gap-space-md">
+          <div class="flex flex-col gap-1"><label for="rec-start" class="font-label-sm text-label-sm text-on-surface-variant">First date *</label><input id="rec-start" type="date" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+          <div class="flex flex-col gap-1"><label for="rec-end" class="font-label-sm text-label-sm text-on-surface-variant">Last date (optional)</label><input id="rec-end" type="date" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+        </div>
+        <p id="rec-preview" class="font-body-sm text-body-sm text-on-surface-variant"></p>
+        <div class="flex items-center justify-end gap-space-sm"><button type="button" id="rec-cancel" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Cancel</button><button type="submit" id="rec-save" class="px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm disabled:opacity-50">Save</button></div>
+      </form>
+    </div>
+  </div>
+  <div id="goal-modal" role="dialog" aria-modal="true" aria-labelledby="goal-modal-title" aria-hidden="true" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-on-surface/40 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-surface-container-lowest rounded-3xl p-space-lg max-w-md w-full shadow-2xl flex flex-col gap-space-md max-h-[92vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-space-sm">
+        <h3 id="goal-modal-title" class="font-title-md text-title-md text-on-surface font-bold">Savings goal</h3>
+        <button type="button" id="goal-modal-close" aria-label="Close dialog" class="w-11 h-11 shrink-0 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center"><span class="material-symbols-outlined text-lg">close</span></button>
+      </div>
+      <p id="goal-modal-error" role="alert" class="hidden p-3 rounded-2xl bg-error-container text-on-error-container font-label-md text-label-md"></p>
+      <form id="goal-form" novalidate class="flex flex-col gap-space-md">
+        <input type="hidden" id="goal-id" value=""/>
+        <div class="flex flex-col gap-1"><label for="goal-name" class="font-label-sm text-label-sm text-on-surface-variant">Goal name *</label><input id="goal-name" type="text" maxlength="60" placeholder="e.g. New laptop" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+        <div class="flex flex-col gap-1"><label for="goal-target" class="font-label-sm text-label-sm text-on-surface-variant">Target amount (₹) *</label><input id="goal-target" type="number" step="1" min="1" max="100000000" inputmode="numeric" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+        <div class="flex flex-col gap-1"><label for="goal-deadline" class="font-label-sm text-label-sm text-on-surface-variant">Target date (optional)</label><input id="goal-deadline" type="date" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+        <div class="flex items-center justify-end gap-space-sm"><button type="button" id="goal-cancel" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Cancel</button><button type="submit" id="goal-save" class="px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm disabled:opacity-50">Save goal</button></div>
+      </form>
+    </div>
+  </div>
+  <div id="contrib-modal" role="dialog" aria-modal="true" aria-labelledby="contrib-modal-title" aria-hidden="true" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-on-surface/40 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-surface-container-lowest rounded-3xl p-space-lg max-w-md w-full shadow-2xl flex flex-col gap-space-md max-h-[92vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-space-sm">
+        <h3 id="contrib-modal-title" class="font-title-md text-title-md text-on-surface font-bold">Add to goal</h3>
+        <button type="button" id="contrib-modal-close" aria-label="Close dialog" class="w-11 h-11 shrink-0 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center"><span class="material-symbols-outlined text-lg">close</span></button>
+      </div>
+      <p id="contrib-modal-error" role="alert" class="hidden p-3 rounded-2xl bg-error-container text-on-error-container font-label-md text-label-md"></p>
+      <form id="contrib-form" novalidate class="flex flex-col gap-space-md">
+        <input type="hidden" id="contrib-goal-id" value=""/>
+        <p id="contrib-summary" class="font-body-md text-body-md text-on-surface-variant"></p>
+        <div role="group" aria-label="Add or take out" class="flex gap-2">
+          <button type="button" data-contrib-kind="add" aria-pressed="true" class="contrib-kind flex-1 min-h-[44px] rounded-full font-label-md text-label-md bg-primary text-on-primary">Add money</button>
+          <button type="button" data-contrib-kind="withdraw" aria-pressed="false" class="contrib-kind flex-1 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface">Take out</button>
+        </div>
+        <div class="flex flex-col gap-1"><label for="contrib-amount" class="font-label-sm text-label-sm text-on-surface-variant">Amount (₹) *</label><input id="contrib-amount" type="number" step="0.01" min="0.01" inputmode="decimal" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+        <div class="grid grid-cols-2 gap-space-md">
+          <div class="flex flex-col gap-1"><label for="contrib-date" class="font-label-sm text-label-sm text-on-surface-variant">Date</label><input id="contrib-date" type="date" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+          <div class="flex flex-col gap-1"><label for="contrib-note" class="font-label-sm text-label-sm text-on-surface-variant">Note</label><input id="contrib-note" type="text" maxlength="60" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+        </div>
+        <div class="flex items-center justify-end gap-space-sm"><button type="button" id="contrib-cancel" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Cancel</button><button type="submit" id="contrib-save" class="px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm disabled:opacity-50">Save</button></div>
+      </form>
+    </div>
+  </div>
+
   <!-- Offline notice -->
   <div id="offline-banner" role="status" class="hidden fixed top-16 left-0 right-0 lg:left-72 z-40 bg-tertiary-fixed text-on-tertiary-fixed text-center font-label-md text-label-md py-2 px-4">
     <span class="material-symbols-outlined text-base align-middle">cloud_off</span>
@@ -1577,5 +1801,6 @@
   <script src="expense-tools.js"></script>
   <!-- Application Script -->
   <script src="app.js"></script>
+  <script src="pwa.js" defer></script>
 </body>
 </html>

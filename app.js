@@ -51,12 +51,12 @@
     settings: null,
     editingExpenseId: null,
     analyticsYear: new Date().getFullYear(),
-    analyticsMonth: new Date().getMonth(), // 0-indexed: 0 = Jan, 9 = Oct
+    analyticsMonth: new Date().getMonth(), // the budget period shown in Analytics (0-indexed month)
     charts: {
       categoryDonut: null,
       monthlyBar: null,
     },
-    renderCounts: { dashboard: 0, transactions: 0, 'budget-setup': 0, analytics: 0, 'profile-&-settings': 0 },
+    renderCounts: { dashboard: 0, recurring: 0, goals: 0, transactions: 0, 'budget-setup': 0, analytics: 0, 'profile-&-settings': 0 },
     tx: {
       filters: { query: '', category: '', payment: '', from: '', to: '', min: '', max: '' },
       sort: 'newest',
@@ -85,6 +85,7 @@
     state.expenses = DataLayer.getExpenses();
     state.budget = DataLayer.getBudget();
     state.settings = DataLayer.getSettings();
+    applyTheme();
   }
 
   function saveExpenses() {
@@ -100,6 +101,70 @@
   async function saveSettings() {
     if (!DataLayer) return;
     await DataLayer.saveSettings(state.settings);
+  }
+
+  // Static page text contains "₹" in labels and placeholders. Wrap each one once so the currency
+  // preference can swap the symbol; text produced by the app already uses the chosen symbol.
+  function markCurrencySymbols() {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: n => (n.nodeValue.includes('₹') && !['SCRIPT', 'STYLE', 'TEXTAREA'].includes(n.parentNode.nodeName) && !n.parentNode.closest('[data-cur]'))
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(node => {
+      const frag = document.createDocumentFragment();
+      node.nodeValue.split('₹').forEach((part, i) => {
+        if (i > 0) {
+          const s = document.createElement('span');
+          s.setAttribute('data-cur', '');
+          s.textContent = '₹';
+          frag.appendChild(s);
+        }
+        frag.appendChild(document.createTextNode(part));
+      });
+      node.parentNode.replaceChild(frag, node);
+    });
+  }
+
+  function applyCurrency() {
+    const symbol = sym();
+    document.querySelectorAll('[data-cur]').forEach(el => { if (el.textContent !== symbol) el.textContent = symbol; });
+  }
+
+  // --- Theme: light, dark, or follow the device ---
+  function cssRgb(token) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--c-' + token).trim();
+    return v ? `rgb(${v})` : '#000000';
+  }
+
+  // rgba() with commas works in every browser and canvas, unlike the space-separated form the tokens use
+  function cssRgba(token, alpha) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--c-' + token).trim().split(/\s+/);
+    return v.length === 3 ? `rgba(${v.join(', ')}, ${alpha})` : 'rgba(0, 0, 0, 0.1)';
+  }
+
+  function effectiveTheme(choice) {
+    if (choice === 'dark') return 'dark';
+    if (choice === 'light') return 'light';
+    return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  let appliedTheme = null;
+
+  function applyTheme() {
+    const choice = (state.settings && state.settings.theme) || 'system';
+    const theme = effectiveTheme(choice);
+    try { localStorage.setItem('expensetrack_theme', choice); } catch (e) { /* private mode */ }
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b1220' : '#006948');
+    if (appliedTheme !== null && appliedTheme !== theme) {
+      // Charts keep their colours from when they were drawn, so draw them again
+      ['categoryDonut', 'monthlyBar', 'trend'].forEach(k => { if (state.charts[k]) { state.charts[k].destroy(); state.charts[k] = null; } });
+      if (state.currentView === 'analytics') renderAnalytics();
+    }
+    appliedTheme = theme;
   }
 
   // Shown in toasts: say so when a save was only queued for later.
@@ -123,9 +188,31 @@
   const safeColor = (color) => (DataLayer && DataLayer.safeColor ? DataLayer.safeColor(color) : '#006948');
 
   // --- Formatting & Local Date Helpers ---
+  // The currency is a display choice (symbol and digit grouping); amounts are never converted.
+  function currencyCode() {
+    return (state.settings && state.settings.currency) || 'INR';
+  }
+
+  function sym() {
+    return BudgetCalculator.currencyOf(currencyCode()).symbol;
+  }
+
   function formatINR(val) {
-    if (BudgetCalculator) return BudgetCalculator.formatINR(val);
+    if (BudgetCalculator) return BudgetCalculator.formatNumber(val, currencyCode());
     return (Number(val) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  }
+
+  // Budget month: starts on the day the user chose (default the 1st)
+  function startDay() {
+    return BudgetCalculator.clampStartDay(state.settings && state.settings.monthStartDay);
+  }
+
+  function currentPeriod() {
+    return BudgetCalculator.periodOf(localDateString(), startDay());
+  }
+
+  function inPeriod(dateStr, year, month) {
+    return BudgetCalculator.periodContains(dateStr, year, month, startDay());
   }
 
   function roundMoney(val) {
@@ -164,11 +251,12 @@
   };
 
   function getCurrentMonthExpenses() {
-    return state.expenses.filter(exp => isCurrentMonth(exp.date));
+    const p = currentPeriod();
+    return state.expenses.filter(exp => inPeriod(exp.date, p.year, p.month));
   }
 
   function getMonthExpenses(year, month) {
-    return state.expenses.filter(exp => isSameMonth(exp.date, year, month));
+    return state.expenses.filter(exp => inPeriod(exp.date, year, month));
   }
 
   // --- Calculations (Defaulting to Current Month) ---
@@ -204,7 +292,7 @@
 
   // --- Navigation & Router ---
   function navigateTo(viewName) {
-    const allowed = ['dashboard', 'transactions', 'budget-setup', 'analytics', 'profile-&-settings'];
+    const allowed = ['dashboard', 'transactions', 'budget-setup', 'analytics', 'profile-&-settings', 'recurring', 'goals'];
     if (!allowed.includes(viewName)) {
       viewName = 'dashboard';
     }
@@ -259,7 +347,8 @@
   // --- Academic Term & Real Month Display (Section 7) ---
   function getAcademicTermInfo() {
     const now = new Date();
-    const currentMonthYear = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); // e.g. "October 2026"
+    const p = currentPeriod();
+    const currentMonthYear = BudgetCalculator.periodLabel(p.year, p.month, startDay()); // "October 2026" or "15 Oct to 14 Nov 2026"
     return {
       year: now.getFullYear(),
       termName: currentMonthYear,
@@ -302,9 +391,10 @@
   // --- Budget alerts: overall and per category, at 80% and 100% ---
   let currentUid = null;
 
+  // The budget period we are in, as "2026-10": a dismissal only lasts for the period it was made in
   function monthKeyNow() {
-    const n = new Date();
-    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+    const p = currentPeriod();
+    return `${p.year}-${String(p.month + 1).padStart(2, '0')}`;
   }
 
   function currentAlerts() {
@@ -316,6 +406,7 @@
       spendingMap: getCategorySpendingMap(),
       caps: state.budget.categories || {},
       categories: activeCats,
+      warnPct: state.settings && state.settings.alertWarnPct,
     });
   }
 
@@ -357,7 +448,7 @@
     if (desc) desc.textContent = 'Warnings start at 80% and again at 100%.';
     if (list) {
       list.innerHTML = alerts.map(a =>
-        `<li><strong>${escapeHtml(a.name)}</strong>: ₹${formatINR(a.spent)} of ₹${formatINR(a.cap)} (${a.pct}%)${a.level === 'over' ? ', over the limit' : ', nearly there'}</li>`
+        `<li><strong>${escapeHtml(a.name)}</strong>: ${sym()}${formatINR(a.spent)} of ${sym()}${formatINR(a.cap)} (${a.pct}%)${a.level === 'over' ? ', over the limit' : ', nearly there'}</li>`
       ).join('');
     }
     banner.classList.remove('hidden');
@@ -391,12 +482,15 @@
     switch (state.currentView) {
       case 'dashboard': renderDashboard(); break;
       case 'transactions': renderTransactions(); break;
+      case 'recurring': renderRecurring(); break;
+      case 'goals': renderGoals(); break;
       case 'budget-setup': renderBudgetSetup(); break;
       case 'analytics': renderAnalytics(); break;
       case 'profile-&-settings': renderProfile(); break;
       default: break;
     }
     checkBudget80Alert();
+    applyCurrency();
   }
 
   function renderCurrentView() {
@@ -430,14 +524,14 @@
       widgetSafePercent.className = 'font-label-sm text-label-sm text-error font-bold';
       widgetBar.style.width = '100%';
       widgetBar.className = 'bg-error h-full rounded-full';
-      widgetLeft.textContent = `₹${formatINR(Math.abs(remaining))} over budget`;
+      widgetLeft.textContent = `${sym()}${formatINR(Math.abs(remaining))} over budget`;
     } else {
       const safeRatio = Math.round(((overallCap - totalSpent) / overallCap) * 100);
       widgetSafePercent.textContent = `${safeRatio}% Safe`;
       widgetSafePercent.className = 'font-label-sm text-label-sm text-primary font-bold';
       widgetBar.style.width = `${percentSpent}%`;
       widgetBar.className = percentSpent > 80 ? 'bg-tertiary h-full rounded-full' : 'bg-primary h-full rounded-full';
-      widgetLeft.textContent = `₹${formatINR(remaining)} left this month`;
+      widgetLeft.textContent = `${sym()}${formatINR(remaining)} left this month`;
     }
   }
 
@@ -454,12 +548,12 @@
 
     // Hero Total Spent
     const heroSpentVal = document.getElementById('dash-total-spent');
-    if (heroSpentVal) heroSpentVal.textContent = `₹${formatINR(totalSpent)}`;
+    if (heroSpentVal) heroSpentVal.textContent = `${sym()}${formatINR(totalSpent)}`;
 
     // Budget Cap Display
     const dashBudgetCap = document.getElementById('dash-budget-cap');
     if (dashBudgetCap) {
-      dashBudgetCap.textContent = hasBudget ? `₹${formatINR(overallCap)}` : 'Not Set';
+      dashBudgetCap.textContent = hasBudget ? `${sym()}${formatINR(overallCap)}` : 'Not Set';
     }
 
     // Remaining / Buffer Display
@@ -474,10 +568,10 @@
         dashRemainingText.textContent = 'No budget set';
       } else if (isOverBudget) {
         dashRemainingPill.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-full bg-error-container text-on-error-container font-label-md text-label-md font-bold';
-        dashRemainingText.textContent = `₹${formatINR(Math.abs(remaining))} Over Budget!`;
+        dashRemainingText.textContent = `${sym()}${formatINR(Math.abs(remaining))} Over Budget!`;
       } else {
         dashRemainingPill.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-label-md text-label-md font-bold';
-        dashRemainingText.textContent = `₹${formatINR(remaining)} Remaining Safe`;
+        dashRemainingText.textContent = `${sym()}${formatINR(remaining)} Remaining Safe`;
       }
     }
 
@@ -502,7 +596,7 @@
       if (!hasBudget) {
         dashProgressSubtitle.innerHTML = `<span class="text-on-surface-variant">Tap <button class="text-primary font-bold underline" data-click="openBudgetModal">Set Budget</button> to configure your monthly budget.</span>`;
       } else if (isOverBudget) {
-        dashProgressSubtitle.innerHTML = `<span class="text-error font-bold flex items-center gap-1"><span class="material-symbols-outlined text-sm">warning</span> Monthly limit exceeded by ₹${formatINR(Math.abs(remaining))}</span>`;
+        dashProgressSubtitle.innerHTML = `<span class="text-error font-bold flex items-center gap-1"><span class="material-symbols-outlined text-sm">warning</span> Monthly limit exceeded by ${sym()}${formatINR(Math.abs(remaining))}</span>`;
       } else {
         const pct = Math.round((totalSpent / overallCap) * 100);
         dashProgressSubtitle.innerHTML = `<span class="text-on-surface-variant">${pct}% of monthly cap used • Pacing healthy</span>`;
@@ -514,6 +608,7 @@
 
     // Transactions List
     renderDashboardTransactions();
+    renderGoalCard();
 
     // Dynamic spending insight based on real history
     const dashInsight = document.getElementById('dash-spending-insight');
@@ -526,9 +621,9 @@
       } else {
         const now = new Date();
         const dailyAvg = BudgetCalculator
-          ? BudgetCalculator.dailyAverage(totalSpent, now.getFullYear(), now.getMonth(), now).average
+          ? BudgetCalculator.dailyAverage(totalSpent, currentPeriod().year, currentPeriod().month, now, startDay()).average
           : totalSpent / Math.max(1, now.getDate());
-        dashInsight.textContent = `${topCat.name} leads your spending at ₹${formatINR(topCat.amount)}. Your month-to-date pacing is ₹${formatINR(dailyAvg)}/day.`;
+        dashInsight.textContent = `${topCat.name} leads your spending at ${sym()}${formatINR(topCat.amount)}. Your month-to-date pacing is ${sym()}${formatINR(dailyAvg)}/day.`;
       }
     }
   }
@@ -576,8 +671,8 @@
           <div>
             <div class="font-label-md text-label-md text-on-surface font-bold truncate">${escapeHtml(cat.name)}</div>
             <div class="flex items-baseline justify-between mt-1">
-              <span class="font-title-md text-title-md font-bold text-on-surface">₹${formatINR(spent)}</span>
-              <span class="font-body-sm text-body-sm text-on-surface-variant">/ ₹${formatINR(cap)}</span>
+              <span class="font-title-md text-title-md font-bold text-on-surface">${sym()}${formatINR(spent)}</span>
+              <span class="font-body-sm text-body-sm text-on-surface-variant">/ ${sym()}${formatINR(cap)}</span>
             </div>
             <div class="w-full bg-surface-container h-1.5 rounded-full overflow-hidden mt-2">
               <div class="${isOver ? 'bg-error' : pct >= 80 ? 'bg-tertiary' : 'bg-primary'} h-full rounded-full transition-all" style="width: ${Math.min(100, pct)}%"></div>
@@ -611,7 +706,7 @@
 
           <div class="flex items-center gap-space-sm flex-shrink-0">
             <span class="font-title-md text-title-md font-bold text-on-surface tabular-nums">
-              ₹${formatINR(exp.amount)}
+              ${sym()}${formatINR(exp.amount)}
             </span>
             <div class="flex items-center gap-1">
               <button
@@ -690,7 +785,7 @@
           bufferPercent: 100,
           formattedTotal: '0',
           formattedBudget: formatINR(overallCap),
-          statusText: `₹${formatINR(overallCap)} remaining`,
+          statusText: `${sym()}${formatINR(overallCap)} remaining`,
           percentLabel: '0% assigned',
         };
 
@@ -711,7 +806,7 @@
 
     if (totalAllocatedElem) totalAllocatedElem.textContent = formatINR(alloc.totalAllocated);
     if (macroDenominatorElem) macroDenominatorElem.textContent = formatINR(alloc.monthlyBudget);
-    if (macroCapDisplay) macroCapDisplay.textContent = `₹${formatINR(alloc.monthlyBudget)} / mo`;
+    if (macroCapDisplay) macroCapDisplay.textContent = `${sym()}${formatINR(alloc.monthlyBudget)} / mo`;
 
     // Cap visual bar width at 100%, show real percentage in label (e.g. 110% assigned to categories)
     if (barAllocated) {
@@ -731,17 +826,17 @@
         bufferPillElem.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-error-container text-on-error-container font-title-md text-title-md font-bold mt-1';
       }
       if (bufferIconElem) bufferIconElem.textContent = 'warning';
-      if (bufferTextElem) bufferTextElem.textContent = `₹${formatINR(alloc.overAmount)} over budget`;
+      if (bufferTextElem) bufferTextElem.textContent = `${sym()}${formatINR(alloc.overAmount)} over budget`;
       if (macroBufferLabel) {
         macroBufferLabel.className = 'text-error font-bold';
-        macroBufferLabel.textContent = `Deficit (-₹${formatINR(alloc.overAmount)})`;
+        macroBufferLabel.textContent = `Deficit (-${sym()}${formatINR(alloc.overAmount)})`;
       }
     } else {
       if (bufferPillElem) {
         bufferPillElem.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-title-md text-title-md font-bold mt-1';
       }
       if (bufferIconElem) bufferIconElem.textContent = 'check_circle';
-      if (bufferTextElem) bufferTextElem.textContent = `₹${formatINR(alloc.remaining)} remaining`;
+      if (bufferTextElem) bufferTextElem.textContent = `${sym()}${formatINR(alloc.remaining)} remaining`;
       if (macroBufferLabel) {
         macroBufferLabel.className = 'text-primary font-bold';
         macroBufferLabel.textContent = `Safe Cushion (±${alloc.bufferPercent.toFixed(1)}%)`;
@@ -765,7 +860,7 @@
         slider.step = cat.step;
         slider.value = cap;
         const minLabel = slider.previousElementSibling;
-        if (minLabel) minLabel.textContent = `₹${formatINR(Math.min(cat.minCap, cap))}`;
+        if (minLabel) minLabel.textContent = `${sym()}${formatINR(Math.min(cat.minCap, cap))}`;
       }
       const capInput = document.getElementById(`cap-input-${catKey}`);
       if (capInput && document.activeElement !== capInput) capInput.value = cap;
@@ -809,7 +904,7 @@
           if (diff < 0) {
             badgeColor = 'bg-error-container text-on-error-container';
             badgeIcon = 'error';
-            badgeText = `Exceeded by ₹${formatINR(Math.abs(diff))}!`;
+            badgeText = `Exceeded by ${sym()}${formatINR(Math.abs(diff))}!`;
             progressColor = 'bg-error';
           } else if (roundedPct >= 80) {
             badgeColor = 'bg-tertiary-fixed-dim text-on-tertiary-fixed';
@@ -861,15 +956,15 @@
 
               <div>
                 <div class="flex items-baseline justify-between mb-1">
-                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-${escapeHtml(catKey)}">${formatINR(spent)}</span></span>
-                  <span class="font-body-sm text-body-sm text-on-surface-variant">of ₹<span id="cap-${escapeHtml(catKey)}">${formatINR(cap)}</span> cap</span>
+                  <span class="font-headline-sm text-headline-sm text-on-surface font-bold"><span data-cur>${sym()}</span><span class="spent-val-${escapeHtml(catKey)}">${formatINR(spent)}</span></span>
+                  <span class="font-body-sm text-body-sm text-on-surface-variant">of <span data-cur>${sym()}</span><span id="cap-${escapeHtml(catKey)}">${formatINR(cap)}</span> cap</span>
                 </div>
                 <div class="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
                   <div class="category-progress-fill ${progressColor} h-full rounded-full transition-all duration-300" style="width: ${Math.min(100, Math.max(0, pct))}%"></div>
                 </div>
                 <div class="flex justify-between items-center mt-1.5 font-label-sm text-label-sm">
                   <span class="category-remaining-text ${diff < 0 ? 'text-error font-bold' : roundedPct >= 80 ? 'text-tertiary font-bold' : 'text-primary font-bold'}">
-                    ${diff < 0 ? `${roundedPct}% Overrun (-₹${formatINR(Math.abs(diff))} over cap)` : `${roundedPct}% Spent (₹${formatINR(diff)} remaining)`}
+                    ${diff < 0 ? `${roundedPct}% Overrun (-${sym()}${formatINR(Math.abs(diff))} over cap)` : `${roundedPct}% Spent (${sym()}${formatINR(diff)} remaining)`}
                   </span>
                 </div>
               </div>
@@ -879,9 +974,9 @@
                   <span class="material-symbols-outlined text-base">tune</span> Adjust Cap Target:
                 </label>
                 <div class="flex flex-wrap items-center gap-x-space-sm gap-y-1 flex-1 max-w-sm w-full">
-                  <span class="font-body-sm text-body-sm text-on-surface-variant">₹${formatINR(cat.minCap || 200)}</span>
+                  <span class="font-body-sm text-body-sm text-on-surface-variant">${sym()}${formatINR(cat.minCap || 200)}</span>
                   <input id="slider-${escapeHtml(catKey)}" class="flex-1 min-w-[120px] h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" data-category="${escapeHtml(catKey)}" max="${Math.max(Number(cat.maxCap) || 10000, Number(cap) || 0, Math.ceil(overallCap * 0.5 / 50) * 50)}" min="${Math.min(Number(cat.minCap) || 200, Number(cap) || 0)}" step="${Number(cat.step) || 100}" type="range" value="${Number(cap) || 0}"/>
-                  <label class="flex items-center gap-1 font-title-md text-title-md text-on-surface font-semibold" for="cap-input-${escapeHtml(catKey)}">₹<input id="cap-input-${escapeHtml(catKey)}" data-category="${escapeHtml(catKey)}" class="cap-input w-24 px-2 py-2 min-h-[44px] bg-surface-container-low rounded-xl text-right font-semibold focus:outline-none focus:ring-2 focus:ring-primary" type="number" min="0" max="1000000" step="1" inputmode="numeric" value="${Number(cap) || 0}"/></label><span id="slider-display-${escapeHtml(catKey)}" class="hidden">${formatINR(cap)}</span>
+                  <label class="flex items-center gap-1 font-title-md text-title-md text-on-surface font-semibold" for="cap-input-${escapeHtml(catKey)}"><span data-cur>${sym()}</span><input id="cap-input-${escapeHtml(catKey)}" data-category="${escapeHtml(catKey)}" class="cap-input w-24 px-2 py-2 min-h-[44px] bg-surface-container-low rounded-xl text-right font-semibold focus:outline-none focus:ring-2 focus:ring-primary" type="number" min="0" max="1000000" step="1" inputmode="numeric" value="${Number(cap) || 0}"/></label><span id="slider-display-${escapeHtml(catKey)}" class="hidden">${formatINR(cap)}</span>
                 </div>
               </div>
             </div>
@@ -904,7 +999,7 @@
     if (emergValElem) emergValElem.textContent = formatINR(emergSpent);
     if (emergCapElem) emergCapElem.textContent = formatINR(emergCap);
     if (emergRadial) emergRadial.setAttribute('stroke-dasharray', `${emergPct}, 100`);
-    if (emergDesc) emergDesc.textContent = `₹${formatINR(emergSpent)} spent from this fund this month`;
+    if (emergDesc) emergDesc.textContent = `${sym()}${formatINR(emergSpent)} spent from this fund this month`;
     if (emergGoalPct) emergGoalPct.textContent = `${emergPct}% of monthly cap used`;
 
     // Dynamic budget insight
@@ -914,7 +1009,7 @@
       if (state.expenses.length === 0 || !topCat) {
         budgetInsight.textContent = 'No expenses logged this month yet. Category gauges will track your real spending live as you log transactions.';
       } else {
-        budgetInsight.textContent = `${topCat.name} is your highest budget demand (₹${formatINR(topCat.amount)}). Adjust sliders below to fine-tune your targets.`;
+        budgetInsight.textContent = `${topCat.name} is your highest budget demand (${sym()}${formatINR(topCat.amount)}). Adjust sliders below to fine-tune your targets.`;
       }
     }
 
@@ -953,7 +1048,7 @@
     if (badge) {
       if (diff < 0) {
         badge.className = 'px-2.5 py-0.5 rounded-full bg-error-container text-on-error-container text-label-sm font-label-sm flex items-center gap-1 category-status-badge';
-        badge.innerHTML = `<span class="material-symbols-outlined text-xs">error</span> Exceeded by ₹${formatINR(Math.abs(diff))}!`;
+        badge.innerHTML = `<span class="material-symbols-outlined text-xs">error</span> Exceeded by ${sym()}${formatINR(Math.abs(diff))}!`;
       } else if (roundedPct >= 80) {
         badge.className = 'px-2.5 py-0.5 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed text-label-sm font-label-sm flex items-center gap-1 category-status-badge';
         badge.innerHTML = `<span class="material-symbols-outlined text-xs">warning</span> Approaching limit!`;
@@ -966,13 +1061,13 @@
     if (remainingText) {
       if (diff < 0) {
         remainingText.className = 'text-error font-bold category-remaining-text';
-        remainingText.textContent = `${roundedPct}% Overrun (-₹${formatINR(Math.abs(diff))} over cap)`;
+        remainingText.textContent = `${roundedPct}% Overrun (-${sym()}${formatINR(Math.abs(diff))} over cap)`;
       } else if (roundedPct >= 80) {
         remainingText.className = 'text-tertiary font-bold category-remaining-text';
-        remainingText.textContent = `${roundedPct}% Spent (₹${formatINR(diff)} remaining)`;
+        remainingText.textContent = `${roundedPct}% Spent (${sym()}${formatINR(diff)} remaining)`;
       } else {
         remainingText.className = 'text-primary font-bold category-remaining-text';
-        remainingText.textContent = `${roundedPct}% Spent (₹${formatINR(diff)} remaining)`;
+        remainingText.textContent = `${roundedPct}% Spent (${sym()}${formatINR(diff)} remaining)`;
       }
     }
   }
@@ -1025,17 +1120,17 @@
           bufferPillElem.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-error-container text-on-error-container font-title-md text-title-md font-bold mt-1';
         }
         if (bufferIconElem) bufferIconElem.textContent = 'warning';
-        if (bufferTextElem) bufferTextElem.textContent = `₹${formatINR(alloc.overAmount)} over budget`;
+        if (bufferTextElem) bufferTextElem.textContent = `${sym()}${formatINR(alloc.overAmount)} over budget`;
         if (macroBufferLabel) {
           macroBufferLabel.className = 'text-error font-bold';
-          macroBufferLabel.textContent = `Deficit (-₹${formatINR(alloc.overAmount)})`;
+          macroBufferLabel.textContent = `Deficit (-${sym()}${formatINR(alloc.overAmount)})`;
         }
       } else {
         if (bufferPillElem) {
           bufferPillElem.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-title-md text-title-md font-bold mt-1';
         }
         if (bufferIconElem) bufferIconElem.textContent = 'check_circle';
-        if (bufferTextElem) bufferTextElem.textContent = `₹${formatINR(alloc.remaining)} remaining`;
+        if (bufferTextElem) bufferTextElem.textContent = `${sym()}${formatINR(alloc.remaining)} remaining`;
         if (macroBufferLabel) {
           macroBufferLabel.className = 'text-primary font-bold';
           macroBufferLabel.textContent = `Safe Cushion (±${alloc.bufferPercent.toFixed(1)}%)`;
@@ -1079,9 +1174,8 @@
     // The newest month you can look at is the current one
     const nextBtn = document.getElementById('analytics-next-month');
     if (nextBtn) {
-      const now = new Date();
-      const atLatest = selectedYear > now.getFullYear() ||
-        (selectedYear === now.getFullYear() && selectedMonth >= now.getMonth());
+      const cur = currentPeriod();
+      const atLatest = selectedYear * 12 + selectedMonth >= cur.year * 12 + cur.month;
       nextBtn.disabled = atLatest;
       nextBtn.classList.toggle('opacity-40', atLatest);
       nextBtn.classList.toggle('cursor-not-allowed', atLatest);
@@ -1090,22 +1184,21 @@
     // Update Month Label in Analytics View
     const monthLabel = document.getElementById('analytics-month-label');
     if (monthLabel) {
-      const monthObj = new Date(selectedYear, selectedMonth, 1);
-      monthLabel.textContent = monthObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      monthLabel.textContent = BudgetCalculator.periodLabel(selectedYear, selectedMonth, startDay());
     }
 
     const totalSpentElem = document.getElementById('analytics-total-spent');
     const emptyElem = document.getElementById('analytics-empty-state');
     const contentElem = document.getElementById('analytics-content');
 
-    if (totalSpentElem) totalSpentElem.textContent = `₹${formatINR(totalSpent)}`;
+    if (totalSpentElem) totalSpentElem.textContent = `${sym()}${formatINR(totalSpent)}`;
 
     if (totalSpent === 0) {
       if (emptyElem) {
         emptyElem.classList.remove('hidden');
         const emptyH3 = emptyElem.querySelector('h3');
         const emptyP = emptyElem.querySelector('p');
-        const monthName = new Date(selectedYear, selectedMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        const monthName = BudgetCalculator.periodLabel(selectedYear, selectedMonth, startDay());
         if (emptyH3) emptyH3.textContent = `No Expenses in ${monthName}`;
         if (emptyP) emptyP.textContent = `No transactions logged for ${monthName}. Use Quick Log to add an expense or browse other months using the arrows above.`;
       }
@@ -1117,6 +1210,10 @@
       if (state.charts.monthlyBar) {
         state.charts.monthlyBar.destroy();
         state.charts.monthlyBar = null;
+      }
+      if (state.charts.trend) {
+        state.charts.trend.destroy();
+        state.charts.trend = null;
       }
       return;
     }
@@ -1140,13 +1237,13 @@
     if (topCategoryElem) {
       const allCats = getAllCategories(true);
       const topCat = allCats[topCatKey] || UNCATEGORIZED_CATEGORY;
-      topCategoryElem.textContent = `${topCat.name} (₹${formatINR(maxVal)})`;
+      topCategoryElem.textContent = `${topCat.name} (${sym()}${formatINR(maxVal)})`;
     }
 
     // Daily Average for the selected month
     if (dailyAvgElem) {
-      const daily = BudgetCalculator.dailyAverage(totalSpent, selectedYear, selectedMonth);
-      dailyAvgElem.textContent = `₹${formatINR(daily.average)} / day`;
+      const daily = BudgetCalculator.dailyAverage(totalSpent, selectedYear, selectedMonth, new Date(), startDay());
+      dailyAvgElem.textContent = `${sym()}${formatINR(daily.average)} / day`;
       const dailyNote = document.getElementById('analytics-daily-avg-note');
       if (dailyNote) {
         dailyNote.textContent = daily.isCurrentMonth
@@ -1185,7 +1282,7 @@
               </div>
             </div>
             <div class="text-right">
-              <span class="font-title-md text-title-md font-bold text-on-surface">₹${formatINR(spent)}</span>
+              <span class="font-title-md text-title-md font-bold text-on-surface">${sym()}${formatINR(spent)}</span>
               <span class="font-body-sm text-body-sm ${spent > cap ? 'text-error font-semibold' : 'text-on-surface-variant'} block">
                 ${budgetPct}% of cap
               </span>
@@ -1198,6 +1295,8 @@
 
     // Initialize or Update Chart.js
     initOrUpdateCharts(spendingMap, monthExpenses);
+    renderAnalyticsInsights(selectedYear, selectedMonth, totalSpent);
+    drawTrendChart(selectedYear, selectedMonth);
   }
 
   function initOrUpdateCharts(spendingMap, monthExpenses = []) {
@@ -1236,7 +1335,7 @@
                 data: catData,
                 backgroundColor: catColors,
                 borderWidth: 2,
-                borderColor: '#ffffff',
+                borderColor: cssRgb('surface-container-lowest'),
                 hoverOffset: 6,
               },
             ],
@@ -1250,7 +1349,7 @@
                 labels: {
                   boxWidth: 12,
                   font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' },
-                  color: '#0b1c30',
+                  color: cssRgb('on-surface'),
                   padding: 12,
                 },
               },
@@ -1259,7 +1358,7 @@
                   label: function (ctx) {
                     const label = ctx.label || '';
                     const val = ctx.raw || 0;
-                    return ` ${label}: ₹${formatINR(val)}`;
+                    return ` ${label}: ${sym()}${formatINR(val)}`;
                   },
                 },
               },
@@ -1274,7 +1373,10 @@
     const barCtx = document.getElementById('chart-monthly-bar')?.getContext?.('2d');
     if (barCtx) {
       // Seven-day buckets of the selected month, labelled with their dates
-      const buckets = BudgetCalculator.weeklyBuckets(state.analyticsYear, state.analyticsMonth, monthExpenses);
+      const buckets = BudgetCalculator.weeklyBuckets(state.analyticsYear, state.analyticsMonth, monthExpenses, {
+        startDay: startDay(),
+        weekStart: state.settings ? state.settings.weekStart : null, // calendar weeks from the chosen first day
+      });
       const weekBuckets = buckets.map(b => b.total);
       const weekLabels = buckets.map(b => b.label);
 
@@ -1289,9 +1391,9 @@
             labels: weekLabels,
             datasets: [
               {
-                label: 'Spending (₹)',
+                label: `Spending (${sym()})`,
                 data: weekBuckets,
-                backgroundColor: '#006948',
+                backgroundColor: cssRgb('primary'),
                 borderRadius: 8,
                 barThickness: 24,
               },
@@ -1305,7 +1407,7 @@
               tooltip: {
                 callbacks: {
                   label: function (ctx) {
-                    return ` Spent: ₹${formatINR(ctx.raw || 0)}`;
+                    return ` Spent: ${sym()}${formatINR(ctx.raw || 0)}`;
                   },
                 },
               },
@@ -1315,17 +1417,17 @@
                 grid: { display: false },
                 ticks: {
                   font: { family: 'Plus Jakarta Sans', size: 12, weight: '600' },
-                  color: '#3d4a42',
+                  color: cssRgb('on-surface-variant'),
                 },
               },
               y: {
                 beginAtZero: true,
-                grid: { color: '#eff4ff' },
+                grid: { color: cssRgb('surface-container-high') },
                 ticks: {
                   font: { family: 'Inter', size: 11 },
-                  color: '#6d7a72',
+                  color: cssRgb('outline'),
                   callback: function (val) {
-                    return '₹' + formatINR(val);
+                    return sym() + formatINR(val);
                   },
                 },
               },
@@ -1341,6 +1443,7 @@
   // ==========================================
   function renderProfile() {
     state.renderCounts['profile-&-settings']++;
+    renderPreferences();
     const totalSpent = getTotalSpending();
     const overallCap = state.budget?.overallCap || 0;
 
@@ -1348,8 +1451,8 @@
     const pCap = document.getElementById('profile-budget-cap');
     const pTxCount = document.getElementById('profile-tx-count');
 
-    if (pSpent) pSpent.textContent = `₹${formatINR(totalSpent)}`;
-    if (pCap) pCap.textContent = overallCap > 0 ? `₹${formatINR(overallCap)}` : 'Not Set';
+    if (pSpent) pSpent.textContent = `${sym()}${formatINR(totalSpent)}`;
+    if (pCap) pCap.textContent = overallCap > 0 ? `${sym()}${formatINR(overallCap)}` : 'Not Set';
     if (pTxCount) pTxCount.textContent = `${state.expenses.length} Records`;
   }
 
@@ -1775,7 +1878,7 @@
     const first = activeIds.find(id => state.budget.categories[id] !== undefined);
     const factor = (check.value / oldCap).toFixed(2).replace(/\.?0+$/, '');
     note.textContent = first
-      ? `Every category cap is multiplied by ${factor}, for example ${getCategories()[first].name}: ₹${formatINR(state.budget.categories[first])} becomes ₹${formatINR(scaled[first])}.`
+      ? `Every category cap is multiplied by ${factor}, for example ${getCategories()[first].name}: ${sym()}${formatINR(state.budget.categories[first])} becomes ${sym()}${formatINR(scaled[first])}.`
       : '';
   }
 
@@ -1808,7 +1911,7 @@
       return;
     }
     closeBudgetModal();
-    showToast(savedMessage(`Monthly budget ceiling updated to ₹${formatINR(val)}!`), 'success');
+    showToast(savedMessage(`Monthly budget ceiling updated to ${sym()}${formatINR(val)}!`), 'success');
     syncAllViewsWithData();
   }
 
@@ -2148,7 +2251,7 @@
 
     const sorted = getFilteredTransactions();
     const total = Tools.summarize(sorted);
-    summaryEl.textContent = `${total.count.toLocaleString('en-IN')} transaction${total.count === 1 ? '' : 's'}, ₹${formatINR(total.total)} in total` +
+    summaryEl.textContent = `${total.count.toLocaleString('en-IN')} transaction${total.count === 1 ? '' : 's'}, ${sym()}${formatINR(total.total)} in total` +
       (txFiltersActive() ? ` (filtered from ${state.expenses.length.toLocaleString('en-IN')})` : '');
 
     if (sorted.length === 0) {
@@ -2168,13 +2271,13 @@
         html += `<section class="flex flex-col gap-space-sm" aria-label="${escapeHtml(month.label)}">
           <div class="flex items-baseline justify-between px-1 pt-space-sm">
             <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">${escapeHtml(month.label)}</h2>
-            <span class="font-label-md text-label-md text-on-surface-variant">₹${formatINR(month.total)} &middot; ${month.count}</span>
+            <span class="font-label-md text-label-md text-on-surface-variant">${sym()}${formatINR(month.total)} &middot; ${month.count}</span>
           </div>`;
         for (const day of month.days) {
           if (shown >= limit) break;
           html += `<div class="flex items-baseline justify-between px-1 mt-1">
             <h3 class="font-label-md text-label-md text-on-surface-variant font-semibold">${escapeHtml(Tools.dayLabel(day.date))}</h3>
-            <span class="font-label-sm text-label-sm text-on-surface-variant">₹${formatINR(day.total)}</span>
+            <span class="font-label-sm text-label-sm text-on-surface-variant">${sym()}${formatINR(day.total)}</span>
           </div>`;
           for (const exp of day.items) {
             if (shown >= limit) break;
@@ -2355,7 +2458,7 @@
     document.getElementById('import-ok-wrap').classList.toggle('hidden', ok.length === 0);
     document.getElementById('import-ok-list').innerHTML = ok.slice(0, 8).map(r => {
       const d = r.data;
-      return `<li class="flex items-center justify-between gap-2 py-2"><span class="min-w-0 truncate">${escapeHtml(Tools.formatDate(d.date))} &middot; ${escapeHtml(d.note || active[d.category]?.name || '')} &middot; ${escapeHtml(active[d.category]?.name || '')}</span><span class="font-semibold tabular-nums">₹${formatINR(d.amount)}</span></li>`;
+      return `<li class="flex items-center justify-between gap-2 py-2"><span class="min-w-0 truncate">${escapeHtml(Tools.formatDate(d.date))} &middot; ${escapeHtml(d.note || active[d.category]?.name || '')} &middot; ${escapeHtml(active[d.category]?.name || '')}</span><span class="font-semibold tabular-nums">${sym()}${formatINR(d.amount)}</span></li>`;
     }).join('');
 
     document.getElementById('import-dup-wrap').classList.toggle('hidden', counts.duplicate === 0);
@@ -2478,6 +2581,594 @@
   }
 
   // ==========================================
+  // PREFERENCES (Settings & Profile)
+  // ==========================================
+  function setPressed(btn, on) {
+    btn.setAttribute('aria-pressed', String(on));
+    btn.classList.toggle('bg-primary', on);
+    btn.classList.toggle('text-on-primary', on);
+    btn.classList.toggle('bg-surface-container-low', !on);
+    btn.classList.toggle('text-on-surface', !on);
+  }
+
+  function renderPreferences() {
+    const s = state.settings || {};
+    document.querySelectorAll('.theme-choice').forEach(b => setPressed(b, b.dataset.themeChoice === s.theme));
+    const values = { 'pref-currency': s.currency, 'pref-week-start': s.weekStart, 'pref-month-start': s.monthStartDay, 'pref-warn-pct': s.alertWarnPct };
+    Object.entries(values).forEach(([id, v]) => {
+      const el = document.getElementById(id);
+      if (el && document.activeElement !== el) el.value = String(v);
+    });
+  }
+
+  async function changePreference(patch) {
+    state.settings = { ...state.settings, ...patch };
+    try {
+      await saveSettings();
+    } catch (err) {
+      showToast(`Couldn't save your preference: ${errorDetail(err)}`, 'error');
+      reloadFromDataLayer();
+      return;
+    }
+    loadState(); // takes the cleaned-up values and applies the theme
+    if ('monthStartDay' in patch) {
+      const p = currentPeriod();
+      state.analyticsYear = p.year;
+      state.analyticsMonth = p.month;
+    }
+    syncAllViewsWithData();
+    renderPreferences();
+    showToast(savedMessage('Preference saved.'), 'success');
+  }
+
+  function initPreferences() {
+    const card = document.getElementById('prefs-card');
+    if (!card) return;
+    card.addEventListener('click', e => {
+      const btn = e.target.closest('.theme-choice');
+      if (btn) changePreference({ theme: btn.dataset.themeChoice });
+    });
+    card.addEventListener('change', e => {
+      const map = { 'pref-currency': ['currency', String], 'pref-week-start': ['weekStart', Number], 'pref-month-start': ['monthStartDay', Number], 'pref-warn-pct': ['alertWarnPct', Number] };
+      const entry = map[e.target.id];
+      if (entry) changePreference({ [entry[0]]: entry[1](e.target.value) });
+    });
+    if (typeof window.matchMedia === 'function') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const onChange = () => { if ((state.settings && state.settings.theme) === 'system') applyTheme(); };
+      if (mq.addEventListener) mq.addEventListener('change', onChange);
+    }
+  }
+
+  // ==========================================
+  // RECURRING EXPENSES
+  // ==========================================
+  let lastRecurringRun = null;
+
+  async function runRecurringNow({ announce = true } = {}) {
+    if (!DataLayer || !DataLayer.runDueRecurring) return;
+    const today = localDateString();
+    try {
+      const { created } = await DataLayer.runDueRecurring(today);
+      lastRecurringRun = today;
+      if (created > 0) {
+        reloadFromDataLayer();
+        if (announce) showToast(`Added ${created} recurring expense${created === 1 ? '' : 's'}.`, 'info');
+      }
+    } catch (err) {
+      showToast(`Couldn't add your recurring expenses: ${errorDetail(err)}`, 'error');
+    }
+  }
+
+  function renderRecurring() {
+    state.renderCounts.recurring++;
+    const list = document.getElementById('rec-list');
+    const empty = document.getElementById('rec-empty');
+    if (!list) return;
+    const rules = DataLayer.getRecurring();
+    empty.classList.toggle('hidden', rules.length > 0);
+    const allCats = getAllCategories(true);
+    const today = localDateString();
+    list.innerHTML = rules.map(r => {
+      const cat = allCats[r.category] || UNCATEGORIZED_CATEGORY;
+      const next = r.active ? Tools.nextOccurrence(r, today) : null;
+      const status = !r.active ? 'Paused' : next ? `Next: ${Tools.dayLabel(next)}` : 'Finished';
+      const name = escapeHtml(r.name);
+      return `
+        <div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm ${r.active ? '' : 'opacity-75'}">
+          <div class="flex items-center gap-space-md min-w-0">
+            <div class="w-10 h-10 rounded-xl ${escapeHtml(cat.iconBgClass)} flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-xl">${escapeHtml(safeIcon(cat.icon))}</span></div>
+            <div class="flex flex-col min-w-0">
+              <span class="font-title-md text-title-md text-on-surface font-bold truncate">${name}</span>
+              <span class="font-body-sm text-body-sm text-on-surface-variant">${escapeHtml(Tools.describeRule(r))} &middot; ${escapeHtml(cat.name)}${r.paymentMethod ? ' &middot; ' + escapeHtml(r.paymentMethod) : ''}</span>
+              <span class="font-label-sm text-label-sm ${r.active ? 'text-primary' : 'text-on-surface-variant'}">${escapeHtml(status)}${r.endDate ? ' &middot; ends ' + escapeHtml(Tools.formatDate(r.endDate)) : ''}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-space-sm shrink-0 self-end sm:self-auto">
+            <span class="font-title-md text-title-md font-bold text-on-surface tabular-nums">${sym()}${formatINR(r.amount)}</span>
+            <button type="button" data-action="rec-toggle" data-id="${escapeHtml(r.id)}" class="px-4 min-h-[44px] rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md" aria-label="${r.active ? 'Pause' : 'Resume'} ${name}">${r.active ? 'Pause' : 'Resume'}</button>
+            <button type="button" data-action="rec-edit" data-id="${escapeHtml(r.id)}" class="w-11 h-11 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface-variant flex items-center justify-center" aria-label="Edit ${name}" title="Edit"><span class="material-symbols-outlined text-base">edit</span></button>
+            <button type="button" data-action="rec-delete" data-id="${escapeHtml(r.id)}" class="w-11 h-11 rounded-xl bg-surface-container-low hover:bg-error-container hover:text-error text-on-surface-variant flex items-center justify-center" aria-label="Delete ${name}" title="Delete"><span class="material-symbols-outlined text-base">delete</span></button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function recForm() {
+    const v = id => document.getElementById(id);
+    return {
+      id: v('rec-id').value,
+      name: v('rec-name').value,
+      amount: v('rec-amount').value,
+      category: v('rec-category').value,
+      paymentMethod: v('rec-payment').value,
+      frequency: v('rec-frequency').value,
+      startDate: v('rec-start').value,
+      endDate: v('rec-end').value,
+    };
+  }
+
+  function updateRecurringPreview() {
+    const preview = document.getElementById('rec-preview');
+    if (!preview) return;
+    const f = recForm();
+    if (!f.startDate) { preview.textContent = ''; return; }
+    const today = localDateString();
+    const rule = { frequency: f.frequency, startDate: f.startDate, endDate: f.endDate || undefined };
+    let text = Tools.describeRule(rule) + '.';
+    const due = f.id ? [] : Tools.occurrenceDates(rule, today);
+    if (due.length > 0) {
+      text += ` ${due.length} past date${due.length === 1 ? '' : 's'} will be added now, from ${Tools.formatDate(due[0])}.`;
+    } else {
+      const next = Tools.nextOccurrence(rule, today);
+      if (next) text += ` First one: ${Tools.dayLabel(next)}.`;
+    }
+    preview.textContent = text;
+  }
+
+  function openRecurringModal(id) {
+    const modal = document.getElementById('recurring-modal');
+    const rule = id ? DataLayer.getRecurring().find(r => r.id === id) : null;
+    const select = document.getElementById('rec-category');
+    select.innerHTML = Object.values(getCategories()).map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
+    document.getElementById('recurring-modal-title').textContent = rule ? 'Edit recurring expense' : 'New recurring expense';
+    document.getElementById('recurring-modal-error').classList.add('hidden');
+    const set = (k, val) => { document.getElementById(k).value = val === undefined ? '' : val; };
+    set('rec-id', rule ? rule.id : '');
+    set('rec-name', rule ? rule.name : '');
+    set('rec-amount', rule ? rule.amount : '');
+    set('rec-frequency', rule ? rule.frequency : 'monthly');
+    set('rec-category', rule ? rule.category : Object.keys(getCategories())[0]);
+    set('rec-payment', rule ? rule.paymentMethod || '' : '');
+    set('rec-start', rule ? rule.startDate : localDateString());
+    set('rec-end', rule ? rule.endDate || '' : '');
+    updateRecurringPreview();
+    showModal(modal);
+    focusSoon(document.getElementById('rec-name'));
+  }
+
+  function closeRecurringModal() {
+    hideModal(document.getElementById('recurring-modal'));
+  }
+
+  async function saveRecurring(e) {
+    e.preventDefault();
+    const f = recForm();
+    const errBox = document.getElementById('recurring-modal-error');
+    const btn = document.getElementById('rec-save');
+    btn.disabled = true;
+    try {
+      if (f.id) {
+        await DataLayer.updateRecurring(f.id, { name: f.name, amount: f.amount, category: f.category, paymentMethod: f.paymentMethod, frequency: f.frequency, startDate: f.startDate, endDate: f.endDate });
+      } else {
+        await DataLayer.addRecurring({ name: f.name, amount: f.amount, category: f.category, paymentMethod: f.paymentMethod, frequency: f.frequency, startDate: f.startDate, endDate: f.endDate });
+      }
+      closeRecurringModal();
+      showToast(savedMessage('Recurring expense saved.'), 'success');
+      await runRecurringNow();
+      reloadFromDataLayer();
+    } catch (err) {
+      errBox.textContent = errorDetail(err);
+      errBox.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function handleRecurringAction(action, id) {
+    const rule = DataLayer.getRecurring().find(r => r.id === id);
+    if (!rule) return;
+    try {
+      if (action === 'rec-edit') {
+        openRecurringModal(id);
+      } else if (action === 'rec-toggle') {
+        await DataLayer.updateRecurring(id, { active: !rule.active });
+        reloadFromDataLayer();
+        showToast(rule.active ? `${rule.name} is paused.` : `${rule.name} is on again.`, 'info');
+      } else if (action === 'rec-delete') {
+        const ok = await confirmDialog({
+          title: `Delete "${rule.name}"?`,
+          message: 'It stops repeating. Expenses it already added stay in your list.',
+          confirmLabel: 'Delete',
+          danger: true,
+        });
+        if (!ok) return;
+        await DataLayer.deleteRecurring(id);
+        reloadFromDataLayer();
+        showToast(savedMessage('Recurring expense deleted.'), 'info');
+      }
+    } catch (err) {
+      showToast(`Couldn't do that: ${errorDetail(err)}`, 'error');
+      reloadFromDataLayer();
+    }
+  }
+
+  function initRecurringEvents() {
+    document.getElementById('rec-add')?.addEventListener('click', () => openRecurringModal(null));
+    document.getElementById('rec-form')?.addEventListener('submit', saveRecurring);
+    document.getElementById('rec-cancel')?.addEventListener('click', closeRecurringModal);
+    document.getElementById('recurring-modal-close')?.addEventListener('click', closeRecurringModal);
+    ['rec-frequency', 'rec-start', 'rec-end'].forEach(id => document.getElementById(id)?.addEventListener('input', updateRecurringPreview));
+    document.addEventListener('visibilitychange', () => {
+      // A tab left open overnight picks up the new day's expenses when it is looked at again
+      if (document.visibilityState === 'visible' && currentUid && lastRecurringRun && lastRecurringRun !== localDateString()) runRecurringNow();
+    });
+  }
+
+  // ==========================================
+  // SAVINGS GOALS
+  // ==========================================
+  function ringSvg(pct, size) {
+    const label = `${pct}% saved`;
+    return `<div class="relative shrink-0" style="width:${size}px;height:${size}px" role="img" aria-label="${label}">
+      <svg viewBox="0 0 36 36" class="w-full h-full -rotate-90" aria-hidden="true">
+        <circle cx="18" cy="18" r="15.9155" fill="none" stroke="currentColor" stroke-width="3.5" class="text-surface-container-high"></circle>
+        <circle cx="18" cy="18" r="15.9155" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="${pct}, 100" class="text-primary"></circle>
+      </svg>
+      <span class="absolute inset-0 flex items-center justify-center font-label-md text-label-md font-bold text-on-surface" aria-hidden="true">${pct}%</span>
+    </div>`;
+  }
+
+  function goalsList() {
+    return DataLayer && DataLayer.getGoals ? DataLayer.getGoals() : [];
+  }
+
+  function renderGoalCard() {
+    const card = document.getElementById('dash-goal-card');
+    if (!card) return;
+    const goals = goalsList();
+    if (goals.length === 0) { card.classList.add('hidden'); return; }
+    const today = localDateString();
+    const goal = goals.find(g => !Tools.goalProgress(g, today).done) || goals[0];
+    const p = Tools.goalProgress(goal, today);
+    card.classList.remove('hidden');
+    document.getElementById('dash-goal-ring').innerHTML = ringSvg(p.pct, 64);
+    document.getElementById('dash-goal-name').textContent = goal.name;
+    document.getElementById('dash-goal-text').textContent = p.done
+      ? `Reached! ${sym()}${formatINR(goal.saved)} saved.`
+      : `${sym()}${formatINR(goal.saved)} of ${sym()}${formatINR(goal.target)} saved` + (goals.length > 1 ? ` (+${goals.length - 1} more goal${goals.length > 2 ? 's' : ''})` : '');
+  }
+
+  function renderGoals() {
+    state.renderCounts.goals++;
+    const list = document.getElementById('goal-list');
+    const empty = document.getElementById('goal-empty');
+    if (!list) return;
+    const goals = goalsList();
+    empty.classList.toggle('hidden', goals.length > 0);
+    const today = localDateString();
+    list.innerHTML = goals.map(g => {
+      const p = Tools.goalProgress(g, today);
+      const name = escapeHtml(g.name);
+      const note = p.done ? 'Goal reached.'
+        : p.overdue ? `The target date has passed. ${sym()}${formatINR(p.remaining)} to go.`
+        : g.deadline ? `${sym()}${formatINR(p.remaining)} to go by ${Tools.formatDate(g.deadline)}` + (p.perMonth ? `, about ${sym()}${formatINR(p.perMonth)} a month` : '')
+        : `${sym()}${formatINR(p.remaining)} to go`;
+      const history = (g.contributions || []).slice(-4).reverse().map(c =>
+        `<li class="flex items-center justify-between gap-2 py-1"><span class="min-w-0 truncate">${escapeHtml(Tools.formatDate(c.date))}${c.note ? ' &middot; ' + escapeHtml(c.note) : ''}</span><span class="font-semibold tabular-nums ${c.amount < 0 ? 'text-error' : 'text-primary'}">${c.amount < 0 ? '-' : '+'}${sym()}${formatINR(Math.abs(c.amount))}</span></li>`).join('');
+      return `
+        <div class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-space-md">
+          <div class="flex items-center gap-space-md">
+            ${ringSvg(p.pct, 96)}
+            <div class="flex flex-col min-w-0">
+              <h2 class="font-title-md text-title-md text-on-surface font-bold truncate">${name}</h2>
+              <span class="font-numeric-balance text-headline-sm font-bold text-on-surface tabular-nums">${sym()}${formatINR(g.saved)}</span>
+              <span class="font-body-sm text-body-sm text-on-surface-variant">of ${sym()}${formatINR(g.target)}</span>
+            </div>
+          </div>
+          <p class="font-body-sm text-body-sm ${p.done ? 'text-primary font-semibold' : p.overdue ? 'text-error' : 'text-on-surface-variant'}">${note}</p>
+          ${history ? `<ul class="font-body-sm text-body-sm text-on-surface-variant divide-y divide-slate-100" aria-label="Recent activity">${history}</ul>` : ''}
+          <div class="flex flex-wrap items-center gap-space-sm">
+            <button type="button" data-action="goal-add-money" data-id="${escapeHtml(g.id)}" class="px-space-lg min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md" aria-label="Add or take out money for ${name}">Add or take out</button>
+            <button type="button" data-action="goal-edit" data-id="${escapeHtml(g.id)}" class="px-4 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md" aria-label="Edit ${name}">Edit</button>
+            <button type="button" data-action="goal-delete" data-id="${escapeHtml(g.id)}" class="px-4 min-h-[44px] rounded-full bg-surface-container hover:bg-error-container hover:text-error text-on-surface-variant font-label-md text-label-md" aria-label="Delete ${name}">Delete</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function openGoalModal(id) {
+    const goal = id ? goalsList().find(g => g.id === id) : null;
+    document.getElementById('goal-modal-title').textContent = goal ? 'Edit goal' : 'New savings goal';
+    document.getElementById('goal-modal-error').classList.add('hidden');
+    document.getElementById('goal-id').value = goal ? goal.id : '';
+    document.getElementById('goal-name').value = goal ? goal.name : '';
+    document.getElementById('goal-target').value = goal ? goal.target : '';
+    document.getElementById('goal-deadline').value = goal && goal.deadline ? goal.deadline : '';
+    const dl = document.getElementById('goal-deadline');
+    dl.min = localDateString();
+    showModal(document.getElementById('goal-modal'));
+    focusSoon(document.getElementById('goal-name'));
+  }
+
+  function closeGoalModal() { hideModal(document.getElementById('goal-modal')); }
+
+  async function saveGoal(e) {
+    e.preventDefault();
+    const id = document.getElementById('goal-id').value;
+    const input = {
+      name: document.getElementById('goal-name').value,
+      target: document.getElementById('goal-target').value,
+      deadline: document.getElementById('goal-deadline').value,
+    };
+    const err = document.getElementById('goal-modal-error');
+    const btn = document.getElementById('goal-save');
+    btn.disabled = true;
+    try {
+      if (id) await DataLayer.updateGoal(id, input); else await DataLayer.addGoal(input);
+      closeGoalModal();
+      reloadFromDataLayer();
+      showToast(savedMessage('Goal saved.'), 'success');
+    } catch (e2) {
+      err.textContent = errorDetail(e2);
+      err.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function setContribKind(kind) {
+    document.querySelectorAll('.contrib-kind').forEach(b => setPressed(b, b.dataset.contribKind === kind));
+    document.getElementById('contrib-modal-title').textContent = kind === 'withdraw' ? 'Take money out' : 'Add money to goal';
+    document.getElementById('contrib-modal').dataset.kind = kind;
+  }
+
+  function openContribModal(goalId) {
+    const goal = goalsList().find(g => g.id === goalId);
+    if (!goal) return;
+    document.getElementById('contrib-modal-error').classList.add('hidden');
+    document.getElementById('contrib-goal-id').value = goalId;
+    document.getElementById('contrib-summary').textContent = `${goal.name}: ${sym()}${formatINR(goal.saved)} of ${sym()}${formatINR(goal.target)} saved.`;
+    document.getElementById('contrib-amount').value = '';
+    document.getElementById('contrib-note').value = '';
+    const date = document.getElementById('contrib-date');
+    date.max = localDateString();
+    date.value = localDateString();
+    setContribKind('add');
+    showModal(document.getElementById('contrib-modal'));
+    focusSoon(document.getElementById('contrib-amount'));
+  }
+
+  function closeContribModal() { hideModal(document.getElementById('contrib-modal')); }
+
+  async function saveContribution(e) {
+    e.preventDefault();
+    const modal = document.getElementById('contrib-modal');
+    const err = document.getElementById('contrib-modal-error');
+    const btn = document.getElementById('contrib-save');
+    btn.disabled = true;
+    try {
+      await DataLayer.addContribution(document.getElementById('contrib-goal-id').value, {
+        amount: document.getElementById('contrib-amount').value,
+        kind: modal.dataset.kind || 'add',
+        date: document.getElementById('contrib-date').value,
+        note: document.getElementById('contrib-note').value,
+      });
+      closeContribModal();
+      reloadFromDataLayer();
+      showToast(savedMessage('Saved.'), 'success');
+    } catch (e2) {
+      err.textContent = errorDetail(e2);
+      err.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function handleGoalAction(action, id) {
+    if (action === 'goal-edit') return openGoalModal(id);
+    if (action === 'goal-add-money') return openContribModal(id);
+    const goal = goalsList().find(g => g.id === id);
+    if (!goal) return;
+    const ok = await confirmDialog({
+      title: `Delete "${goal.name}"?`,
+      message: `This removes the goal and its history. The ${sym()}${formatINR(goal.saved)} you set aside is not affected, it just stops being tracked here.`,
+      confirmLabel: 'Delete goal',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await DataLayer.deleteGoal(id);
+      reloadFromDataLayer();
+      showToast(savedMessage('Goal deleted.'), 'info');
+    } catch (err) {
+      showToast(`Couldn't delete the goal: ${errorDetail(err)}`, 'error');
+      reloadFromDataLayer();
+    }
+  }
+
+  function initGoalEvents() {
+    document.getElementById('goal-add')?.addEventListener('click', () => openGoalModal(null));
+    document.getElementById('goal-form')?.addEventListener('submit', saveGoal);
+    document.getElementById('goal-cancel')?.addEventListener('click', closeGoalModal);
+    document.getElementById('goal-modal-close')?.addEventListener('click', closeGoalModal);
+    document.getElementById('contrib-form')?.addEventListener('submit', saveContribution);
+    document.getElementById('contrib-cancel')?.addEventListener('click', closeContribModal);
+    document.getElementById('contrib-modal-close')?.addEventListener('click', closeContribModal);
+    document.querySelectorAll('.contrib-kind').forEach(b => b.addEventListener('click', () => setContribKind(b.dataset.contribKind)));
+  }
+
+  // ==========================================
+  // ANALYTICS: against last month, six-month trend, projection
+  // ==========================================
+  function renderAnalyticsInsights(year, month, totalSpent) {
+    const list = document.getElementById('analytics-compare-list');
+    const summary = document.getElementById('analytics-compare-summary');
+    if (list) {
+      const cmp = BudgetCalculator.categoryComparison(state.expenses, year, month, startDay());
+      const allCats = getAllCategories(true);
+      const diff = BudgetCalculator.roundMoney(cmp.currentTotal - cmp.previousTotal);
+      summary.textContent = cmp.previousTotal === 0
+        ? 'Nothing was spent in the month before, so there is nothing to compare with yet.'
+        : `${sym()}${formatINR(cmp.currentTotal)} so far against ${sym()}${formatINR(cmp.previousTotal)} last month: ${diff === 0 ? 'the same' : `${sym()}${formatINR(Math.abs(diff))} ${diff > 0 ? 'more' : 'less'}`}.`;
+      list.innerHTML = cmp.rows.map(r => {
+        const cat = allCats[r.id] || UNCATEGORIZED_CATEGORY;
+        const up = r.delta > 0;
+        const same = r.delta === 0;
+        const change = same ? 'No change' : `${up ? '+' : '-'}${sym()}${formatINR(Math.abs(r.delta))}${r.pct === null ? ' (new)' : ` (${Math.abs(r.pct)}%)`}`;
+        return `<div class="flex items-center justify-between gap-space-sm py-3">
+          <div class="flex items-center gap-space-sm min-w-0">
+            <div class="w-8 h-8 rounded-lg ${escapeHtml(cat.iconBgClass || 'bg-surface-container text-primary')} flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-lg">${escapeHtml(safeIcon(cat.icon))}</span></div>
+            <div class="flex flex-col min-w-0"><span class="font-label-md text-label-md text-on-surface font-bold truncate">${escapeHtml(cat.name)}</span>
+              <span class="font-body-sm text-body-sm text-on-surface-variant">${sym()}${formatINR(r.current)} now, ${sym()}${formatINR(r.previous)} before</span></div>
+          </div>
+          <span class="font-label-md text-label-md font-bold shrink-0 ${same ? 'text-on-surface-variant' : up ? 'text-error' : 'text-primary'}">${change}</span>
+        </div>`;
+      }).join('');
+    }
+
+    const card = document.getElementById('analytics-projection-card');
+    if (card) {
+      const proj = BudgetCalculator.projectPeriodEnd(totalSpent, year, month, new Date(), startDay());
+      card.classList.toggle('hidden', !proj);
+      if (proj) {
+        document.getElementById('analytics-projection').textContent = `${sym()}${formatINR(proj.projected)}`;
+        document.getElementById('analytics-projection-note').textContent = `At this pace: ${sym()}${formatINR(totalSpent)} in ${proj.daysElapsed} of ${proj.daysTotal} days.`;
+        const cap = state.budget?.overallCap || 0;
+        const capEl = document.getElementById('analytics-projection-cap');
+        if (cap > 0) {
+          const over = proj.projected > cap;
+          capEl.textContent = over ? `That is ${sym()}${formatINR(proj.projected - cap)} over your ${sym()}${formatINR(cap)} budget.` : `That is ${sym()}${formatINR(cap - proj.projected)} under your ${sym()}${formatINR(cap)} budget.`;
+          capEl.className = `font-body-sm text-body-sm font-semibold ${over ? 'text-error' : 'text-primary'}`;
+        } else {
+          capEl.textContent = '';
+        }
+      }
+    }
+  }
+
+  function drawTrendChart(year, month) {
+    const canvas = document.getElementById('chart-trend');
+    if (!canvas || typeof Chart === 'undefined') return;
+    const totals = BudgetCalculator.periodTotals(state.expenses, year, month, 6, startDay());
+    const labels = totals.map(t => t.label);
+    const data = totals.map(t => t.total);
+    if (state.charts.trend) {
+      state.charts.trend.data.labels = labels;
+      state.charts.trend.data.datasets[0].data = data;
+      state.charts.trend.update();
+      return;
+    }
+    state.charts.trend = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: `Total spent (${sym()})`,
+          data,
+          borderColor: cssRgb('primary'),
+          backgroundColor: cssRgba('primary', 0.15),
+          pointBackgroundColor: cssRgb('primary'),
+          fill: true,
+          tension: 0.3,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${sym()}${formatINR(ctx.raw || 0)}` } },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: cssRgb('on-surface-variant') } },
+          y: { beginAtZero: true, grid: { color: cssRgb('surface-container-high') }, ticks: { color: cssRgb('outline'), callback: v => sym() + formatINR(v) } },
+        },
+      },
+    });
+  }
+
+  // ==========================================
+  // INSTALL AS AN APP, AND UPDATES (see pwa.js)
+  // ==========================================
+  function initInstall() {
+    const card = document.getElementById('install-card');
+    const button = document.getElementById('btn-install');
+    const text = document.getElementById('install-text');
+
+    const installed = () => (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    const onIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent) && !/CriOS|FxiOS/.test(navigator.userAgent);
+
+    function refresh() {
+      if (!card) return;
+      if (installed()) { card.classList.add('hidden'); return; }
+      if (window.__installPrompt) {
+        card.classList.remove('hidden');
+        button.classList.remove('hidden');
+        text.textContent = 'Add it to your home screen to open it like an app, even without a connection.';
+      } else if (onIos()) {
+        card.classList.remove('hidden');
+        button.classList.add('hidden');
+        text.textContent = 'On iPhone or iPad: tap the Share button, then "Add to Home Screen".';
+      } else {
+        card.classList.add('hidden');
+      }
+    }
+
+    window.addEventListener('expensetrack:installable', refresh);
+    window.addEventListener('expensetrack:installed', () => { refresh(); showToast('ExpenseTrack is installed.', 'success'); });
+    button?.addEventListener('click', async () => {
+      const prompt = window.__installPrompt;
+      if (!prompt) return;
+      prompt.prompt();
+      try { await prompt.userChoice; } catch (e) { /* dismissed */ }
+      window.__installPrompt = null;
+      refresh();
+    });
+    window.addEventListener('expensetrack:update', (e) => {
+      showToast('A new version of ExpenseTrack is ready.', 'info', { actionLabel: 'Reload', duration: 20000, onAction: () => e.detail.apply() });
+    });
+    refresh();
+  }
+
+  // ==========================================
+  // DELETE ACCOUNT
+  // ==========================================
+  async function deleteAccountFlow() {
+    const ok = await confirmDialog({
+      title: 'Delete your account?',
+      message: 'This permanently deletes every expense, budget, goal, recurring expense and setting, then removes your sign-in. It cannot be undone. Google will ask you to confirm it is you first.',
+      confirmLabel: 'Delete everything',
+      danger: true,
+      requireText: 'DELETE',
+    });
+    if (!ok) return;
+    const btn = document.getElementById('btn-delete-account');
+    if (btn) btn.disabled = true;
+    try {
+      // Confirm the person first, so the data is never deleted by a sign-in that then cannot be removed
+      await window.FirebaseService.reauthenticate();
+      await DataLayer.deleteAllUserData();
+      await window.FirebaseService.deleteAccount();
+    } catch (err) {
+      if (btn) btn.disabled = false;
+      const cancelled = err && (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request');
+      showToast(cancelled ? 'Nothing was deleted: the confirmation was cancelled.' : `Couldn't delete the account: ${errorDetail(err)}`, cancelled ? 'info' : 'error');
+      reloadFromDataLayer();
+    }
+  }
+
+  // ==========================================
   // MODALS (focus trap, Escape, backdrop click, focus return) AND DIALOGS
   // ==========================================
   const openModals = []; // most recent last: { el, opener }
@@ -2488,6 +3179,9 @@
       'budget-modal': closeBudgetModal,
       'custom-category-modal': closeCustomCategoryModal,
       'import-modal': closeImportModal,
+      'recurring-modal': closeRecurringModal,
+      'goal-modal': closeGoalModal,
+      'contrib-modal': closeContribModal,
       'confirm-modal': () => settleDialog('cancel'),
     };
     return closers[modalEl.id];
@@ -2711,6 +3405,8 @@
         case 'delete-expense': confirmDeleteExpense(id); break;
         case 'edit-category': openEditCustomCategoryModal(id); break;
         case 'delete-category': confirmDeleteCategory(id); break;
+        case 'rec-edit': case 'rec-toggle': case 'rec-delete': handleRecurringAction(actionBtn.getAttribute('data-action'), id); break;
+        case 'goal-edit': case 'goal-add-money': case 'goal-delete': handleGoalAction(actionBtn.getAttribute('data-action'), id); break;
         default: break;
       }
     });
@@ -2785,6 +3481,11 @@
 
     document.getElementById('overall-cap-input')?.addEventListener('input', updateScaleNote);
     document.getElementById('btn-retry-load')?.addEventListener('click', retryLoad);
+    initPreferences();
+    initRecurringEvents();
+    initGoalEvents();
+    initInstall();
+    document.getElementById('btn-delete-account')?.addEventListener('click', deleteAccountFlow);
     document.addEventListener('keydown', handleShortcuts);
     initTransactionsEvents();
     if (DataLayer && DataLayer.onSyncChange) DataLayer.onSyncChange(updateSyncIndicator);
@@ -2871,9 +3572,8 @@
     const nextMonthBtn = document.getElementById('analytics-next-month');
     if (nextMonthBtn) {
       nextMonthBtn.addEventListener('click', () => {
-        const now = new Date();
-        if (state.analyticsYear > now.getFullYear() ||
-            (state.analyticsYear === now.getFullYear() && state.analyticsMonth >= now.getMonth())) {
+        const cur = currentPeriod();
+        if (state.analyticsYear * 12 + state.analyticsMonth >= cur.year * 12 + cur.month) {
           return; // no future months
         }
         state.analyticsMonth++;
@@ -3049,6 +3749,10 @@
           await DataLayer.initUser(user.uid);
         }
         loadState();
+        // The analytics page starts on the budget month we are in now (which depends on the start day)
+        const startPeriod = currentPeriod();
+        state.analyticsYear = startPeriod.year;
+        state.analyticsMonth = startPeriod.month;
         updateLoadErrorBanner();
         updateSyncIndicator();
 
@@ -3090,6 +3794,7 @@
       }
 
       promptLegacyImport();
+      runRecurringNow(); // add whatever has fallen due since the app was last opened
     });
   }
 
@@ -3176,6 +3881,7 @@
 
   // Bootstrap Application (Never load data before auth resolves)
   document.addEventListener('DOMContentLoaded', () => {
+    markCurrencySymbols();
     initEventListeners();
     hideExpenseFormError();
     updateOfflineBanner();

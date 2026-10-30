@@ -22,7 +22,19 @@ function installStub(options) {
   Object.entries(fsSeed || {}).forEach(([k, v]) => db._store.set(k, v));
   if (failReads) db.failReads = new Error('unavailable');
   if (persistenceError) db.enablePersistence = () => Promise.reject({ code: persistenceError });
-  const user = { uid: 'test-uid', displayName: 'Test Student', email: 'test@example.com', photoURL: '' };
+  const user = {
+    uid: 'test-uid', displayName: 'Test Student', email: 'test@example.com', photoURL: '',
+    reauthenticateWithPopup() {
+      if (window.__reauthError) return Promise.reject({ code: window.__reauthError });
+      sessionStorage.setItem('__reauth', '1');
+      return Promise.resolve();
+    },
+    delete() {
+      sessionStorage.setItem('__keysAtDelete', JSON.stringify([...window.__db._store.keys()]));
+      sessionStorage.setItem('__userDeleted', '1');
+      return Promise.resolve();
+    },
+  };
   let listener = null;
   const authObj = {
     currentUser: user,

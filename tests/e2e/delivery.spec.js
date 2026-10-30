@@ -86,7 +86,7 @@ test.describe('B25: headers, routes, 404', () => {
   test('every header in render.yaml is sent, and the policy is strict', async ({ page }) => {
     const res = await page.request.get('/');
     const sent = res.headers();
-    const { headers } = readRenderConfig();
+    const headers = readRenderConfig().headers.filter((h) => h.path === '/*');
     const wanted = ['x-frame-options', 'x-content-type-options', 'referrer-policy', 'permissions-policy', 'content-security-policy'];
     wanted.forEach((n) => expect(headers.some((h) => h.name.toLowerCase() === n), `render.yaml lacks ${n}`).toBe(true));
     headers.forEach((h) => expect(sent[h.name.toLowerCase()]).toBe(h.value));

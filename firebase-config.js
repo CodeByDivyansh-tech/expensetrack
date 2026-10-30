@@ -111,6 +111,29 @@
     },
 
     /**
+     * Ask the signed-in person to confirm it is them (a Google popup). Needed before deleting an
+     * account, so the deletion cannot fail halfway for lack of a recent sign-in.
+     */
+    async reauthenticate() {
+      if (!auth || !auth.currentUser || !googleProvider) {
+        throw new Error('You are not signed in.');
+      }
+      return auth.currentUser.reauthenticateWithPopup(googleProvider);
+    },
+
+    /**
+     * Remove the sign-in itself (the data is deleted separately), then leave through signOut so the
+     * offline cache is cleared and the page returns to the login screen.
+     */
+    async deleteAccount() {
+      if (!auth || !auth.currentUser) {
+        throw new Error('You are not signed in.');
+      }
+      await auth.currentUser.delete();
+      return this.signOut();
+    },
+
+    /**
      * Sign out user, clear all in-memory state and localStorage, and redirect to login.html
      */
     async signOut() {

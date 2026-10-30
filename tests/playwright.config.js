@@ -10,6 +10,8 @@ module.exports = defineConfig({
     baseURL: 'http://127.0.0.1:4173',
     channel: 'chrome',
     viewport: { width: 1280, height: 900 },
+    // The service worker would answer requests before the test stubs can, so it is off unless a test turns it on
+    serviceWorkers: 'block',
   },
   webServer: {
     command: 'node helpers/static-server.js 4173',

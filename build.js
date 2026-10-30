@@ -16,6 +16,9 @@ const filesToCopy = [
   'login.html',
   '404.html',
   'login.js',
+  'theme-init.js',
+  'pwa.js',
+  'manifest.webmanifest',
   'app.js',
   'data-layer.js',
   'expense-tools.js',
@@ -52,4 +55,18 @@ for (const item of dirsToCopy) {
   }
 }
 
-console.log('[build] Public directory prepared successfully at:', publicDir);
+// 4. The service worker is stamped with a hash of everything it caches, so each deploy gets a fresh cache
+const crypto = require('crypto');
+const hash = crypto.createHash('sha1');
+(function walk(dir) {
+  for (const name of fs.readdirSync(dir).sort()) {
+    const full = path.join(dir, name);
+    if (fs.statSync(full).isDirectory()) walk(full);
+    else hash.update(path.relative(publicDir, full)).update(fs.readFileSync(full));
+  }
+})(publicDir);
+const buildId = hash.digest('hex').slice(0, 12);
+const swSource = fs.readFileSync(path.join(rootDir, 'sw.js'), 'utf8');
+fs.writeFileSync(path.join(publicDir, 'sw.js'), swSource.replace('__BUILD_ID__', buildId));
+
+console.log('[build] Public directory prepared successfully at:', publicDir, '(service worker build', buildId + ')');

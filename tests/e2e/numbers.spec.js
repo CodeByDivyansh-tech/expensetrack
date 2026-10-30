@@ -145,7 +145,8 @@ test.describe('B9: numbers that agree with each other', () => {
     test.skip(!hasChart, 'Chart.js CDN not reachable');
     const labels = await page.evaluate(() => window.ExpenseTrackApp.getState().charts.monthlyBar.data.labels);
     expect(labels.length).toBeGreaterThanOrEqual(4);
-    expect(labels[0]).toMatch(/^1–7 /);
+    // calendar weeks from the chosen first day (Monday by default): the first block starts on the 1st and may be short
+    expect(labels[0]).toMatch(/^1(–\d+)? [A-Z][a-z]{2}$/);
   });
 });
 
