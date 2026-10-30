@@ -178,7 +178,7 @@
     try { localStorage.setItem('expensetrack_theme', choice); } catch (e) { /* private mode */ }
     document.documentElement.classList.toggle('dark', theme === 'dark');
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b1220' : '#006948');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#000000' : '#f4f4f5');
     if (appliedTheme !== null && appliedTheme !== theme) {
       // Charts keep their colours from when they were drawn, so draw them again
       ['categoryDonut', 'monthlyBar', 'trend'].forEach(k => { if (state.charts[k]) { state.charts[k].destroy(); state.charts[k] = null; } });
@@ -3702,10 +3702,10 @@
   // ==========================================
   // AUTH GUARD & USER PROFILE SYNC
   // ==========================================
-  // An initial on the brand green, drawn locally so no name is sent to an avatar service.
+  // An initial on the brand black, drawn locally so no name is sent to an avatar service.
   function avatarDataUri(name) {
     const initial = (String(name || 'S').trim().match(/[\p{L}\p{N}]/u) || ['S'])[0].toUpperCase();
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#006948"/>` +
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#0a0a0a"/>` +
       `<text x="32" y="43" font-size="30" font-family="sans-serif" font-weight="700" text-anchor="middle" fill="#fff">${escapeHtml(initial)}</text></svg>`;
     return `data:image/svg+xml,${encodeURIComponent(svg)}`;
   }
