@@ -130,6 +130,61 @@
     return { valid: true, value: n };
   }
 
+  // --- Category caps ---
+  const CATEGORY_CAP_MAX = 1000000;
+
+  /** A single category cap: whole rupees, 0 (no cap) up to ₹10,00,000. */
+  function validateCategoryCap(raw) {
+    if (raw === '' || raw === null || raw === undefined) {
+      return { valid: false, error: 'Enter a cap amount.' };
+    }
+    const n = Number(raw);
+    if (!isFinite(n)) return { valid: false, error: 'Enter a valid number.' };
+    if (!Number.isInteger(n)) return { valid: false, error: 'Use whole rupees (no decimals).' };
+    if (n < 0 || n > CATEGORY_CAP_MAX) return { valid: false, error: 'A category cap must be between ₹0 and ₹10,00,000.' };
+    return { valid: true, value: n };
+  }
+
+  /** Multiply the active categories' caps by newCap/oldCap, rounded to the nearest ₹10. */
+  function scaleCaps(categories, oldCap, newCap, activeIds) {
+    const factor = Number(oldCap) > 0 ? Number(newCap) / Number(oldCap) : 1;
+    const out = { ...(categories || {}) };
+    Object.keys(out).forEach(id => {
+      if (Array.isArray(activeIds) && !activeIds.includes(id)) return;
+      const scaled = Math.round((Number(out[id]) || 0) * factor / 10) * 10;
+      out[id] = Math.min(CATEGORY_CAP_MAX, Math.max(0, scaled));
+    });
+    return out;
+  }
+
+  /**
+   * Which budgets need attention? level "warn" from 80%, "over" from 100%.
+   * input: { overallCap, totalSpent, spendingMap, caps, categories: { id: { name } } }
+   */
+  function computeAlerts({ overallCap, totalSpent, spendingMap, caps, categories }) {
+    const alerts = [];
+    const levelFor = (spent, cap) => {
+      if (!(cap > 0)) return null;
+      const pct = (spent / cap) * 100;
+      if (pct >= 100) return 'over';
+      if (pct >= 80) return 'warn';
+      return null;
+    };
+    const overallLevel = levelFor(totalSpent, overallCap);
+    if (overallLevel) {
+      alerts.push({ type: 'overall', id: 'overall', name: 'Monthly budget', level: overallLevel, spent: roundMoney(totalSpent), cap: overallCap, pct: Math.floor((totalSpent / overallCap) * 100) });
+    }
+    Object.keys(categories || {}).forEach(id => {
+      const cap = Number((caps || {})[id]);
+      const spent = Number((spendingMap || {})[id]) || 0;
+      const level = levelFor(spent, cap);
+      if (level) {
+        alerts.push({ type: 'category', id, name: categories[id].name, level, spent: roundMoney(spent), cap, pct: Math.floor((spent / cap) * 100) });
+      }
+    });
+    return alerts;
+  }
+
   // --- Analytics helpers ---
   function daysInMonth(year, month) {
     return new Date(year, month + 1, 0).getDate();
@@ -176,6 +231,10 @@
     roundMoney,
     formatINR,
     validateOverallCap,
+    CATEGORY_CAP_MAX,
+    validateCategoryCap,
+    scaleCaps,
+    computeAlerts,
     weeklyBuckets,
     dailyAverage,
   };

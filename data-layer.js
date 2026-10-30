@@ -182,7 +182,12 @@
   const MIN_EXPENSE_DATE = '2000-01-01';
   const MAX_NOTE_LENGTH = 100;
 
-  function validateExpenseInput({ amount, date, note }, today = localDateString()) {
+  const PAYMENT_METHODS = ['UPI', 'Cash', 'Card', 'Wallet', 'Other'];
+
+  function validateExpenseInput({ amount, date, note, paymentMethod }, today = localDateString()) {
+    if (paymentMethod && !PAYMENT_METHODS.includes(paymentMethod)) {
+      return { valid: false, error: 'Please choose a payment method from the list.' };
+    }
     const num = parseFloat(amount);
     if (isNaN(num) || num <= 0) {
       return { valid: false, error: 'Please enter an amount greater than ₹0.' };
@@ -337,7 +342,36 @@
    * Wait for a Firestore write. Offline, the server never acknowledges, so the write stays queued
    * in the SDK and we resolve right away; a later rejection is reported through onWriteError.
    */
+  // --- Sync status (for the indicator in the header) ---
+  let _inFlight = 0;
+  let _syncListeners = [];
+  let _loadError = null;
+
+  function getSyncState() {
+    if (!getDb() || !_currentUid) return 'local';
+    if (isOffline()) return 'offline';
+    return _inFlight > 0 ? 'syncing' : 'synced';
+  }
+
+  function onSyncChange(listener) {
+    if (typeof listener === 'function') _syncListeners.push(listener);
+    return () => { _syncListeners = _syncListeners.filter(l => l !== listener); };
+  }
+
+  function notifySync() {
+    _syncListeners.forEach(fn => { try { fn(getSyncState()); } catch (e) { console.error('Sync listener failed:', e); } });
+  }
+
+  /** The error from the first read of the user's data, if it failed while online; otherwise null. */
+  function getLoadError() {
+    return _loadError;
+  }
+
   async function commitWrite(promise) {
+    _inFlight++;
+    notifySync();
+    const settled = () => { _inFlight = Math.max(0, _inFlight - 1); notifySync(); };
+    promise.then(settled, settled);
     if (isOffline()) {
       promise.catch(err => {
         console.error('Queued Firestore write failed:', err);
@@ -447,7 +481,7 @@
 
   function expenseFromDoc(doc) {
     const d = doc.data();
-    return {
+    const exp = {
       id: doc.id,
       amount: Number(d.amount) || 0,
       category: normalizeCategoryKey(d.category),
@@ -455,6 +489,8 @@
       note: d.note || '',
       createdAt: d.createdAt || Date.now(),
     };
+    if (typeof d.paymentMethod === 'string' && d.paymentMethod) exp.paymentMethod = d.paymentMethod;
+    return exp;
   }
 
   function mergeBudget(stored) {
@@ -560,8 +596,10 @@
     let expensesSnap = null;
     try {
       [userDocSnap, expensesSnap] = await Promise.all([userDocRef.get(), expensesColRef.get()]);
+      _loadError = null;
     } catch (err) {
       console.warn('ExpenseTrack: first read failed, continuing with live listeners:', err);
+      _loadError = isOffline() ? null : err;
     }
 
     if (userDocSnap && expensesSnap) {
@@ -600,6 +638,7 @@
 
     _unsubscribeUserDoc = userDocRef.onSnapshot(snap => {
       if (snap && snap.exists) {
+        _loadError = null; // data is flowing, so the first failure no longer matters
         const d = snap.data() || {};
         if (d.budget) _budget = mergeBudget(d.budget);
         if (d.settings) _settings = { ...DEFAULT_SETTINGS, ...d.settings };
@@ -896,8 +935,8 @@
     return true;
   }
 
-  async function addExpense({ amount, category, date, note }) {
-    const input = validateExpenseInput({ amount, date, note });
+  async function addExpense({ amount, category, date, note, paymentMethod }) {
+    const input = validateExpenseInput({ amount, date, note, paymentMethod });
     if (!input.valid) {
       throw new Error(input.error);
     }
@@ -920,6 +959,7 @@
       note: (note && String(note).trim()) || all[normCat].name,
       createdAt: Date.now(),
     };
+    if (paymentMethod) newExp.paymentMethod = paymentMethod;
 
     const previous = _expenses;
     _expenses = [newExp, ...previous];
@@ -939,13 +979,13 @@
     return newExp;
   }
 
-  async function updateExpense(id, { amount, category, date, note }) {
+  async function updateExpense(id, { amount, category, date, note, paymentMethod }) {
     const idx = _expenses.findIndex(e => e.id === id);
     if (idx === -1) {
       throw new Error('Expense not found.');
     }
 
-    const input = validateExpenseInput({ amount, date, note });
+    const input = validateExpenseInput({ amount, date, note, paymentMethod });
     if (!input.valid) {
       throw new Error(input.error);
     }
@@ -962,6 +1002,11 @@
       note: (note && String(note).trim()) || all[normCat]?.name || _expenses[idx].note,
       updatedAt: Date.now(),
     };
+    // undefined keeps the stored payment method; an empty value clears it
+    if (paymentMethod !== undefined) {
+      if (paymentMethod) updatedExp.paymentMethod = paymentMethod;
+      else delete updatedExp.paymentMethod;
+    }
 
     const previous = _expenses;
     _expenses = previous.map(e => (e.id === id ? updatedExp : e));
@@ -972,7 +1017,8 @@
     });
 
     try {
-      await persistExpense(id, updatedExp, true);
+      // Replace the whole document (not merge) so a cleared field really disappears
+      await persistExpense(id, updatedExp, false);
     } catch (err) {
       _expenses = previous;
       throw err;
@@ -998,6 +1044,49 @@
     }
 
     return true;
+  }
+
+  /**
+   * Add many expenses at once (CSV import). Every row is validated first; nothing is written if
+   * any row is bad. Writes go out in chunks, so a very large import is several batches.
+   */
+  async function addExpensesBulk(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const all = getAllCategories(true);
+    const stamp = Date.now();
+    const docs = list.map((row, i) => {
+      const input = validateExpenseInput(row);
+      if (!input.valid) throw new Error(`Row ${i + 1}: ${input.error}`);
+      const cat = normalizeCategoryKey(row.category);
+      if (!all[cat]) throw new Error(`Row ${i + 1}: unknown category.`);
+      const doc = {
+        id: `exp-${stamp}-${i}-${Math.floor(Math.random() * 1000)}`,
+        amount: input.amount,
+        category: cat,
+        date: row.date || localDateString(),
+        note: (row.note && String(row.note).trim()) || all[cat].name,
+        createdAt: stamp,
+      };
+      if (row.paymentMethod) doc.paymentMethod = row.paymentMethod;
+      return doc;
+    });
+    if (docs.length === 0) return [];
+
+    const previous = _expenses;
+    _expenses = sortExpenses([...docs, ...previous]);
+    try {
+      const db = getDb();
+      if (db && _currentUid) {
+        const col = db.collection('users').doc(_currentUid).collection('expenses');
+        await commitWrite(commitInBatches(db, docs.map(d => ({ ref: col.doc(d.id), data: d }))));
+      } else if (!writeJSON(STORAGE_KEYS.EXPENSES, _expenses)) {
+        throw new Error('Could not save to this browser\'s storage. It may be full or blocked.');
+      }
+    } catch (err) {
+      _expenses = previous;
+      throw err;
+    }
+    return docs;
   }
 
   /** Put back an expense that was just deleted (the Undo action). It keeps its id and fields. */
@@ -1055,10 +1144,20 @@
   async function saveBudget(budget) {
     const previous = _budget;
     // A changed monthly cap must pass the shared rule; an unchanged (possibly legacy) cap is kept as is.
-    if (Number(budget.overallCap) !== getBudget().overallCap) {
+    const current = getBudget();
+    if (Number(budget.overallCap) !== current.overallCap) {
       const check = BudgetCalc.validateOverallCap(budget.overallCap);
       if (!check.valid) {
         throw new Error(check.error);
+      }
+    }
+    // Same for category caps: only the ones that changed are checked.
+    for (const [id, value] of Object.entries(budget.categories || {})) {
+      if (Number(value) !== Number(current.categories[id])) {
+        const check = BudgetCalc.validateCategoryCap(value);
+        if (!check.valid) {
+          throw new Error(check.error);
+        }
       }
     }
     _budget = normalizeBudget(budget);
@@ -1134,6 +1233,7 @@
     validateExpenseInput,
     MAX_EXPENSE_AMOUNT,
     MAX_NOTE_LENGTH,
+    PAYMENT_METHODS,
     // Firestore & user lifecycle
     initUser,
     clearUserData,
@@ -1145,6 +1245,9 @@
     getDataListenerCount: () => _changeListeners.length,
     onWriteError,
     isOffline,
+    getSyncState,
+    onSyncChange,
+    getLoadError,
     // Appearance validation
     ALLOWED_ICONS,
     isValidColor,
@@ -1164,6 +1267,7 @@
     addExpense,
     updateExpense,
     deleteExpense,
+    addExpensesBulk,
     restoreExpense,
     clearAllExpenses,
     // Budget operations
