@@ -2,105 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
-/* THEME TOKENS: light values first, dark values under .dark. tailwind.config.js points every colour here. */
+/* THEME TOKENS (monochrome: white / black, no blue tints): light values first, dark values under .dark. tailwind.config.js points every colour here. */
 :root {
   color-scheme: light;
-  --c-on-primary-container: 245 255 247;
-  --c-on-surface: 11 28 48;
-  --c-surface-tint: 0 108 74;
-  --c-inverse-on-surface: 234 241 255;
-  --c-secondary: 86 94 116;
-  --c-surface-variant: 211 228 254;
-  --c-primary-container: 0 133 93;
-  --c-on-surface-variant: 61 74 66;
+  --c-on-primary-container: 255 255 255;
+  --c-on-surface: 10 10 10;
+  --c-surface-tint: 10 10 10;
+  --c-inverse-on-surface: 245 245 245;
+  --c-secondary: 82 82 82;
+  --c-surface-variant: 229 229 229;
+  --c-primary-container: 38 38 38;
+  --c-on-surface-variant: 82 82 82;
   --c-on-error-container: 147 0 10;
   --c-on-secondary: 255 255 255;
-  --c-secondary-fixed: 218 226 253;
-  --c-outline-variant: 188 202 192;
-  --c-primary: 0 105 72;
+  --c-secondary-fixed: 229 229 229;
+  --c-outline-variant: 212 212 212;
+  --c-primary: 10 10 10;
   --c-tertiary-fixed: 255 221 184;
   --c-on-tertiary: 255 255 255;
-  --c-secondary-container: 218 226 253;
-  --c-on-primary-fixed-variant: 0 81 55;
-  --c-on-secondary-fixed: 19 27 46;
+  --c-secondary-container: 237 237 237;
+  --c-on-primary-fixed-variant: 38 38 38;
+  --c-on-secondary-fixed: 23 23 23;
   --c-error: 186 26 26;
-  --c-primary-fixed: 133 248 196;
+  --c-primary-fixed: 236 236 236;
   --c-on-error: 255 255 255;
-  --c-on-background: 11 28 48;
-  --c-surface-dim: 203 219 245;
-  --c-on-secondary-container: 92 100 122;
-  --c-surface-container-high: 220 233 255;
-  --c-inverse-primary: 104 219 169;
-  --c-background: 248 249 255;
-  --c-secondary-fixed-dim: 190 198 224;
-  --c-on-secondary-fixed-variant: 63 70 92;
-  --c-surface-container-low: 239 244 255;
+  --c-on-background: 10 10 10;
+  --c-surface-dim: 212 212 212;
+  --c-on-secondary-container: 64 64 64;
+  --c-surface-container-high: 229 229 229;
+  --c-inverse-primary: 250 250 250;
+  --c-background: 244 244 245;
+  --c-secondary-fixed-dim: 212 212 212;
+  --c-on-secondary-fixed-variant: 64 64 64;
+  --c-surface-container-low: 245 245 245;
   --c-on-primary: 255 255 255;
   --c-on-tertiary-container: 255 251 255;
-  --c-surface-container: 229 238 255;
+  --c-surface-container: 237 237 237;
   --c-tertiary-fixed-dim: 255 185 95;
   --c-surface-container-lowest: 255 255 255;
   --c-error-container: 255 218 214;
-  --c-surface-bright: 248 249 255;
-  --c-inverse-surface: 33 49 69;
+  --c-surface-bright: 250 250 250;
+  --c-inverse-surface: 23 23 23;
   --c-on-tertiary-fixed: 42 23 0;
   --c-tertiary: 130 81 0;
-  --c-surface-container-highest: 211 228 254;
-  --c-outline: 109 122 114;
+  --c-surface-container-highest: 222 222 222;
+  --c-outline: 100 100 100;
   --c-on-tertiary-fixed-variant: 101 62 0;
-  --c-primary-fixed-dim: 104 219 169;
-  --c-on-primary-fixed: 0 33 20;
-  --c-surface: 248 249 255;
+  --c-primary-fixed-dim: 212 212 212;
+  --c-on-primary-fixed: 10 10 10;
+  --c-surface: 244 244 245;
   --c-tertiary-container: 163 103 0;
 }
 .dark {
   color-scheme: dark;
-  --c-on-primary-container: 133 248 196;
-  --c-on-surface: 227 235 248;
-  --c-surface-tint: 104 219 169;
-  --c-inverse-on-surface: 26 36 56;
-  --c-secondary: 190 198 224;
-  --c-surface-variant: 42 52 71;
-  --c-primary-container: 0 81 58;
-  --c-on-surface-variant: 170 182 200;
+  --c-on-primary-container: 10 10 10;
+  --c-on-surface: 245 245 245;
+  --c-surface-tint: 250 250 250;
+  --c-inverse-on-surface: 23 23 23;
+  --c-secondary: 163 163 163;
+  --c-surface-variant: 38 38 38;
+  --c-primary-container: 229 229 229;
+  --c-on-surface-variant: 163 163 163;
   --c-on-error-container: 255 218 214;
-  --c-on-secondary: 40 48 68;
-  --c-secondary-fixed: 63 70 92;
-  --c-outline-variant: 58 71 92;
-  --c-primary: 104 219 169;
+  --c-on-secondary: 23 23 23;
+  --c-secondary-fixed: 51 51 51;
+  --c-outline-variant: 51 51 51;
+  --c-primary: 250 250 250;
   --c-tertiary-fixed: 90 55 0;
   --c-on-tertiary: 69 43 0;
-  --c-secondary-container: 63 70 92;
-  --c-on-primary-fixed-variant: 143 232 194;
-  --c-on-secondary-fixed: 218 226 253;
+  --c-secondary-container: 38 38 38;
+  --c-on-primary-fixed-variant: 212 212 212;
+  --c-on-secondary-fixed: 245 245 245;
   --c-error: 255 180 171;
-  --c-primary-fixed: 18 80 59;
+  --c-primary-fixed: 38 38 38;
   --c-on-error: 105 0 5;
-  --c-on-background: 227 235 248;
-  --c-surface-dim: 8 14 25;
-  --c-on-secondary-container: 218 226 253;
-  --c-surface-container-high: 42 56 83;
-  --c-inverse-primary: 0 105 72;
-  --c-background: 11 18 32;
-  --c-secondary-fixed-dim: 86 94 116;
-  --c-on-secondary-fixed-variant: 190 198 224;
-  --c-surface-container-low: 26 36 56;
-  --c-on-primary: 0 56 38;
+  --c-on-background: 245 245 245;
+  --c-surface-dim: 0 0 0;
+  --c-on-secondary-container: 212 212 212;
+  --c-surface-container-high: 41 41 41;
+  --c-inverse-primary: 10 10 10;
+  --c-background: 0 0 0;
+  --c-secondary-fixed-dim: 82 82 82;
+  --c-on-secondary-fixed-variant: 212 212 212;
+  --c-surface-container-low: 23 23 23;
+  --c-on-primary: 10 10 10;
   --c-on-tertiary-container: 255 221 184;
-  --c-surface-container: 33 45 69;
+  --c-surface-container: 31 31 31;
   --c-tertiary-fixed-dim: 122 75 0;
-  --c-surface-container-lowest: 19 28 46;
+  --c-surface-container-lowest: 18 18 18;
   --c-error-container: 147 0 10;
-  --c-surface-bright: 43 53 72;
-  --c-inverse-surface: 227 235 248;
+  --c-surface-bright: 45 45 45;
+  --c-inverse-surface: 245 245 245;
   --c-on-tertiary-fixed: 255 221 184;
   --c-tertiary: 255 185 95;
-  --c-surface-container-highest: 52 68 95;
-  --c-outline: 138 152 174;
+  --c-surface-container-highest: 51 51 51;
+  --c-outline: 158 158 158;
   --c-on-tertiary-fixed-variant: 255 224 189;
-  --c-primary-fixed-dim: 27 106 80;
-  --c-on-primary-fixed: 182 245 216;
-  --c-surface: 11 18 32;
+  --c-primary-fixed-dim: 64 64 64;
+  --c-on-primary-fixed: 245 245 245;
+  --c-surface: 0 0 0;
   --c-tertiary-container: 101 62 0;
 }
 
@@ -115,6 +115,123 @@
 .dark .bg-white\/60 { background-color: rgb(255 255 255 / 0.14); }
 .dark .bg-white\/20 { background-color: rgb(255 255 255 / 0.14); }
 .dark .hover\:bg-white:hover { background-color: rgb(255 255 255 / 0.24); }
+
+/* =====================================================================================
+   GLASS PANELS (monochrome)
+   Cards, the sidebar, the top bar and dialogs are frosted glass over a soft greyscale
+   backdrop. Light: white glass on light grey. Dark: smoked glass on true black.
+   Selectors start with `html` so they win over the Tailwind colour utilities.
+   ===================================================================================== */
+:root {
+  --glass-bg: rgb(255 255 255 / 0.58);
+  --glass-bg-strong: rgb(255 255 255 / 0.86);
+  --glass-bar: rgb(250 250 250 / 0.86);
+  --glass-border: rgb(255 255 255 / 0.75);
+  --glass-edge: rgb(0 0 0 / 0.06);
+  --glass-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 10px 30px -8px rgb(0 0 0 / 0.10);
+  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  --glass-blur: 22px;
+  --glass-fill-1: rgb(0 0 0 / 0.035);
+  --glass-fill-2: rgb(0 0 0 / 0.055);
+  --glass-fill-3: rgb(0 0 0 / 0.08);
+  --backdrop-a: rgb(0 0 0 / 0.16);
+  --backdrop-b: rgb(0 0 0 / 0.11);
+  --backdrop-c: rgb(255 255 255 / 0.95);
+}
+.dark {
+  --glass-bg: rgb(255 255 255 / 0.045);
+  --glass-bg-strong: rgb(20 20 20 / 0.88);
+  --glass-bar: rgb(10 10 10 / 0.86);
+  --glass-border: rgb(255 255 255 / 0.10);
+  --glass-edge: rgb(255 255 255 / 0.10);
+  --glass-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 14px 40px -10px rgb(0 0 0 / 0.75);
+  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.07);
+  --glass-fill-1: rgb(255 255 255 / 0.05);
+  --glass-fill-2: rgb(255 255 255 / 0.075);
+  --glass-fill-3: rgb(255 255 255 / 0.11);
+  --backdrop-a: rgb(255 255 255 / 0.16);
+  --backdrop-b: rgb(255 255 255 / 0.10);
+  --backdrop-c: rgb(255 255 255 / 0.05);
+}
+
+/* The backdrop the glass frosts: soft greyscale light pools, fixed behind everything */
+html body.bg-surface {
+  background-color: rgb(var(--c-background));
+}
+body.bg-surface::before {
+  content: "";
+  position: fixed;
+  inset: -10vmax;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(28vmax 28vmax at 18% 14%, var(--backdrop-a), transparent 68%),
+    radial-gradient(24vmax 24vmax at 88% 22%, var(--backdrop-b), transparent 68%),
+    radial-gradient(30vmax 30vmax at 62% 62%, var(--backdrop-a), transparent 70%),
+    radial-gradient(22vmax 22vmax at 8% 88%, var(--backdrop-b), transparent 70%),
+    radial-gradient(26vmax 26vmax at 40% 40%, var(--backdrop-c), transparent 70%);
+}
+html main.bg-surface { background-color: transparent; }
+
+/* The panels */
+html .bg-surface-container-lowest,
+html .bg-surface-container-lowest\/90 {
+  background-color: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
+}
+/* A hairline edge so white glass still reads on white, and dark glass on black */
+html .bg-surface-container-lowest:not(aside):not(header) {
+  outline: 1px solid var(--glass-edge);
+  outline-offset: -1px;
+}
+html aside.bg-surface-container-lowest { border-right: 1px solid var(--glass-edge); box-shadow: none; }
+html header.bg-surface-container-lowest\/90,
+html header.bg-surface-container-lowest { border-bottom: 1px solid var(--glass-edge); box-shadow: none; }
+html nav.bg-surface-container-lowest\/90 { border-top: 1px solid var(--glass-edge); box-shadow: none; }
+
+/* Bars that content scrolls under (top bar, phone bottom bar) use a denser glass so text behind stays out of the way */
+html header.bg-surface-container-lowest\/90,
+html nav.bg-surface-container-lowest\/90 {
+  background-color: var(--glass-bar);
+  --glass-blur: 26px;
+}
+
+/* Dialogs sit on a blurred page: a stronger, more solid glass keeps forms easy to read */
+html [role="dialog"] > .bg-surface-container-lowest {
+  background-color: var(--glass-bg-strong);
+  --glass-blur: 30px;
+}
+
+/* Fills inside the glass (inputs, chips, small badges) are translucent too */
+html .bg-surface-container-low { background-color: var(--glass-fill-1); }
+html .bg-surface-container { background-color: var(--glass-fill-2); }
+html .bg-surface-container-high { background-color: var(--glass-fill-3); }
+html .hover\:bg-surface-container-low:hover { background-color: var(--glass-fill-2); }
+html .hover\:bg-surface-container:hover { background-color: var(--glass-fill-3); }
+html .hover\:bg-surface-container-high:hover { background-color: rgb(var(--c-on-surface) / 0.12); }
+html .border-slate-100, html .border-slate-200 { border-color: var(--glass-edge); }
+html .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--glass-edge); }
+
+/* Phones: lighter blur keeps scrolling smooth */
+@media (max-width: 640px) {
+  :root { --glass-blur: 14px; }
+}
+
+/* No backdrop-filter support, or the person asked for less transparency: solid panels */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html .bg-surface-container-lowest, html .bg-surface-container-lowest\/90 { background-color: rgb(var(--c-surface-container-lowest)); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html .bg-surface-container-lowest, html .bg-surface-container-lowest\/90,
+  html [role="dialog"] > .bg-surface-container-lowest {
+    background-color: rgb(var(--c-surface-container-lowest));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
 
 @layer base {
   html, body {
@@ -138,7 +255,7 @@
 
 /* Keyboard focus is always visible */
 :focus-visible {
-  outline: 2px solid #006948;
+  outline: 2px solid rgb(var(--c-on-surface));
   outline-offset: 2px;
 }
 
@@ -155,7 +272,7 @@ body[data-loading="true"] > *:not(#auth-loading-overlay) {
 /* Placeholder blocks shown until the first data arrives */
 [data-loading="true"] .skel {
   color: transparent !important;
-  background-color: #dce9ff;
+  background-color: rgb(var(--c-on-surface) / 0.08);
   border-radius: 0.5rem;
   animation: skel-pulse 1.4s ease-in-out infinite;
   user-select: none;

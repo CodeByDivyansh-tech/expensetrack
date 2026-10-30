@@ -136,6 +136,9 @@ spacing:
   space-xl: 2rem
 ---
 
+> **Current theme (Oct 2026): Monochrome Glass.** The token names below are unchanged, but their values are now neutral greys: light mode is white and soft grey with black buttons, dark mode is true black with white buttons, and there are no blue tints. Cards, the sidebar, top and bottom bars and dialogs are frosted glass over a soft greyscale backdrop. The live values are the `--c-*` and `--glass-*` variables in `src/styles.css`; the colour list in the front matter above is the original green palette, kept for reference. Red and amber are used only for errors and warnings.
+
+
 ## Brand & Style
 This design system is crafted specifically for college students navigating personal finance, shared living expenses, and early budgeting habits. Traditional fintech platforms often lean intimidating, cold, or overly corporate; this system balances financial clarity with a friendly, approachable, and optimistic spirit. 
 

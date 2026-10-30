@@ -380,7 +380,7 @@ test.describe('P2.9 analytics: last month, six months, projection', () => {
 test.describe('P2.11 installable app', () => {
   test('the manifest describes an installable, maskable app with real icons', async ({ page }) => {
     const manifest = await (await page.request.get('/manifest.webmanifest')).json();
-    expect(manifest).toMatchObject({ name: 'ExpenseTrack', display: 'standalone', start_url: expect.stringContaining('/'), theme_color: '#006948' });
+    expect(manifest).toMatchObject({ name: 'ExpenseTrack', display: 'standalone', start_url: expect.stringContaining('/'), theme_color: '#0a0a0a' });
     const purposes = manifest.icons.map((i) => `${i.sizes}:${i.purpose}`);
     expect(purposes).toEqual(expect.arrayContaining(['192x192:any', '512x512:any', '512x512:maskable']));
     for (const icon of manifest.icons) {

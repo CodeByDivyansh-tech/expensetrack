@@ -28,7 +28,7 @@ Read this first. It is the project guide for Claude Code (and anyone else) worki
 | `firestore.rules` | Validating rules: per-user access plus the shape, type and size of every document (see below) |
 | `theme-init.js` | Runs first: applies dark mode, sends signed-out visitors to `login.html`, releases the icon font |
 | `sw.js`, `pwa.js`, `manifest.webmanifest` | Installable app: service worker, install and update prompts |
-| `src/styles.css`, `tailwind.config.js` | Tailwind input and design tokens (see `DESIGN.md`); colours are `--c-*` CSS variables for dark mode |
+| `src/styles.css`, `tailwind.config.js` | Tailwind input and design tokens (see `DESIGN.md`); colours are `--c-*` CSS variables for dark mode. The look is **monochrome glass**: white/grey light theme, true-black dark theme, no blue tints; cards, sidebar, bars and dialogs are frosted glass (`--glass-*` variables, "GLASS PANELS" section). Red and amber stay for warnings and errors only |
 | `build.js` | Minifies our scripts with esbuild, stamps the service-worker build hash, copies the website into `public/` |
 | `render.yaml` | Render static-site config: build command, publish `public`, rewrites for `/login` and `/dashboard`, security headers incl. a strict CSP |
 | `tests/` | Test suite (its own `package.json`): unit, rules, browser |
