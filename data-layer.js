@@ -15,6 +15,10 @@
 })(typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : this, function () {
   'use strict';
 
+  const BudgetCalc = (typeof window !== 'undefined' && window.BudgetCalculator)
+    ? window.BudgetCalculator
+    : require('./budget-calculator.js');
+
   const STORAGE_KEYS = {
     EXPENSES: 'expensetrack_expenses',
     BUDGET: 'expensetrack_budget',
@@ -171,6 +175,38 @@
       return new Date(year, month, day);
     }
     return new Date(dateStr);
+  }
+
+  // --- Expense input rules (shared by the form and the data layer) ---
+  const MAX_EXPENSE_AMOUNT = 1000000;
+  const MIN_EXPENSE_DATE = '2000-01-01';
+  const MAX_NOTE_LENGTH = 100;
+
+  function validateExpenseInput({ amount, date, note }, today = localDateString()) {
+    const num = parseFloat(amount);
+    if (isNaN(num) || num <= 0) {
+      return { valid: false, error: 'Please enter an amount greater than ₹0.' };
+    }
+    if (num > MAX_EXPENSE_AMOUNT) {
+      return { valid: false, error: 'An expense can be at most ₹10,00,000.' };
+    }
+    if (date) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date));
+      const real = m && parseLocalDate(date);
+      if (!m || real.getFullYear() !== +m[1] || real.getMonth() !== +m[2] - 1 || real.getDate() !== +m[3]) {
+        return { valid: false, error: 'Please enter a valid date.' };
+      }
+      if (date > today) {
+        return { valid: false, error: "The date can't be in the future." };
+      }
+      if (date < MIN_EXPENSE_DATE) {
+        return { valid: false, error: "The date can't be before 2000." };
+      }
+    }
+    if (note && String(note).trim().length > MAX_NOTE_LENGTH) {
+      return { valid: false, error: `The note must be ${MAX_NOTE_LENGTH} characters or fewer.` };
+    }
+    return { valid: true, amount: BudgetCalc.roundMoney(num) };
   }
 
   function isSameMonth(dateStr, targetYear, targetMonth) {
@@ -339,6 +375,21 @@
     return { queued: false };
   }
 
+  const BATCH_LIMIT = 450; // Firestore allows 500 writes per batch; keep a margin
+
+  /** Apply set/delete writes in sequential batches. writes: [{ ref, data?, options?, remove? }] */
+  async function commitInBatches(db, writes) {
+    for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
+      const batch = db.batch();
+      writes.slice(i, i + BATCH_LIMIT).forEach(w => {
+        if (w.remove) batch.delete(w.ref);
+        else if (w.options) batch.set(w.ref, w.data, w.options);
+        else batch.set(w.ref, w.data);
+      });
+      await batch.commit();
+    }
+  }
+
   async function persistExpense(id, data, merge) {
     const db = getDb();
     if (db && _currentUid) {
@@ -419,32 +470,33 @@
       if (isFirestoreEmpty && hasLegacyData) {
         // --- One-Time Migration to Firestore ---
         console.log('ExpenseTrack: Performing one-time migration of localStorage data to Firestore for user', uid);
-        const batch = db.batch();
-
-        legacyExpenses.forEach(exp => {
-          const expId = exp.id || ('exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000));
-          const expRef = expensesColRef.doc(expId);
-          batch.set(expRef, {
-            amount: Number(exp.amount) || 0,
-            category: normalizeCategoryKey(exp.category),
-            date: exp.date || localDateString(),
-            note: exp.note || '',
-            createdAt: exp.createdAt || Date.now(),
-          });
-        });
+        // Fix ids once so the cloud copy and the in-memory copy agree.
+        legacyExpenses = legacyExpenses.map(exp => ({
+          ...exp,
+          id: exp.id || ('exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000000)),
+        }));
 
         const initialBudget = legacyBudget || DEFAULT_BUDGET;
         const initialSettings = legacySettings || DEFAULT_SETTINGS;
         const initialCustom = legacyCustomCategories || {};
 
-        batch.set(userDocRef, {
-          budget: initialBudget,
-          settings: initialSettings,
-          customCategories: initialCustom,
-          updatedAt: Date.now(),
-        }, { merge: true });
-
-        await batch.commit();
+        // Expenses first (chunked: a batch holds at most 500 writes), the user doc last.
+        const writes = legacyExpenses.map(exp => ({
+          ref: expensesColRef.doc(exp.id),
+          data: {
+            amount: Number(exp.amount) || 0,
+            category: normalizeCategoryKey(exp.category),
+            date: exp.date || localDateString(),
+            note: exp.note || '',
+            createdAt: exp.createdAt || Date.now(),
+          },
+        }));
+        writes.push({
+          ref: userDocRef,
+          data: { budget: initialBudget, settings: initialSettings, customCategories: initialCustom, updatedAt: Date.now() },
+          options: { merge: true },
+        });
+        await commitInBatches(db, writes);
 
         // Delete old localStorage keys
         storage.removeItem(STORAGE_KEYS.EXPENSES);
@@ -822,10 +874,11 @@
   }
 
   async function addExpense({ amount, category, date, note }) {
-    const num = parseFloat(amount);
-    if (isNaN(num) || num <= 0) {
-      throw new Error('Please enter an amount greater than ₹0.');
+    const input = validateExpenseInput({ amount, date, note });
+    if (!input.valid) {
+      throw new Error(input.error);
     }
+    const num = input.amount;
 
     const normCat = normalizeCategoryKey(category);
     const all = getAllCategories(true);
@@ -869,10 +922,11 @@
       throw new Error('Expense not found.');
     }
 
-    const num = parseFloat(amount);
-    if (isNaN(num) || num <= 0) {
-      throw new Error('Please enter an amount greater than ₹0.');
+    const input = validateExpenseInput({ amount, date, note });
+    if (!input.valid) {
+      throw new Error(input.error);
     }
+    const num = input.amount;
 
     const normCat = normalizeCategoryKey(category);
     const all = getAllCategories(true);
@@ -928,9 +982,9 @@
     if (db && _currentUid) {
       const colRef = db.collection('users').doc(_currentUid).collection('expenses');
       const snap = await colRef.get();
-      const batch = db.batch();
-      snap.forEach(doc => batch.delete(doc.ref));
-      await commitWrite(batch.commit());
+      const writes = [];
+      snap.forEach(doc => writes.push({ ref: doc.ref, remove: true }));
+      await commitWrite(commitInBatches(db, writes));
     } else if (!writeJSON(STORAGE_KEYS.EXPENSES, [])) {
       throw new Error('Could not save to this browser\'s storage. It may be full or blocked.');
     }
@@ -961,6 +1015,13 @@
 
   async function saveBudget(budget) {
     const previous = _budget;
+    // A changed monthly cap must pass the shared rule; an unchanged (possibly legacy) cap is kept as is.
+    if (Number(budget.overallCap) !== getBudget().overallCap) {
+      const check = BudgetCalc.validateOverallCap(budget.overallCap);
+      if (!check.valid) {
+        throw new Error(check.error);
+      }
+    }
     _budget = normalizeBudget(budget);
     try {
       await persistUserFields({ budget: _budget });
@@ -1031,6 +1092,9 @@
     isSameMonth,
     isCurrentMonth,
     normalizeCategoryKey,
+    validateExpenseInput,
+    MAX_EXPENSE_AMOUNT,
+    MAX_NOTE_LENGTH,
     // Firestore & user lifecycle
     initUser,
     clearUserData,

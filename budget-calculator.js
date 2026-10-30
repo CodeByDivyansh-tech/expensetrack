@@ -21,7 +21,7 @@
    * @param {Object} categoryBudgets - Key-value map of category caps (e.g. { food: 3500, groceries: 2000 })
    * @returns {Object} Calculated metrics
    */
-  function computeAllocation(monthlyBudget, categoryBudgets) {
+  function computeAllocation(monthlyBudget, categoryBudgets, activeCategoryIds) {
     // 1. Sanitize monthly budget: non-negative number, handle decimals, 0, null, undefined, NaN
     const rawBudget = Number(monthlyBudget);
     const budget = (!isNaN(rawBudget) && rawBudget > 0) ? Math.round(rawBudget * 100) / 100 : 0;
@@ -29,7 +29,11 @@
     // 2. Sum category caps: ignore negative or NaN values, preserve decimals
     let totalAllocated = 0;
     if (categoryBudgets && typeof categoryBudgets === 'object') {
-      for (const val of Object.values(categoryBudgets)) {
+      // When the active category ids are given, caps of archived or unknown categories do not count.
+      const counted = Array.isArray(activeCategoryIds)
+        ? Object.entries(categoryBudgets).filter(([id]) => activeCategoryIds.includes(id))
+        : Object.entries(categoryBudgets);
+      for (const [, val] of counted) {
         const num = Number(val);
         if (!isNaN(num) && num > 0) {
           totalAllocated += num;
@@ -89,7 +93,90 @@
     };
   }
 
+  // --- Money ---
+  const OVERALL_CAP_MIN = 500;
+  const OVERALL_CAP_MAX = 1000000;
+
+  function roundMoney(value) {
+    const n = Number(value);
+    if (!isFinite(n)) return 0;
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+  }
+
+  /** Indian grouping; paise are shown only when there are any (49.5 -> 49.50, 50 -> 50). */
+  function formatINR(value) {
+    const n = roundMoney(value);
+    const hasPaise = Math.round(n * 100) % 100 !== 0;
+    return n.toLocaleString('en-IN', hasPaise
+      ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+      : { maximumFractionDigits: 0 });
+  }
+
+  /** The one rule for the monthly budget cap, used by the UI and the data layer. */
+  function validateOverallCap(raw) {
+    if (raw === '' || raw === null || raw === undefined) {
+      return { valid: false, error: 'Enter your monthly budget.' };
+    }
+    const n = Number(raw);
+    if (!isFinite(n)) {
+      return { valid: false, error: 'Enter a valid number.' };
+    }
+    if (!Number.isInteger(n)) {
+      return { valid: false, error: 'Use whole rupees (no decimals).' };
+    }
+    if (n < OVERALL_CAP_MIN || n > OVERALL_CAP_MAX) {
+      return { valid: false, error: 'Monthly budget must be between ₹500 and ₹10,00,000.' };
+    }
+    return { valid: true, value: n };
+  }
+
+  // --- Analytics helpers ---
+  function daysInMonth(year, month) {
+    return new Date(year, month + 1, 0).getDate();
+  }
+
+  function dayOfMonth(dateStr) {
+    const parts = String(dateStr || '').split('-');
+    const day = parseInt(parts[2], 10);
+    return day >= 1 && day <= 31 ? day : 1;
+  }
+
+  /**
+   * Seven-day buckets of a month (1-7, 8-14, ...). A month longer than 28 days gets a short last
+   * bucket, so no bucket is ever longer than a week.
+   */
+  function weeklyBuckets(year, month, expenses) {
+    const total = daysInMonth(year, month);
+    const names = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'short' });
+    const buckets = [];
+    for (let start = 1; start <= total; start += 7) {
+      const end = Math.min(start + 6, total);
+      buckets.push({ start, end, label: start === end ? `${start} ${names}` : `${start}–${end} ${names}`, total: 0 });
+    }
+    (expenses || []).forEach(exp => {
+      const day = dayOfMonth(exp.date);
+      const bucket = buckets[Math.min(buckets.length - 1, Math.floor((day - 1) / 7))];
+      bucket.total = roundMoney(bucket.total + (Number(exp.amount) || 0));
+    });
+    return buckets;
+  }
+
+  /** Daily average: days elapsed for the current month, the full month for any other month. */
+  function dailyAverage(totalSpent, year, month, now) {
+    const today = now || new Date();
+    const isCurrent = today.getFullYear() === year && today.getMonth() === month;
+    const days = isCurrent ? Math.max(1, today.getDate()) : daysInMonth(year, month);
+    return { average: roundMoney((Number(totalSpent) || 0) / days), days, isCurrentMonth: isCurrent };
+  }
+
   return {
     computeAllocation,
+    OVERALL_CAP_MIN,
+    OVERALL_CAP_MAX,
+    roundMoney,
+    formatINR,
+    validateOverallCap,
+    weeklyBuckets,
+    dailyAverage,
   };
 });

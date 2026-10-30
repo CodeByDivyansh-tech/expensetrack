@@ -98,8 +98,12 @@
 
   // --- Formatting & Local Date Helpers ---
   function formatINR(val) {
-    const num = Math.round(Number(val) || 0);
-    return num.toLocaleString('en-IN');
+    if (BudgetCalculator) return BudgetCalculator.formatINR(val);
+    return (Number(val) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  }
+
+  function roundMoney(val) {
+    return BudgetCalculator ? BudgetCalculator.roundMoney(val) : Math.round((Number(val) || 0) * 100) / 100;
   }
 
   const localDateString = (DataLayer && DataLayer.localDateString) || function(date = new Date()) {
@@ -172,12 +176,15 @@
 
   function getTotalSpending(expensesList = null) {
     const expenses = expensesList !== null ? expensesList : getCurrentMonthExpenses();
-    return expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+    return roundMoney(expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0));
   }
 
   function getTotalAllocatedBudget() {
     if (!state.budget || !state.budget.categories) return 0;
-    return Object.values(state.budget.categories).reduce((sum, val) => sum + (Number(val) || 0), 0);
+    const activeIds = Object.keys(getCategories());
+    return Object.entries(state.budget.categories)
+      .filter(([id]) => activeIds.includes(id))
+      .reduce((sum, [, val]) => sum + (Number(val) || 0), 0);
   }
 
   // --- Navigation & Router ---
@@ -263,8 +270,8 @@
 
   function getTopSpendingCategory(spendingMap) {
     const allCats = getAllCategories(true);
-    let topKey = 'food';
-    let maxVal = -1;
+    let topKey = null;
+    let maxVal = 0;
     Object.keys(allCats).forEach(key => {
       const val = spendingMap[key] || 0;
       if (val > maxVal) {
@@ -272,8 +279,9 @@
         topKey = key;
       }
     });
-    const catObj = allCats[topKey] || { name: 'Food & Dining', icon: 'restaurant', color: '#f59e0b' };
-    return { ...catObj, amount: maxVal > 0 ? maxVal : 0 };
+    // Nothing spent in the period: there is no "top" category.
+    if (topKey === null) return null;
+    return { ...allCats[topKey], amount: maxVal };
   }
 
   // --- In-App 80% Budget Alert Check ---
@@ -432,13 +440,16 @@
     // Dynamic spending insight based on real history
     const dashInsight = document.getElementById('dash-spending-insight');
     if (dashInsight) {
+      const topCat = getTopSpendingCategory(getCategorySpendingMap());
       if (state.expenses.length === 0) {
-        dashInsight.textContent = 'Log your first college expense to begin tracking your daily spending rhythm.';
+        dashInsight.textContent = 'Log your first expense to begin tracking your daily spending rhythm.';
+      } else if (!topCat) {
+        dashInsight.textContent = 'Nothing logged this month yet. Add an expense to see where your money is going.';
       } else {
-        const spendingMap = getCategorySpendingMap();
-        const topCat = getTopSpendingCategory(spendingMap);
-        const dayOfMonth = Math.max(1, new Date().getDate());
-        const dailyAvg = Math.round(totalSpent / dayOfMonth);
+        const now = new Date();
+        const dailyAvg = BudgetCalculator
+          ? BudgetCalculator.dailyAverage(totalSpent, now.getFullYear(), now.getMonth(), now).average
+          : totalSpent / Math.max(1, now.getDate());
         dashInsight.textContent = `${topCat.name} leads your spending at ₹${formatINR(topCat.amount)}. Your month-to-date pacing is ₹${formatINR(dailyAvg)}/day.`;
       }
     }
@@ -593,7 +604,7 @@
 
     // Use BudgetCalculator to get pure allocation metrics
     const alloc = BudgetCalculator
-      ? BudgetCalculator.computeAllocation(overallCap, categoryCaps)
+      ? BudgetCalculator.computeAllocation(overallCap, categoryCaps, Object.keys(activeCategories))
       : {
           monthlyBudget: overallCap,
           totalAllocated: 0,
@@ -806,16 +817,16 @@
     if (emergValElem) emergValElem.textContent = formatINR(emergSpent);
     if (emergCapElem) emergCapElem.textContent = formatINR(emergCap);
     if (emergRadial) emergRadial.setAttribute('stroke-dasharray', `${emergPct}, 100`);
-    if (emergDesc) emergDesc.textContent = `₹${formatINR(emergSpent)} saved on this device`;
-    if (emergGoalPct) emergGoalPct.textContent = `${emergPct}% of Semester Target`;
+    if (emergDesc) emergDesc.textContent = `₹${formatINR(emergSpent)} spent from this fund this month`;
+    if (emergGoalPct) emergGoalPct.textContent = `${emergPct}% of monthly cap used`;
 
     // Dynamic budget insight
     const budgetInsight = document.getElementById('budget-spending-insight');
     if (budgetInsight) {
-      if (state.expenses.length === 0) {
-        budgetInsight.textContent = 'No expenses logged yet. Category gauges will track your real spending live as you log transactions.';
+      const topCat = getTopSpendingCategory(spendingMap);
+      if (state.expenses.length === 0 || !topCat) {
+        budgetInsight.textContent = 'No expenses logged this month yet. Category gauges will track your real spending live as you log transactions.';
       } else {
-        const topCat = getTopSpendingCategory(spendingMap);
         budgetInsight.textContent = `${topCat.name} is your highest budget demand (₹${formatINR(topCat.amount)}). Adjust sliders below to fine-tune your targets.`;
       }
     }
@@ -892,7 +903,7 @@
 
     const overallCap = state.budget?.overallCap || 12000;
     const alloc = BudgetCalculator
-      ? BudgetCalculator.computeAllocation(overallCap, state.budget.categories)
+      ? BudgetCalculator.computeAllocation(overallCap, state.budget.categories, Object.keys(getCategories()))
       : null;
 
     if (alloc) {
@@ -975,6 +986,17 @@
     const overallCap = state.budget?.overallCap || 0;
     const categoryCaps = state.budget?.categories || {};
 
+    // The newest month you can look at is the current one
+    const nextBtn = document.getElementById('analytics-next-month');
+    if (nextBtn) {
+      const now = new Date();
+      const atLatest = selectedYear > now.getFullYear() ||
+        (selectedYear === now.getFullYear() && selectedMonth >= now.getMonth());
+      nextBtn.disabled = atLatest;
+      nextBtn.classList.toggle('opacity-40', atLatest);
+      nextBtn.classList.toggle('cursor-not-allowed', atLatest);
+    }
+
     // Update Month Label in Analytics View
     const monthLabel = document.getElementById('analytics-month-label');
     if (monthLabel) {
@@ -1033,9 +1055,14 @@
 
     // Daily Average for the selected month
     if (dailyAvgElem) {
-      const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-      const avg = Math.round(totalSpent / daysInMonth);
-      dailyAvgElem.textContent = `₹${formatINR(avg)} / day`;
+      const daily = BudgetCalculator.dailyAverage(totalSpent, selectedYear, selectedMonth);
+      dailyAvgElem.textContent = `₹${formatINR(daily.average)} / day`;
+      const dailyNote = document.getElementById('analytics-daily-avg-note');
+      if (dailyNote) {
+        dailyNote.textContent = daily.isCurrentMonth
+          ? `Average over the ${daily.days} days so far this month`
+          : `Average over all ${daily.days} days of the month`;
+      }
     }
 
     // Category Breakdown Rows
@@ -1156,25 +1183,20 @@
     // Weekly/Monthly Velocity Bar Chart
     const barCtx = document.getElementById('chart-monthly-bar')?.getContext?.('2d');
     if (barCtx) {
-      // Group expenses into 4 weeks of the selected month
-      const weekBuckets = [0, 0, 0, 0];
-      monthExpenses.forEach(exp => {
-        if (!exp.date) return;
-        const day = parseLocalDate(exp.date).getDate() || 1;
-        if (day <= 7) weekBuckets[0] += Number(exp.amount) || 0;
-        else if (day <= 14) weekBuckets[1] += Number(exp.amount) || 0;
-        else if (day <= 21) weekBuckets[2] += Number(exp.amount) || 0;
-        else weekBuckets[3] += Number(exp.amount) || 0;
-      });
+      // Seven-day buckets of the selected month, labelled with their dates
+      const buckets = BudgetCalculator.weeklyBuckets(state.analyticsYear, state.analyticsMonth, monthExpenses);
+      const weekBuckets = buckets.map(b => b.total);
+      const weekLabels = buckets.map(b => b.label);
 
       if (state.charts.monthlyBar) {
+        state.charts.monthlyBar.data.labels = weekLabels;
         state.charts.monthlyBar.data.datasets[0].data = weekBuckets;
         state.charts.monthlyBar.update();
       } else {
         state.charts.monthlyBar = new Chart(barCtx, {
           type: 'bar',
           data: {
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            labels: weekLabels,
             datasets: [
               {
                 label: 'Spending (₹)',
@@ -1358,8 +1380,9 @@
     if (amountInput) amountInput.value = '';
     if (noteInput) noteInput.value = '';
 
-    // Default to today's date YYYY-MM-DD (local time)
+    // Default to today's date YYYY-MM-DD (local time); future dates are not allowed
     if (dateInput) {
+      dateInput.max = localDateString();
       dateInput.value = localDateString();
     }
 
@@ -1391,7 +1414,10 @@
 
     if (amountInput) amountInput.value = exp.amount;
     if (noteInput) noteInput.value = exp.note || '';
-    if (dateInput) dateInput.value = exp.date || '';
+    if (dateInput) {
+      dateInput.max = localDateString();
+      dateInput.value = exp.date || '';
+    }
 
     renderQuickLogCategoryChips(exp.category);
     selectCategoryChip(exp.category);
@@ -1423,14 +1449,18 @@
 
     // Strict Validation:
     const errors = [];
-    if (isNaN(amountVal) || amountVal <= 0) {
-      errors.push('Please enter an amount greater than ₹0.');
+    if (!dateVal) {
+      errors.push('Please select a transaction date.');
+    }
+    // Amount, date range and note length use the same rules as the data layer
+    const input = DataLayer
+      ? DataLayer.validateExpenseInput({ amount: amountInput.value, date: dateVal, note: noteVal })
+      : { valid: !isNaN(amountVal) && amountVal > 0, error: 'Please enter an amount greater than ₹0.' };
+    if (!input.valid) {
+      errors.push(input.error);
     }
     if (!catVal || !allCats[normCat]) {
       errors.push('Please select a valid expense category.');
-    }
-    if (!dateVal) {
-      errors.push('Please select a transaction date.');
     }
 
     if (errors.length > 0) {
@@ -1449,7 +1479,7 @@
       // Update existing
       if (DataLayer) {
         await DataLayer.updateExpense(state.editingExpenseId, {
-          amount: Math.round(amountVal),
+          amount: amountVal,
           category: normCat,
           date: dateVal,
           note: noteVal || categoryName,
@@ -1460,7 +1490,7 @@
         if (idx !== -1) {
           state.expenses[idx] = {
             ...state.expenses[idx],
-            amount: Math.round(amountVal),
+            amount: amountVal,
             category: normCat,
             date: dateVal,
             note: noteVal || categoryName,
@@ -1473,7 +1503,7 @@
       // Create new
       if (DataLayer) {
         await DataLayer.addExpense({
-          amount: Math.round(amountVal),
+          amount: amountVal,
           category: normCat,
           date: dateVal,
           note: noteVal || categoryName,
@@ -1482,7 +1512,7 @@
       } else {
         const newExp = {
           id: 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-          amount: Math.round(amountVal),
+          amount: amountVal,
           category: normCat,
           date: dateVal,
           note: noteVal || categoryName,
@@ -1523,7 +1553,7 @@
     let newExp;
     if (DataLayer) {
       newExp = await DataLayer.addExpense({
-        amount: Math.round(amountVal),
+        amount: amountVal,
         category: normCat,
         date: date || today,
         note: (note && String(note).trim()) || categoryName,
@@ -1532,7 +1562,7 @@
     } else {
       newExp = {
         id: 'exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-        amount: Math.round(amountVal),
+        amount: amountVal,
         category: normCat,
         date: date || today,
         note: (note && String(note).trim()) || categoryName,
@@ -1581,9 +1611,30 @@
   // ==========================================
   // BUDGET MODAL & CEILING EDITING
   // ==========================================
+  function showBudgetCapError(message) {
+    const err = document.getElementById('overall-cap-error');
+    const input = document.getElementById('overall-cap-input');
+    if (err) {
+      err.textContent = message;
+      err.classList.remove('hidden');
+    }
+    if (input) input.setAttribute('aria-invalid', 'true');
+  }
+
+  function hideBudgetCapError() {
+    const err = document.getElementById('overall-cap-error');
+    const input = document.getElementById('overall-cap-input');
+    if (err) {
+      err.textContent = '';
+      err.classList.add('hidden');
+    }
+    if (input) input.removeAttribute('aria-invalid');
+  }
+
   function openBudgetModal() {
     const modal = document.getElementById('budget-modal');
     const input = document.getElementById('overall-cap-input');
+    hideBudgetCapError();
     if (input) {
       input.value = state.budget?.overallCap || 12000;
     }
@@ -1598,12 +1649,14 @@
 
   async function saveBudgetModal() {
     const input = document.getElementById('overall-cap-input');
-    const val = parseInt(input.value, 10);
+    const check = BudgetCalculator.validateOverallCap(input.value);
 
-    if (isNaN(val) || val < 0) {
-      alert('Please enter a valid monthly budget amount (positive number).');
+    if (!check.valid) {
+      showBudgetCapError(check.error);
       return;
     }
+    hideBudgetCapError();
+    const val = check.value;
 
     state.budget.overallCap = val;
     try {
@@ -2035,6 +2088,11 @@
     const nextMonthBtn = document.getElementById('analytics-next-month');
     if (nextMonthBtn) {
       nextMonthBtn.addEventListener('click', () => {
+        const now = new Date();
+        if (state.analyticsYear > now.getFullYear() ||
+            (state.analyticsYear === now.getFullYear() && state.analyticsMonth >= now.getMonth())) {
+          return; // no future months
+        }
         state.analyticsMonth++;
         if (state.analyticsMonth > 11) {
           state.analyticsMonth = 0;

@@ -736,7 +736,7 @@
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Emergency Student Fund</span>
                       <span class="px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary-container text-label-sm font-label-sm">
-                        Auto-Saved
+                        Reserve
                       </span>
                     </div>
                     <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Medical urgent needs, emergency travel, repairs</div>
@@ -756,10 +756,10 @@
                   </svg>
                   <div class="flex flex-col">
                     <span class="font-label-md text-label-md text-on-surface font-bold">Emergency Cushion Reserve</span>
-                    <span id="emergency-cushion-desc" class="font-body-sm text-body-sm text-on-surface-variant">₹0 saved on this device</span>
+                    <span id="emergency-cushion-desc" class="font-body-sm text-body-sm text-on-surface-variant">₹0 spent from this fund this month</span>
                   </div>
                 </div>
-                <span id="emergency-goal-percent" class="font-label-sm text-label-sm text-primary font-semibold hidden sm:inline-block">0% of Semester Target</span>
+                <span id="emergency-goal-percent" class="font-label-sm text-label-sm text-primary font-semibold hidden sm:inline-block">0% of monthly cap used</span>
               </div>
             </div>
 
@@ -928,7 +928,7 @@
             <div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-slate-100 flex flex-col">
               <span class="font-label-sm text-label-sm text-on-surface-variant">Estimated Daily Burn</span>
               <span class="font-headline-sm text-headline-sm font-bold text-on-surface mt-1" id="analytics-daily-avg">₹0 / day</span>
-              <span class="font-body-sm text-body-sm text-on-surface-variant font-medium mt-0.5">Campus term daily average</span>
+              <span id="analytics-daily-avg-note" class="font-body-sm text-body-sm text-on-surface-variant font-medium mt-0.5">Daily average</span>
             </div>
           </div>
 
@@ -1019,7 +1019,7 @@
             <!-- Account Financial Summary -->
             <div class="grid grid-cols-3 gap-space-sm p-space-md bg-surface-container-low rounded-2xl text-center">
               <div>
-                <span class="font-label-sm text-label-sm text-on-surface-variant block">Total Spent</span>
+                <span class="font-label-sm text-label-sm text-on-surface-variant block">Spent This Month</span>
                 <span class="font-title-md text-title-md font-bold text-on-surface" id="profile-total-spent">₹0</span>
               </div>
               <div>
@@ -1027,7 +1027,7 @@
                 <span class="font-title-md text-title-md font-bold text-on-surface" id="profile-budget-cap">₹12,000</span>
               </div>
               <div>
-                <span class="font-label-sm text-label-sm text-on-surface-variant block">Logged Txns</span>
+                <span class="font-label-sm text-label-sm text-on-surface-variant block">Records (all time)</span>
                 <span class="font-title-md text-title-md font-bold text-on-surface" id="profile-tx-count">0</span>
               </div>
             </div>
@@ -1133,9 +1133,11 @@
             <input 
               id="expense-amount" 
               type="number" 
-              step="any" 
-              min="1" 
-              required 
+              step="0.01"
+              min="0.01"
+              max="1000000"
+              inputmode="decimal"
+              required
               placeholder="0" 
               class="w-full pl-11 pr-4 py-3 bg-surface-container-low rounded-2xl font-numeric-balance text-numeric-balance text-on-surface focus:outline-none focus:ring-2 focus:ring-primary font-bold"
             />
@@ -1206,8 +1208,9 @@
         <div class="flex flex-col gap-space-xs">
           <label class="font-label-sm text-label-sm text-on-surface-variant">Merchant / Notes</label>
           <input 
-            id="expense-note" 
-            type="text" 
+            id="expense-note"
+            type="text"
+            maxlength="100"
             placeholder="e.g. Campus canteen, Swiggy, BookMyShow, Xerox notes" 
             class="w-full px-4 py-3 bg-surface-container-low rounded-2xl font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
           />
@@ -1247,9 +1250,10 @@
         <label class="font-label-sm text-label-sm text-on-surface-variant">Monthly Allowance (₹)</label>
         <div class="relative flex items-center">
           <span class="absolute left-4 font-headline-lg text-headline-lg text-on-surface-variant font-bold">₹</span>
-          <input class="w-full pl-10 pr-4 py-3 bg-surface-container-low rounded-2xl font-numeric-balance text-numeric-balance text-on-surface focus:outline-none focus:ring-2 focus:ring-primary font-bold" id="overall-cap-input" max="50000" min="1000" step="500" type="number" value="12000"/>
+          <input class="w-full pl-10 pr-4 py-3 bg-surface-container-low rounded-2xl font-numeric-balance text-numeric-balance text-on-surface focus:outline-none focus:ring-2 focus:ring-primary font-bold" id="overall-cap-input" max="1000000" min="500" step="1" inputmode="numeric" type="number" value="12000" aria-describedby="overall-cap-error"/>
         </div>
-        <p class="font-body-sm text-body-sm text-on-surface-variant">Recommended student tier: ₹10,000 - ₹15,000 / mo</p>
+        <p id="overall-cap-error" role="alert" class="hidden font-body-sm text-body-sm text-error font-semibold"></p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">Recommended student tier: ₹10,000 - ₹15,000 / mo. Allowed: ₹500 to ₹10,00,000.</p>
       </div>
       <div class="flex items-center justify-end gap-space-sm pt-space-xs">
         <button class="px-space-md py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" id="cancel-budget-modal">
