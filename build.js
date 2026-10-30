@@ -18,6 +18,7 @@ const filesToCopy = [
   'login.js',
   'app.js',
   'data-layer.js',
+  'expense-tools.js',
   'budget-calculator.js',
   'firebase-config.js',
   'favicon.ico',

@@ -28,6 +28,18 @@
   outline-offset: 2px;
 }
 
+/* Placeholder blocks shown until the first data arrives */
+[data-loading="true"] .skel {
+  color: transparent !important;
+  background-color: #dce9ff;
+  border-radius: 0.5rem;
+  animation: skel-pulse 1.4s ease-in-out infinite;
+  user-select: none;
+}
+@keyframes skel-pulse {
+  50% { opacity: 0.45; }
+}
+
 /* Respect the "reduce motion" setting */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -53,6 +65,10 @@
   letter-spacing: normal;
   text-transform: none;
   display: inline-block;
+  /* One icon wide, even if the icon font has not loaded: the fallback text is clipped, not laid out */
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
   white-space: nowrap;
   word-wrap: normal;
   direction: ltr;

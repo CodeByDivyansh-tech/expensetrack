@@ -51,7 +51,7 @@
   <script src="firebase-config.js"></script>
 </head>
 
-<body class="bg-surface font-body-md text-body-md text-on-surface antialiased">
+<body data-loading="true" class="bg-surface font-body-md text-body-md text-on-surface antialiased">
   
   <!-- Auth Resolving Loading Screen Overlay -->
   <div id="auth-loading-overlay" class="fixed inset-0 bg-surface z-[9999] flex flex-col items-center justify-center gap-4 transition-opacity duration-300">
@@ -98,6 +98,10 @@
           <span class="material-symbols-outlined text-2xl">home</span>
           <span class="font-label-md text-label-md">Dashboard</span>
         </a>
+        <a class="flex items-center gap-space-md px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="transactions" href="#">
+          <span class="material-symbols-outlined text-2xl">receipt_long</span>
+          <span class="font-label-md text-label-md">Transactions</span>
+        </a>
         <a class="flex items-center gap-space-md px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="analytics" href="#">
           <span class="material-symbols-outlined text-2xl">pie_chart</span>
           <span class="font-label-md text-label-md">Analytics</span>
@@ -121,12 +125,12 @@
     <div role="button" tabindex="0" class="bg-surface-container-low rounded-xl p-space-md flex flex-col gap-space-xs cursor-pointer hover:bg-surface-container transition-colors" data-click="navigateTo" data-arg="budget-setup">
       <div class="flex items-center justify-between">
         <span class="font-label-sm text-label-sm text-on-surface-variant">Monthly Budget</span>
-        <span class="font-label-sm text-label-sm text-primary font-bold" id="sidebar-safe-percent">—</span>
+        <span class="font-label-sm text-label-sm text-primary font-bold skel" id="sidebar-safe-percent">—</span>
       </div>
       <div class="w-full bg-surface-container h-2 rounded-full overflow-hidden">
         <div class="bg-primary h-full rounded-full transition-all duration-300" id="sidebar-progress-bar" style="width: 0%;"></div>
       </div>
-      <span class="font-body-sm text-body-sm text-on-surface-variant mt-1" id="sidebar-left-text">Loading…</span>
+      <span class="font-body-sm text-body-sm text-on-surface-variant mt-1 skel" id="sidebar-left-text">Loading…</span>
     </div>
   </aside>
 
@@ -152,6 +156,10 @@
 
         <!-- Right Side Header Icons & Profile -->
         <div class="flex items-center gap-space-md ml-auto">
+          <span id="sync-indicator" role="status" class="flex items-center gap-1 px-2 py-1 rounded-full text-on-surface-variant font-label-sm text-label-sm" title="Sync status">
+            <span id="sync-icon" class="material-symbols-outlined text-lg" aria-hidden="true">cloud_done</span>
+            <span id="sync-text" class="hidden sm:inline">Synced</span>
+          </span>
           <button aria-label="Notifications" class="relative p-2 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-click="navigateTo" data-arg="budget-setup">
             <span class="material-symbols-outlined text-2xl">notifications</span>
             
@@ -213,7 +221,8 @@
             <span class="material-symbols-outlined text-amber-600 text-2xl flex-shrink-0">warning</span>
             <div>
               <span class="font-title-md text-title-md font-bold text-amber-900 block" id="budget-warning-title">Budget Warning: 80% Limit Reached</span>
-              <span class="font-body-sm text-body-sm text-amber-800" id="budget-warning-desc">You have spent over 80% of your allocated monthly budget.</span>
+              <span class="font-body-sm text-body-sm text-amber-800 block" id="budget-warning-desc">Some budgets are close to their limits.</span>
+              <ul id="budget-warning-list" class="mt-1 list-disc pl-5 font-body-sm text-body-sm text-amber-900"></ul>
             </div>
           </div>
           <button type="button" data-click="dismissBanner" class="text-amber-800 hover:text-amber-950 p-1 flex-shrink-0" title="Dismiss" aria-label="Dismiss">
@@ -235,13 +244,13 @@
                   <span class="font-title-md text-title-md text-on-surface font-bold">Monthly Spending Velocity</span>
                 </div>
                 <span class="font-label-sm text-label-sm px-3 py-1 rounded-full bg-surface-container-low text-on-surface-variant font-medium">
-                  Monthly Cap: <strong class="text-on-surface font-bold" id="dash-budget-cap">—</strong>
+                  Monthly Cap: <strong class="text-on-surface font-bold skel" id="dash-budget-cap">—</strong>
                 </span>
               </div>
               <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-space-xs mb-space-md">
                 <div>
                   <div class="font-body-sm text-body-sm text-on-surface-variant">Total Spent This Month</div>
-                  <div class="font-numeric-balance text-numeric-balance text-on-surface tracking-tight" id="dash-total-spent">
+                  <div class="font-numeric-balance text-numeric-balance text-on-surface tracking-tight skel" id="dash-total-spent">
                     ₹0
                   </div>
                 </div>
@@ -433,7 +442,7 @@
             <div class="flex items-center justify-between mb-space-sm z-10">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-primary text-xl">auto_stories</span>
-                <span class="font-title-md text-title-md text-on-surface font-semibold">Campus Routine Check</span>
+                <span class="font-title-md text-title-md text-on-surface font-semibold">Month at a Glance</span>
               </div>
               <span class="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant dynamic-term-week">This month</span>
             </div>
@@ -478,11 +487,11 @@
             <!-- Category 1: Food & Dining -->
             <div id="cat-card-food" class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm flex flex-col gap-space-md hover:shadow-md transition-shadow duration-200">
               <div class="flex items-start justify-between gap-space-sm">
-                <div class="flex items-center gap-space-md">
+                <div class="flex items-center gap-space-md min-w-0">
                   <div class="w-12 h-12 rounded-2xl bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed">
                     <span class="material-symbols-outlined text-2xl">restaurant</span>
                   </div>
-                  <div>
+                  <div class="min-w-0">
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Food &amp; Dining</span>
                       <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm flex items-center gap-1">
@@ -492,7 +501,7 @@
                     <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Campus canteen, Swiggy / Zomato, chai &amp; snacks</div>
                   </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right shrink-0">
                   <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-food">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-food">—</span> cap</span>
                 </div>
@@ -509,10 +518,10 @@
                 <label for="slider-food" class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-base">tune</span> Adjust Cap Target:
                 </label>
-                <div class="flex items-center gap-space-md flex-1 max-w-sm">
+                <div class="flex flex-wrap items-center gap-x-space-sm gap-y-1 flex-1 max-w-sm w-full">
                   <span class="font-body-sm text-body-sm text-on-surface-variant">₹2,000</span>
-                  <input class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-food" data-category="food" max="6000" min="2000" step="100" type="range" value="4000"/>
-                  <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-food">—</span></span>
+                  <input class="flex-1 min-w-[120px] h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-food" data-category="food" max="6000" min="2000" step="100" type="range" value="4000"/>
+                  <label class="flex items-center gap-1 font-title-md text-title-md text-on-surface font-semibold" for="cap-input-food">₹<input id="cap-input-food" data-category="food" class="cap-input w-24 px-2 py-2 min-h-[44px] bg-surface-container-low rounded-xl text-right font-semibold focus:outline-none focus:ring-2 focus:ring-primary" type="number" min="0" max="1000000" step="1" inputmode="numeric"/></label><span id="slider-display-food" class="hidden"></span>
                 </div>
               </div>
             </div>
@@ -520,11 +529,11 @@
             <!-- Category 2: Groceries -->
             <div id="cat-card-groceries" class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm flex flex-col gap-space-md hover:shadow-md transition-shadow duration-200">
               <div class="flex items-start justify-between gap-space-sm">
-                <div class="flex items-center gap-space-md">
+                <div class="flex items-center gap-space-md min-w-0">
                   <div class="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center text-primary">
                     <span class="material-symbols-outlined text-2xl">local_mall</span>
                   </div>
-                  <div>
+                  <div class="min-w-0">
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Groceries</span>
                       <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm flex items-center gap-1">
@@ -534,7 +543,7 @@
                     <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Hostel essentials, local mart, fruits &amp; snacks</div>
                   </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right shrink-0">
                   <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-groceries">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-groceries">—</span> cap</span>
                 </div>
@@ -551,10 +560,10 @@
                 <label for="slider-groceries" class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-base">tune</span> Adjust Cap Target:
                 </label>
-                <div class="flex items-center gap-space-md flex-1 max-w-sm">
+                <div class="flex flex-wrap items-center gap-x-space-sm gap-y-1 flex-1 max-w-sm w-full">
                   <span class="font-body-sm text-body-sm text-on-surface-variant">₹500</span>
-                  <input class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-groceries" data-category="groceries" max="4000" min="500" step="100" type="range" value="2000"/>
-                  <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-groceries">—</span></span>
+                  <input class="flex-1 min-w-[120px] h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-groceries" data-category="groceries" max="4000" min="500" step="100" type="range" value="2000"/>
+                  <label class="flex items-center gap-1 font-title-md text-title-md text-on-surface font-semibold" for="cap-input-groceries">₹<input id="cap-input-groceries" data-category="groceries" class="cap-input w-24 px-2 py-2 min-h-[44px] bg-surface-container-low rounded-xl text-right font-semibold focus:outline-none focus:ring-2 focus:ring-primary" type="number" min="0" max="1000000" step="1" inputmode="numeric"/></label><span id="slider-display-groceries" class="hidden"></span>
                 </div>
               </div>
             </div>
@@ -562,11 +571,11 @@
             <!-- Category 3: Transport -->
             <div id="cat-card-transport" class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm flex flex-col gap-space-md hover:shadow-md transition-shadow duration-200">
               <div class="flex items-start justify-between gap-space-sm">
-                <div class="flex items-center gap-space-md">
+                <div class="flex items-center gap-space-md min-w-0">
                   <div class="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center text-primary">
                     <span class="material-symbols-outlined text-2xl">directions_bus</span>
                   </div>
-                  <div>
+                  <div class="min-w-0">
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Transport</span>
                       <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm flex items-center gap-1">
@@ -576,7 +585,7 @@
                     <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Metro, auto rickshaw, bus pass, campus commute</div>
                   </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right shrink-0">
                   <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-transport">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-transport">—</span> cap</span>
                 </div>
@@ -593,10 +602,10 @@
                 <label for="slider-transport" class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-base">tune</span> Adjust Cap Target:
                 </label>
-                <div class="flex items-center gap-space-md flex-1 max-w-sm">
+                <div class="flex flex-wrap items-center gap-x-space-sm gap-y-1 flex-1 max-w-sm w-full">
                   <span class="font-body-sm text-body-sm text-on-surface-variant">₹200</span>
-                  <input class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-transport" data-category="transport" max="3000" min="200" step="50" type="range" value="1000"/>
-                  <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-transport">—</span></span>
+                  <input class="flex-1 min-w-[120px] h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-transport" data-category="transport" max="3000" min="200" step="50" type="range" value="1000"/>
+                  <label class="flex items-center gap-1 font-title-md text-title-md text-on-surface font-semibold" for="cap-input-transport">₹<input id="cap-input-transport" data-category="transport" class="cap-input w-24 px-2 py-2 min-h-[44px] bg-surface-container-low rounded-xl text-right font-semibold focus:outline-none focus:ring-2 focus:ring-primary" type="number" min="0" max="1000000" step="1" inputmode="numeric"/></label><span id="slider-display-transport" class="hidden"></span>
                 </div>
               </div>
             </div>
@@ -604,11 +613,11 @@
             <!-- Category 4: Textbooks & Coursework -->
             <div id="cat-card-textbooks" class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm flex flex-col gap-space-md hover:shadow-md transition-shadow duration-200">
               <div class="flex items-start justify-between gap-space-sm">
-                <div class="flex items-center gap-space-md">
+                <div class="flex items-center gap-space-md min-w-0">
                   <div class="w-12 h-12 rounded-2xl bg-error-container flex items-center justify-center text-error">
                     <span class="material-symbols-outlined text-2xl">menu_book</span>
                   </div>
-                  <div>
+                  <div class="min-w-0">
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Textbooks &amp; Coursework</span>
                       <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm flex items-center gap-1">
@@ -618,7 +627,7 @@
                     <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Course notes, photostat / printing, semester books</div>
                   </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right shrink-0">
                   <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-textbooks">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-textbooks">—</span> cap</span>
                 </div>
@@ -635,10 +644,10 @@
                 <label for="slider-textbooks" class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-base">tune</span> Adjust Cap Target:
                 </label>
-                <div class="flex items-center gap-space-md flex-1 max-w-sm">
+                <div class="flex flex-wrap items-center gap-x-space-sm gap-y-1 flex-1 max-w-sm w-full">
                   <span class="font-body-sm text-body-sm text-on-surface-variant">₹500</span>
-                  <input class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-textbooks" data-category="textbooks" max="3000" min="500" step="50" type="range" value="1200"/>
-                  <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-textbooks">—</span></span>
+                  <input class="flex-1 min-w-[120px] h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-textbooks" data-category="textbooks" max="3000" min="500" step="50" type="range" value="1200"/>
+                  <label class="flex items-center gap-1 font-title-md text-title-md text-on-surface font-semibold" for="cap-input-textbooks">₹<input id="cap-input-textbooks" data-category="textbooks" class="cap-input w-24 px-2 py-2 min-h-[44px] bg-surface-container-low rounded-xl text-right font-semibold focus:outline-none focus:ring-2 focus:ring-primary" type="number" min="0" max="1000000" step="1" inputmode="numeric"/></label><span id="slider-display-textbooks" class="hidden"></span>
                 </div>
               </div>
             </div>
@@ -646,11 +655,11 @@
             <!-- Category 4: Entertainment & Social -->
             <div id="cat-card-entertainment" class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm flex flex-col gap-space-md hover:shadow-md transition-shadow duration-200">
               <div class="flex items-start justify-between gap-space-sm">
-                <div class="flex items-center gap-space-md">
+                <div class="flex items-center gap-space-md min-w-0">
                   <div class="w-12 h-12 rounded-2xl bg-secondary-container flex items-center justify-center text-on-secondary-container">
                     <span class="material-symbols-outlined text-2xl">celebration</span>
                   </div>
-                  <div>
+                  <div class="min-w-0">
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Entertainment &amp; Social</span>
                       <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm flex items-center gap-1">
@@ -660,7 +669,7 @@
                     <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">BookMyShow, weekend outings, campus fests</div>
                   </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right shrink-0">
                   <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-entertainment">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-entertainment">—</span> cap</span>
                 </div>
@@ -677,10 +686,10 @@
                 <label for="slider-entertainment" class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-base">tune</span> Adjust Cap Target:
                 </label>
-                <div class="flex items-center gap-space-md flex-1 max-w-sm">
+                <div class="flex flex-wrap items-center gap-x-space-sm gap-y-1 flex-1 max-w-sm w-full">
                   <span class="font-body-sm text-body-sm text-on-surface-variant">₹500</span>
-                  <input class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-entertainment" data-category="entertainment" max="3000" min="500" step="50" type="range" value="1800"/>
-                  <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-entertainment">—</span></span>
+                  <input class="flex-1 min-w-[120px] h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-entertainment" data-category="entertainment" max="3000" min="500" step="50" type="range" value="1800"/>
+                  <label class="flex items-center gap-1 font-title-md text-title-md text-on-surface font-semibold" for="cap-input-entertainment">₹<input id="cap-input-entertainment" data-category="entertainment" class="cap-input w-24 px-2 py-2 min-h-[44px] bg-surface-container-low rounded-xl text-right font-semibold focus:outline-none focus:ring-2 focus:ring-primary" type="number" min="0" max="1000000" step="1" inputmode="numeric"/></label><span id="slider-display-entertainment" class="hidden"></span>
                 </div>
               </div>
             </div>
@@ -688,11 +697,11 @@
             <!-- Category 5: Personal & Subscriptions -->
             <div id="cat-card-personal" class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm flex flex-col gap-space-md hover:shadow-md transition-shadow duration-200">
               <div class="flex items-start justify-between gap-space-sm">
-                <div class="flex items-center gap-space-md">
+                <div class="flex items-center gap-space-md min-w-0">
                   <div class="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center text-primary">
                     <span class="material-symbols-outlined text-2xl">subscriptions</span>
                   </div>
-                  <div>
+                  <div class="min-w-0">
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Personal &amp; Subscriptions</span>
                       <span class="category-status-badge px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm flex items-center gap-1">
@@ -702,7 +711,7 @@
                     <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Mobile recharge, Spotify, haircuts, laundry</div>
                   </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right shrink-0">
                   <span class="font-headline-sm text-headline-sm text-on-surface font-bold">₹<span class="spent-val-personal">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-personal">—</span> cap</span>
                 </div>
@@ -719,10 +728,10 @@
                 <label for="slider-personal" class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-base">tune</span> Adjust Cap Target:
                 </label>
-                <div class="flex items-center gap-space-md flex-1 max-w-sm">
+                <div class="flex flex-wrap items-center gap-x-space-sm gap-y-1 flex-1 max-w-sm w-full">
                   <span class="font-body-sm text-body-sm text-on-surface-variant">₹200</span>
-                  <input class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-personal" data-category="personal" max="1500" min="200" step="50" type="range" value="600"/>
-                  <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-personal">—</span></span>
+                  <input class="flex-1 min-w-[120px] h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" id="slider-personal" data-category="personal" max="1500" min="200" step="50" type="range" value="600"/>
+                  <label class="flex items-center gap-1 font-title-md text-title-md text-on-surface font-semibold" for="cap-input-personal">₹<input id="cap-input-personal" data-category="personal" class="cap-input w-24 px-2 py-2 min-h-[44px] bg-surface-container-low rounded-xl text-right font-semibold focus:outline-none focus:ring-2 focus:ring-primary" type="number" min="0" max="1000000" step="1" inputmode="numeric"/></label><span id="slider-display-personal" class="hidden"></span>
                 </div>
               </div>
             </div>
@@ -730,11 +739,11 @@
             <!-- Category 6: Emergency Student Fund (Auto-Save Anchor) -->
             <div id="cat-card-emergency" class="bg-gradient-to-br from-surface-container-lowest to-surface-container-low rounded-3xl p-space-lg shadow-sm flex flex-col gap-space-md">
               <div class="flex items-start justify-between gap-space-sm">
-                <div class="flex items-center gap-space-md">
+                <div class="flex items-center gap-space-md min-w-0">
                   <div class="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
                     <span class="material-symbols-outlined text-2xl">lock</span>
                   </div>
-                  <div>
+                  <div class="min-w-0">
                     <div class="flex items-center gap-2">
                       <span class="font-title-md text-title-md text-on-surface font-bold">Emergency Student Fund</span>
                       <span class="px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary-container text-label-sm font-label-sm">
@@ -744,7 +753,7 @@
                     <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Medical urgent needs, emergency travel, repairs</div>
                   </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right shrink-0">
                   <span class="font-headline-sm text-headline-sm text-primary font-bold">₹<span class="spent-val-emergency">0</span></span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant block">of ₹<span id="cap-emergency">—</span> cap</span>
                 </div>
@@ -787,9 +796,9 @@
                 <div class="flex items-start justify-between gap-space-sm pt-2">
                   <div class="flex flex-col">
                     <div class="flex items-center gap-2">
-                      <span class="font-label-md text-label-md text-on-surface font-semibold">Notify when spending hits 80%</span>
+                      <span class="font-label-md text-label-md text-on-surface font-semibold">Warn me at 80% and 100%</span>
                     </div>
-                    <span class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Displays an in-app warning banner and alert toast when monthly budget reaches 80%.</span>
+                    <span class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Shows a warning when your monthly budget, or any single category, reaches 80% and again at 100%.</span>
                   </div>
                   <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
                     <input class="sr-only peer" id="toggle-80" type="checkbox"/>
@@ -856,11 +865,11 @@
           <div class="flex items-center gap-space-sm flex-wrap">
             <!-- Month Selector Controls -->
             <div class="flex items-center gap-1 bg-surface-container-lowest border border-slate-200 rounded-full px-2 py-1 shadow-sm">
-              <button id="analytics-prev-month" type="button" class="w-8 h-8 rounded-full hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors" title="Previous Month" aria-label="Previous Month">
+              <button id="analytics-prev-month" type="button" class="w-11 h-11 rounded-full hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors" title="Previous Month" aria-label="Previous Month">
                 <span class="material-symbols-outlined text-lg">chevron_left</span>
               </button>
               <span id="analytics-month-label" class="font-label-md text-label-md font-semibold text-on-surface px-2 select-none min-w-[120px] text-center">—</span>
-              <button id="analytics-next-month" type="button" class="w-8 h-8 rounded-full hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors" title="Next Month" aria-label="Next Month">
+              <button id="analytics-next-month" type="button" class="w-11 h-11 rounded-full hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors" title="Next Month" aria-label="Next Month">
                 <span class="material-symbols-outlined text-lg">chevron_right</span>
               </button>
             </div>
@@ -954,6 +963,105 @@
       </section>
 
       <!-- =================================================================== -->
+      <!-- VIEW: ALL TRANSACTIONS                                              -->
+      <!-- =================================================================== -->
+      <section id="view-transactions" class="app-view hidden flex flex-col w-full">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-lg">
+          <div class="flex flex-col">
+            <div class="flex items-center gap-space-xs text-on-surface-variant mb-1">
+              <span class="material-symbols-outlined text-sm text-primary">receipt_long</span>
+              <span class="font-label-sm text-label-sm uppercase tracking-wider">Full history</span>
+            </div>
+            <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">All Transactions</h1>
+          </div>
+          <div class="flex flex-wrap items-center gap-space-sm">
+            <button type="button" id="tx-import" class="flex items-center gap-space-xs px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">
+              <span class="material-symbols-outlined text-lg">upload_file</span> Import CSV
+            </button>
+            <button type="button" id="tx-export" class="flex items-center gap-space-xs px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">
+              <span class="material-symbols-outlined text-lg">download</span> Export CSV
+            </button>
+            <button type="button" data-click="openAddExpenseModal" class="flex items-center gap-space-xs px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all duration-200">
+              <span class="material-symbols-outlined text-lg">add_circle</span> Quick Log
+            </button>
+            <input type="file" id="csv-file" accept=".csv,text/csv" class="hidden" aria-label="Choose a CSV file to import"/>
+          </div>
+        </div>
+
+        <form id="tx-filters" role="search" class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md mb-space-md" autocomplete="off">
+          <div class="flex flex-col gap-1 sm:col-span-2">
+            <label for="tx-search" class="font-label-sm text-label-sm text-on-surface-variant">Search</label>
+            <input id="tx-search" type="search" placeholder="Note, category, payment method or amount" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/>
+          </div>
+          <div class="sm:hidden flex items-end">
+            <button type="button" id="tx-filter-toggle" aria-expanded="false" aria-controls="tx-filter-extra" class="w-full px-4 py-3 min-h-[44px] rounded-2xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined text-lg" aria-hidden="true">tune</span><span id="tx-filter-toggle-text">Filters</span>
+            </button>
+          </div>
+          <div id="tx-filter-extra" class="hidden sm:contents">
+          <div class="flex flex-col gap-1">
+            <label for="tx-category" class="font-label-sm text-label-sm text-on-surface-variant">Category</label>
+            <select id="tx-category" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"><option value="">All categories</option></select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label for="tx-payment" class="font-label-sm text-label-sm text-on-surface-variant">Paid with</label>
+            <select id="tx-payment" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">Any method</option>
+              <option value="UPI">UPI</option><option value="Cash">Cash</option><option value="Card">Card</option><option value="Wallet">Wallet</option><option value="Other">Other</option>
+              <option value="none">Not recorded</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label for="tx-from" class="font-label-sm text-label-sm text-on-surface-variant">From date</label>
+            <input id="tx-from" type="date" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label for="tx-to" class="font-label-sm text-label-sm text-on-surface-variant">To date</label>
+            <input id="tx-to" type="date" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label for="tx-min" class="font-label-sm text-label-sm text-on-surface-variant">Min amount (₹)</label>
+            <input id="tx-min" type="number" min="0" step="any" inputmode="decimal" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label for="tx-max" class="font-label-sm text-label-sm text-on-surface-variant">Max amount (₹)</label>
+            <input id="tx-max" type="number" min="0" step="any" inputmode="decimal" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/>
+          </div>
+          <div class="flex flex-col gap-1 sm:col-span-2 lg:col-span-2">
+            <label for="tx-sort" class="font-label-sm text-label-sm text-on-surface-variant">Sort by</label>
+            <select id="tx-sort" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="newest">Newest first</option><option value="oldest">Oldest first</option>
+              <option value="high">Highest amount</option><option value="low">Lowest amount</option>
+            </select>
+          </div>
+          <div class="flex items-end sm:col-span-2 lg:col-span-2 justify-end">
+            <button type="button" id="tx-clear" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Clear filters</button>
+          </div>
+        </div>
+        </form>
+
+        <p id="tx-summary" role="status" aria-live="polite" class="font-label-md text-label-md text-on-surface-variant mb-space-md px-1"></p>
+
+        <div id="tx-empty-all" class="hidden flex flex-col items-center justify-center py-12 px-4 text-center bg-surface-container-lowest rounded-3xl border border-slate-100">
+          <div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-space-sm"><span class="material-symbols-outlined text-3xl">receipt_long</span></div>
+          <h2 class="font-title-md text-title-md text-on-surface font-bold">No transactions yet</h2>
+          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm mt-1 mb-space-md">Log an expense, or import a CSV file you exported earlier.</p>
+          <button type="button" data-click="openAddExpenseModal" class="px-space-lg py-2 min-h-[44px] rounded-full bg-primary text-on-primary font-label-md text-label-md">Log an expense</button>
+        </div>
+        <div id="tx-empty-none" class="hidden flex flex-col items-center justify-center py-12 px-4 text-center bg-surface-container-lowest rounded-3xl border border-slate-100">
+          <div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-space-sm"><span class="material-symbols-outlined text-3xl">search_off</span></div>
+          <h2 class="font-title-md text-title-md text-on-surface font-bold">Nothing matches these filters</h2>
+          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm mt-1 mb-space-md">Try a different word, or widen the dates and amounts.</p>
+          <button type="button" id="tx-clear-empty" class="px-space-lg py-2 min-h-[44px] rounded-full bg-primary text-on-primary font-label-md text-label-md">Clear filters</button>
+        </div>
+
+        <div id="tx-list" class="flex flex-col gap-space-md"></div>
+        <div class="flex justify-center mt-space-lg">
+          <button type="button" id="tx-more" class="hidden px-space-lg py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Show more</button>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
       <!-- VIEW 4: SETTINGS & PROFILE                                          -->
       <!-- =================================================================== -->
       <section id="view-profile-&-settings" class="app-view hidden flex flex-col w-full">
@@ -997,7 +1105,7 @@
               </div>
               <div>
                 <span class="font-label-sm text-label-sm text-on-surface-variant block">Monthly Cap</span>
-                <span class="font-title-md text-title-md font-bold text-on-surface" id="profile-budget-cap">—</span>
+                <span class="font-title-md text-title-md font-bold text-on-surface skel" id="profile-budget-cap">—</span>
               </div>
               <div>
                 <span class="font-label-sm text-label-sm text-on-surface-variant block">Records (all time)</span>
@@ -1048,25 +1156,29 @@
   <!-- MOBILE PERSISTENT BOTTOM NAVIGATION BAR    -->
   <!-- ========================================== -->
   <nav class="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_-2px_10px_rgba(0,0,0,0.04)] z-50 flex items-center justify-around px-space-xs" data-active-classes="text-primary font-bold">
-    <a class="flex flex-col items-center justify-center text-primary font-bold transition-colors" data-path="dashboard" href="#" aria-current="page">
+    <a class="flex-1 min-w-0 min-h-[48px] flex flex-col items-center justify-center text-primary font-bold transition-colors" data-path="dashboard" href="#" aria-current="page">
       <span class="material-symbols-outlined text-2xl">home</span>
       <span class="font-label-sm text-label-sm">Home</span>
     </a>
-    <a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" data-path="analytics" href="#">
+    <a class="flex-1 min-w-0 min-h-[48px] flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" data-path="transactions" href="#">
+      <span class="material-symbols-outlined text-2xl">receipt_long</span>
+      <span class="font-label-sm text-label-sm">History</span>
+    </a>
+    <a class="flex-1 min-w-0 min-h-[48px] flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" data-path="analytics" href="#">
       <span class="material-symbols-outlined text-2xl">pie_chart</span>
       <span class="font-label-sm text-label-sm">Insights</span>
     </a>
-    <a class="flex flex-col items-center justify-center -mt-5" data-path="add-expense" href="#">
+    <a class="flex-1 min-w-0 min-h-[48px] flex flex-col items-center justify-center -mt-5" data-path="add-expense" href="#">
       <div class="w-14 h-14 rounded-full bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container flex items-center justify-center shadow-lg transition-all">
         <span class="material-symbols-outlined text-3xl">add</span>
       </div>
       <span class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Log</span>
     </a>
-    <a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" data-path="budget-setup" href="#">
+    <a class="flex-1 min-w-0 min-h-[48px] flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" data-path="budget-setup" href="#">
       <span class="material-symbols-outlined text-2xl">account_balance_wallet</span>
       <span class="font-label-sm text-label-sm">Budget</span>
     </a>
-    <a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" data-path="profile-&-settings" href="#">
+    <a class="flex-1 min-w-0 min-h-[48px] flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" data-path="profile-&-settings" href="#">
       <span class="material-symbols-outlined text-2xl">person</span>
       <span class="font-label-sm text-label-sm">Profile</span>
     </a>
@@ -1166,6 +1278,19 @@
           </div>
         </div>
 
+        <!-- Payment method -->
+        <div class="flex flex-col gap-space-xs">
+          <span id="expense-payment-label" class="font-label-sm text-label-sm text-on-surface-variant">Paid with</span>
+          <input type="hidden" id="expense-payment" value="UPI"/>
+          <div id="expense-payment-chips" role="group" aria-labelledby="expense-payment-label" class="flex flex-wrap gap-2">
+            <button type="button" data-payment="UPI" class="payment-chip px-4 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface" aria-pressed="false">UPI</button>
+            <button type="button" data-payment="Cash" class="payment-chip px-4 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface" aria-pressed="false">Cash</button>
+            <button type="button" data-payment="Card" class="payment-chip px-4 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface" aria-pressed="false">Card</button>
+            <button type="button" data-payment="Wallet" class="payment-chip px-4 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface" aria-pressed="false">Wallet</button>
+            <button type="button" data-payment="Other" class="payment-chip px-4 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface" aria-pressed="false">Other</button>
+          </div>
+        </div>
+
         <!-- Date Input -->
         <div class="flex flex-col gap-space-xs">
           <label for="expense-date" class="font-label-sm text-label-sm text-on-surface-variant">Date *</label>
@@ -1191,10 +1316,10 @@
 
         <!-- Modal Actions -->
         <div class="flex items-center justify-end gap-space-sm pt-space-xs">
-          <button type="button" id="cancel-expense-modal" class="px-space-md py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">
+          <button type="button" id="cancel-expense-modal" class="min-h-[44px] px-space-md py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">
             Cancel
           </button>
-          <button type="submit" id="expense-modal-submit" class="px-space-lg py-2.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm">
+          <button type="submit" id="expense-modal-submit" class="min-h-[44px] px-space-lg py-2.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm">
             Save Expense
           </button>
         </div>
@@ -1227,12 +1352,17 @@
         </div>
         <p id="overall-cap-error" role="alert" class="hidden font-body-sm text-body-sm text-error font-semibold"></p>
         <p class="font-body-sm text-body-sm text-on-surface-variant">Recommended student tier: ₹10,000 - ₹15,000 / mo. Allowed: ₹500 to ₹10,00,000.</p>
+        <label class="flex items-start gap-2 mt-space-xs min-h-[44px] cursor-pointer">
+          <input id="scale-caps" type="checkbox" class="mt-1 w-5 h-5 accent-primary"/>
+          <span class="font-body-sm text-body-sm text-on-surface">Also scale my category caps to the new budget
+            <span id="scale-caps-note" class="block text-on-surface-variant"></span></span>
+        </label>
       </div>
       <div class="flex items-center justify-end gap-space-sm pt-space-xs">
-        <button class="px-space-md py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" id="cancel-budget-modal">
+        <button class="min-h-[44px] px-space-md py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" id="cancel-budget-modal">
           Cancel
         </button>
-        <button class="px-space-lg py-2.5 rounded-full bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container font-label-md text-label-md transition-colors shadow-sm" id="save-budget-modal">
+        <button class="min-h-[44px] px-space-lg py-2.5 rounded-full bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container font-label-md text-label-md transition-colors shadow-sm" id="save-budget-modal">
           Save Ceiling
         </button>
       </div>
@@ -1356,7 +1486,7 @@
         </div>
 
         <div class="flex items-center justify-end gap-2 pt-2">
-          <button type="button" id="cancel-custom-category-modal" class="px-4 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">
+          <button type="button" id="cancel-custom-category-modal" class="min-h-[44px] px-4 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">
             Cancel
           </button>
           <button type="submit" class="px-5 py-2 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm">
@@ -1371,6 +1501,50 @@
   <!-- FLOATING TOAST NOTIFICATION CONTAINER      -->
   <!-- ========================================== -->
   <div id="toast-container" role="status" aria-live="polite" class="fixed bottom-20 lg:bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Could not load data -->
+  <div id="load-error-banner" role="alert" class="hidden fixed top-16 left-0 right-0 lg:left-72 z-40 bg-error-container text-on-error-container text-center font-label-md text-label-md py-2 px-4">
+    <span class="material-symbols-outlined text-base align-middle">error</span>
+    We could not load your data.
+    <button type="button" id="btn-retry-load" class="ml-2 px-3 py-1 min-h-[36px] rounded-full bg-white/60 hover:bg-white font-bold">Try again</button>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: CSV IMPORT PREVIEW                  -->
+  <!-- ========================================== -->
+  <div id="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title" aria-hidden="true" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-on-surface/40 backdrop-blur-sm p-4">
+    <div class="bg-surface-container-lowest rounded-3xl p-space-lg max-w-2xl w-full shadow-2xl flex flex-col gap-space-md max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-space-sm">
+        <div>
+          <h3 id="import-modal-title" class="font-title-md text-title-md text-on-surface font-bold">Import expenses from CSV</h3>
+          <p id="import-file-name" class="font-body-sm text-body-sm text-on-surface-variant"></p>
+        </div>
+        <button type="button" id="import-close" aria-label="Close dialog" class="w-11 h-11 shrink-0 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center"><span class="material-symbols-outlined text-lg">close</span></button>
+      </div>
+      <p id="import-fatal" role="alert" class="hidden p-3 rounded-2xl bg-error-container text-on-error-container font-label-md text-label-md"></p>
+      <div id="import-body" class="flex flex-col gap-space-md">
+        <p id="import-summary" class="font-body-md text-body-md text-on-surface"></p>
+        <div id="import-ok-wrap" class="hidden">
+          <h4 class="font-label-md text-label-md text-on-surface font-bold mb-1">Ready to import (first 8)</h4>
+          <ul id="import-ok-list" class="flex flex-col divide-y divide-slate-100 font-body-sm text-body-sm"></ul>
+        </div>
+        <div id="import-dup-wrap" class="hidden">
+          <label class="flex items-start gap-2 min-h-[44px] cursor-pointer">
+            <input id="import-include-dups" type="checkbox" class="mt-1 w-5 h-5 accent-primary"/>
+            <span class="font-body-sm text-body-sm text-on-surface"><span id="import-dup-text"></span> look like expenses you already have. Import them anyway</span>
+          </label>
+        </div>
+        <div id="import-bad-wrap" class="hidden">
+          <h4 class="font-label-md text-label-md text-error font-bold mb-1">Rows that will be skipped</h4>
+          <ul id="import-bad-list" class="flex flex-col gap-1 font-body-sm text-body-sm text-on-surface-variant"></ul>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center justify-end gap-space-sm pt-space-xs">
+        <button type="button" id="import-cancel" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Cancel</button>
+        <button type="button" id="import-confirm" class="px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">Import</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Offline notice -->
   <div id="offline-banner" role="status" class="hidden fixed top-16 left-0 right-0 lg:left-72 z-40 bg-tertiary-fixed text-on-tertiary-fixed text-center font-label-md text-label-md py-2 px-4">
@@ -1400,6 +1574,7 @@
   <!-- Budget Allocation & Data Access Modules -->
   <script src="budget-calculator.js"></script>
   <script src="data-layer.js"></script>
+  <script src="expense-tools.js"></script>
   <!-- Application Script -->
   <script src="app.js"></script>
 </body>

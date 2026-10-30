@@ -15,6 +15,10 @@
     ? window.BudgetCalculator
     : (typeof require !== 'undefined' ? require('./budget-calculator.js') : null);
 
+  const Tools = (typeof window !== 'undefined' && window.ExpenseTools)
+    ? window.ExpenseTools
+    : (typeof require !== 'undefined' ? require('./expense-tools.js') : null);
+
   // Dynamic Categories Getter
   function getCategories() {
     return DataLayer ? DataLayer.getActiveCategories() : {};
@@ -52,7 +56,12 @@
       categoryDonut: null,
       monthlyBar: null,
     },
-    renderCounts: { dashboard: 0, 'budget-setup': 0, analytics: 0, 'profile-&-settings': 0 },
+    renderCounts: { dashboard: 0, transactions: 0, 'budget-setup': 0, analytics: 0, 'profile-&-settings': 0 },
+    tx: {
+      filters: { query: '', category: '', payment: '', from: '', to: '', min: '', max: '' },
+      sort: 'newest',
+      limit: 50,
+    },
   };
 
   function prefersReducedMotion() {
@@ -154,16 +163,6 @@
     return isSameMonth(dateStr, now.getFullYear(), now.getMonth());
   };
 
-  function formatDateDisplay(dateStr) {
-    if (!dateStr) return '';
-    try {
-      const date = parseLocalDate(dateStr);
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch (e) {
-      return dateStr;
-    }
-  }
-
   function getCurrentMonthExpenses() {
     return state.expenses.filter(exp => isCurrentMonth(exp.date));
   }
@@ -205,7 +204,7 @@
 
   // --- Navigation & Router ---
   function navigateTo(viewName) {
-    const allowed = ['dashboard', 'budget-setup', 'analytics', 'profile-&-settings'];
+    const allowed = ['dashboard', 'transactions', 'budget-setup', 'analytics', 'profile-&-settings'];
     if (!allowed.includes(viewName)) {
       viewName = 'dashboard';
     }
@@ -275,7 +274,7 @@
     semBadges.forEach(el => { el.textContent = info.termName; });
 
     const termBadges = document.querySelectorAll('.dynamic-term-badge');
-    termBadges.forEach(el => { el.textContent = `${info.termName} • Campus Living`; });
+    termBadges.forEach(el => { el.textContent = info.termName; });
 
     const weekBadges = document.querySelectorAll('.dynamic-term-week');
     weekBadges.forEach(el => { el.textContent = info.termName; });
@@ -300,31 +299,88 @@
     return { ...allCats[topKey], amount: maxVal };
   }
 
-  // --- In-App 80% Budget Alert Check ---
+  // --- Budget alerts: overall and per category, at 80% and 100% ---
+  let currentUid = null;
+
+  function monthKeyNow() {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function currentAlerts() {
+    if (!BudgetCalculator || !state.budget) return [];
+    const activeCats = getCategories();
+    return BudgetCalculator.computeAlerts({
+      overallCap: state.budget.overallCap || 0,
+      totalSpent: getTotalSpending(),
+      spendingMap: getCategorySpendingMap(),
+      caps: state.budget.categories || {},
+      categories: activeCats,
+    });
+  }
+
+  // "Food:warn,overall:over" - changes whenever a budget crosses a new threshold
+  function alertSignature(alerts) {
+    return `${monthKeyNow()}|${alerts.map(a => `${a.id}:${a.level}`).sort().join(',')}`;
+  }
+
+  const dismissKey = () => `expensetrack_alert_dismissed_${currentUid || 'anon'}`;
+
+  function readDismissed() {
+    try { return localStorage.getItem(dismissKey()); } catch (e) { return null; }
+  }
+
+  function writeDismissed(signature) {
+    try { localStorage.setItem(dismissKey(), signature); } catch (e) { /* private mode: it just shows again */ }
+  }
+
   function checkBudget80Alert() {
     const banner = document.getElementById('budget-warning-banner');
     if (!banner) return;
 
-    const totalSpent = getTotalSpending();
-    const overallCap = state.budget?.overallCap || 12000;
-    const isNotifyEnabled = state.settings?.notify80;
-
-    if (isNotifyEnabled && overallCap > 0 && (totalSpent / overallCap) >= 0.8) {
-      const pct = Math.round((totalSpent / overallCap) * 100);
-      const title = document.getElementById('budget-warning-title');
-      const desc = document.getElementById('budget-warning-desc');
-      if (title) {
-        title.textContent = pct >= 100 ? 'Monthly Budget Exceeded!' : 'Budget Warning: 80% Limit Reached';
-      }
-      if (desc) {
-        desc.textContent = pct >= 100
-          ? `You have exceeded your monthly budget of ₹${formatINR(overallCap)} by ₹${formatINR(totalSpent - overallCap)}.`
-          : `You have spent ₹${formatINR(totalSpent)} of your ₹${formatINR(overallCap)} monthly budget (${pct}% used).`;
-      }
-      banner.classList.remove('hidden');
-    } else {
+    const alerts = state.settings?.notify80 ? currentAlerts() : [];
+    // Hidden when there is nothing to say, or the user already dismissed exactly this situation this month
+    if (alerts.length === 0 || readDismissed() === alertSignature(alerts)) {
       banner.classList.add('hidden');
+      return;
     }
+
+    const over = alerts.filter(a => a.level === 'over');
+    const title = document.getElementById('budget-warning-title');
+    const desc = document.getElementById('budget-warning-desc');
+    const list = document.getElementById('budget-warning-list');
+    if (title) {
+      title.textContent = over.length
+        ? (over.length === 1 ? 'A budget has been exceeded' : `${over.length} budgets have been exceeded`)
+        : (alerts.length === 1 ? 'A budget is close to its limit' : `${alerts.length} budgets are close to their limits`);
+    }
+    if (desc) desc.textContent = 'Warnings start at 80% and again at 100%.';
+    if (list) {
+      list.innerHTML = alerts.map(a =>
+        `<li><strong>${escapeHtml(a.name)}</strong>: ₹${formatINR(a.spent)} of ₹${formatINR(a.cap)} (${a.pct}%)${a.level === 'over' ? ', over the limit' : ', nearly there'}</li>`
+      ).join('');
+    }
+    banner.classList.remove('hidden');
+  }
+
+  function dismissBudgetBanner() {
+    const alerts = state.settings?.notify80 ? currentAlerts() : [];
+    writeDismissed(alertSignature(alerts));
+    document.getElementById('budget-warning-banner')?.classList.add('hidden');
+  }
+
+  // After a save: tell the user about thresholds that were just crossed
+  function toastNewAlerts(before) {
+    if (!state.settings?.notify80) return;
+    const fresh = currentAlerts().filter(a => !before.some(b => b.id === a.id && b.level === a.level));
+    fresh.slice(0, 2).forEach(a => {
+      showToast(
+        a.level === 'over'
+          ? `${a.name} is over its limit (${a.pct}%).`
+          : `${a.name} has reached ${a.pct}% of its limit.`,
+        'warning'
+      );
+    });
   }
 
   // --- Unified Single Source of Truth Synchronization ---
@@ -334,6 +390,7 @@
     updateAcademicTermDisplay();
     switch (state.currentView) {
       case 'dashboard': renderDashboard(); break;
+      case 'transactions': renderTransactions(); break;
       case 'budget-setup': renderBudgetSetup(); break;
       case 'analytics': renderAnalytics(); break;
       case 'profile-&-settings': renderProfile(); break;
@@ -532,6 +589,57 @@
     container.innerHTML = html;
   }
 
+  // One expense as a list row. opts.dateText: what to show after the category (omit inside a day group).
+  function renderExpenseRow(exp, allCats, opts = {}) {
+    const cat = allCats[exp.category] || allCats[normalizeCategoryKey(exp.category)] || UNCATEGORIZED_CATEGORY;
+    const meta = [escapeHtml(cat.name)];
+    if (opts.dateText) meta.push(escapeHtml(opts.dateText));
+    return `
+        <div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-slate-100 flex items-center justify-between gap-space-sm hover:border-surface-container-high transition-colors group">
+          <div class="flex items-center gap-space-md min-w-0">
+            <div class="w-10 h-10 rounded-xl ${escapeHtml(cat.iconBgClass)} flex items-center justify-center flex-shrink-0">
+              <span class="material-symbols-outlined text-xl">${escapeHtml(safeIcon(cat.icon))}</span>
+            </div>
+            <div class="flex flex-col min-w-0">
+              <span class="font-title-md text-title-md text-on-surface font-bold truncate">${escapeHtml(exp.note || cat.name)}</span>
+              <div class="flex items-center flex-wrap gap-x-2 gap-y-1 mt-0.5 text-on-surface-variant font-body-sm text-body-sm">
+                <span class="truncate">${meta.join('</span><span>•</span><span class="truncate">')}</span>
+                ${exp.paymentMethod ? `<span class="px-2 py-0.5 rounded-full bg-surface-container text-label-sm font-label-sm">${escapeHtml(exp.paymentMethod)}</span>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-space-sm flex-shrink-0">
+            <span class="font-title-md text-title-md font-bold text-on-surface tabular-nums">
+              ₹${formatINR(exp.amount)}
+            </span>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                data-action="edit-expense"
+                data-id="${escapeHtml(exp.id)}"
+                class="w-11 h-11 lg:w-9 lg:h-9 rounded-xl bg-surface-container-low hover:bg-surface-container hover:text-primary text-on-surface-variant flex items-center justify-center transition-colors"
+                title="Edit Expense"
+                aria-label="Edit Expense"
+              >
+                <span class="material-symbols-outlined text-base">edit</span>
+              </button>
+              <button
+                type="button"
+                data-action="delete-expense"
+                data-id="${escapeHtml(exp.id)}"
+                class="w-11 h-11 lg:w-9 lg:h-9 rounded-xl bg-surface-container-low hover:bg-error-container hover:text-error text-on-surface-variant flex items-center justify-center transition-colors"
+                title="Delete Expense"
+                aria-label="Delete Expense"
+              >
+                <span class="material-symbols-outlined text-base">delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+  }
+
   function renderDashboardTransactions() {
     const container = document.getElementById('dash-transactions-list');
     const emptyState = document.getElementById('dash-transactions-empty');
@@ -552,66 +660,9 @@
 
     if (emptyState) emptyState.classList.add('hidden');
 
-    // Sort descending by local date / createdAt
-    const sorted = [...currentMonthExpenses].sort((a, b) => {
-      const dateA = parseLocalDate(a.date).getTime() || a.createdAt || 0;
-      const dateB = parseLocalDate(b.date).getTime() || b.createdAt || 0;
-      return dateB - dateA;
-    });
-
+    const sorted = Tools.sortExpenses(currentMonthExpenses, 'newest');
     const allCats = getAllCategories(true);
-    let html = '';
-    sorted.forEach(exp => {
-      const normKey = normalizeCategoryKey(exp.category);
-      const cat = allCats[exp.category] || allCats[normKey] || UNCATEGORIZED_CATEGORY;
-      html += `
-        <div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-slate-100 flex items-center justify-between gap-space-sm hover:border-surface-container-high transition-colors group">
-          <div class="flex items-center gap-space-md min-w-0">
-            <div class="w-10 h-10 rounded-xl ${escapeHtml(cat.iconBgClass)} flex items-center justify-center flex-shrink-0">
-              <span class="material-symbols-outlined text-xl">${escapeHtml(safeIcon(cat.icon))}</span>
-            </div>
-            <div class="flex flex-col min-w-0">
-              <span class="font-title-md text-title-md text-on-surface font-bold truncate">${escapeHtml(exp.note || cat.name)}</span>
-              <div class="flex items-center gap-2 mt-0.5 text-on-surface-variant font-body-sm text-body-sm">
-                <span class="truncate">${escapeHtml(cat.name)}</span>
-                <span>•</span>
-                <span>${escapeHtml(formatDateDisplay(exp.date))}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-space-md flex-shrink-0">
-            <span class="font-title-md text-title-md font-bold text-on-surface">
-              ₹${formatINR(exp.amount)}
-            </span>
-            <!-- Edit & Delete Action Buttons matching Stitch Design Style -->
-            <div class="flex items-center gap-1">
-              <button
-                type="button"
-                data-action="edit-expense"
-                data-id="${escapeHtml(exp.id)}"
-                class="w-8 h-8 rounded-xl bg-surface-container-low hover:bg-surface-container hover:text-primary text-on-surface-variant flex items-center justify-center transition-colors"
-                title="Edit Expense"
-                aria-label="Edit Expense"
-              >
-                <span class="material-symbols-outlined text-base">edit</span>
-              </button>
-              <button
-                type="button"
-                data-action="delete-expense"
-                data-id="${escapeHtml(exp.id)}"
-                class="w-8 h-8 rounded-xl bg-surface-container-low hover:bg-error-container hover:text-error text-on-surface-variant flex items-center justify-center transition-colors"
-                title="Delete Expense"
-                aria-label="Delete Expense"
-              >
-                <span class="material-symbols-outlined text-base">delete</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    });
-    container.innerHTML = html;
+    container.innerHTML = sorted.map(exp => renderExpenseRow(exp, allCats, { dateText: Tools.dayLabel(exp.date) })).join('');
   }
 
   // ==========================================
@@ -707,13 +758,17 @@
       // Update Slider range and value from the category definition (not from static markup)
       const slider = document.querySelector(`.budget-slider[data-category="${catKey}"]`);
       if (slider) {
-        slider.min = cat.minCap;
-        slider.max = Math.max(cat.maxCap, cap);
+        // The range grows with the monthly budget, so a bigger budget is not squeezed into a small slider
+        const ceiling = Math.ceil((overallCap * 0.5) / cat.step) * cat.step;
+        slider.min = Math.min(cat.minCap, cap);
+        slider.max = Math.max(cat.maxCap, cap, ceiling);
         slider.step = cat.step;
         slider.value = cap;
         const minLabel = slider.previousElementSibling;
-        if (minLabel) minLabel.textContent = `₹${formatINR(cat.minCap)}`;
+        if (minLabel) minLabel.textContent = `₹${formatINR(Math.min(cat.minCap, cap))}`;
       }
+      const capInput = document.getElementById(`cap-input-${catKey}`);
+      if (capInput && document.activeElement !== capInput) capInput.value = cap;
 
       const display = document.getElementById(`slider-display-${catKey}`);
       const capDisplay = document.getElementById(`cap-${catKey}`);
@@ -823,10 +878,10 @@
                 <label for="slider-${escapeHtml(catKey)}" class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-base">tune</span> Adjust Cap Target:
                 </label>
-                <div class="flex items-center gap-space-md flex-1 max-w-sm">
+                <div class="flex flex-wrap items-center gap-x-space-sm gap-y-1 flex-1 max-w-sm w-full">
                   <span class="font-body-sm text-body-sm text-on-surface-variant">₹${formatINR(cat.minCap || 200)}</span>
-                  <input id="slider-${escapeHtml(catKey)}" class="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" data-category="${escapeHtml(catKey)}" max="${Number(cat.maxCap) || 10000}" min="${Number(cat.minCap) || 200}" step="${Number(cat.step) || 100}" type="range" value="${Number(cap) || 0}"/>
-                  <span class="font-title-md text-title-md text-on-surface font-semibold w-20 text-right">₹<span id="slider-display-${escapeHtml(catKey)}">${formatINR(cap)}</span></span>
+                  <input id="slider-${escapeHtml(catKey)}" class="flex-1 min-w-[120px] h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary budget-slider" data-category="${escapeHtml(catKey)}" max="${Math.max(Number(cat.maxCap) || 10000, Number(cap) || 0, Math.ceil(overallCap * 0.5 / 50) * 50)}" min="${Math.min(Number(cat.minCap) || 200, Number(cap) || 0)}" step="${Number(cat.step) || 100}" type="range" value="${Number(cap) || 0}"/>
+                  <label class="flex items-center gap-1 font-title-md text-title-md text-on-surface font-semibold" for="cap-input-${escapeHtml(catKey)}">₹<input id="cap-input-${escapeHtml(catKey)}" data-category="${escapeHtml(catKey)}" class="cap-input w-24 px-2 py-2 min-h-[44px] bg-surface-container-low rounded-xl text-right font-semibold focus:outline-none focus:ring-2 focus:ring-primary" type="number" min="0" max="1000000" step="1" inputmode="numeric" value="${Number(cap) || 0}"/></label><span id="slider-display-${escapeHtml(catKey)}" class="hidden">${formatINR(cap)}</span>
                 </div>
               </div>
             </div>
@@ -927,8 +982,10 @@
     const val = parseInt(slider.value, 10);
     const display = document.getElementById(`slider-display-${cat}`);
     const capDisplay = document.getElementById(`cap-${cat}`);
+    const capField = document.getElementById(`cap-input-${cat}`);
     if (display) display.textContent = formatINR(val);
     if (capDisplay) capDisplay.textContent = formatINR(val);
+    if (capField) capField.value = val;
 
     if (!state.budget.categories) state.budget.categories = {};
     state.budget.categories[cat] = val;
@@ -1420,8 +1477,12 @@
       dateInput.value = localDateString();
     }
 
-    renderQuickLogCategoryChips('food');
-    selectCategoryChip('food');
+    // Start from what was used last time (this browser only)
+    const prefs = loadPrefs();
+    const startCat = getCategories()[prefs.lastCategory] ? prefs.lastCategory : 'food';
+    renderQuickLogCategoryChips(startCat);
+    selectCategoryChip(startCat);
+    selectPaymentChip(typeof prefs.lastPayment === 'string' ? prefs.lastPayment : 'UPI');
 
     showModal(modal);
     if (amountInput) focusSoon(amountInput);
@@ -1455,6 +1516,7 @@
 
     renderQuickLogCategoryChips(exp.category);
     selectCategoryChip(exp.category);
+    selectPaymentChip(exp.paymentMethod || '');
 
     showModal(modal);
     if (amountInput) focusSoon(amountInput);
@@ -1487,8 +1549,9 @@
       errors.push('Please select a transaction date.');
     }
     // Amount, date range and note length use the same rules as the data layer
+    const paymentVal = (document.getElementById('expense-payment')?.value || '').trim();
     const input = DataLayer
-      ? DataLayer.validateExpenseInput({ amount: amountInput.value, date: dateVal, note: noteVal })
+      ? DataLayer.validateExpenseInput({ amount: amountInput.value, date: dateVal, note: noteVal, paymentMethod: paymentVal })
       : { valid: !isNaN(amountVal) && amountVal > 0, error: 'Please enter an amount greater than ₹0.' };
     if (!input.valid) {
       errors.push(input.error);
@@ -1507,6 +1570,8 @@
     const categoryName = allCats[normCat]?.name || normCat;
     const submitBtn = document.getElementById('expense-modal-submit');
     if (submitBtn) submitBtn.disabled = true;
+    const alertsBefore = currentAlerts();
+    const wasNew = !state.editingExpenseId;
 
     try {
     if (state.editingExpenseId) {
@@ -1517,6 +1582,7 @@
           category: normCat,
           date: dateVal,
           note: noteVal || categoryName,
+          paymentMethod: paymentVal, // '' clears it
         });
         state.expenses = DataLayer.getExpenses();
       } else {
@@ -1541,6 +1607,7 @@
           category: normCat,
           date: dateVal,
           note: noteVal || categoryName,
+          paymentMethod: paymentVal || undefined,
         });
         state.expenses = DataLayer.getExpenses();
       } else {
@@ -1567,11 +1634,13 @@
       if (submitBtn) submitBtn.disabled = false;
     }
 
+    if (wasNew) savePrefs({ lastCategory: normCat, lastPayment: paymentVal });
     closeExpenseModal();
     syncAllViewsWithData();
+    toastNewAlerts(alertsBefore);
   }
 
-  async function addExpense({ amount, category, date, note } = {}) {
+  async function addExpense({ amount, category, date, note, paymentMethod } = {}) {
     const amountVal = parseFloat(amount);
     if (isNaN(amountVal) || amountVal <= 0) {
       throw new Error('Please enter an amount greater than ₹0.');
@@ -1591,6 +1660,7 @@
         category: normCat,
         date: date || today,
         note: (note && String(note).trim()) || categoryName,
+        paymentMethod: paymentMethod || undefined,
       });
       state.expenses = DataLayer.getExpenses();
     } else {
@@ -1682,8 +1752,31 @@
     if (input) {
       input.value = state.budget?.overallCap || 12000;
     }
+    const scale = document.getElementById('scale-caps');
+    if (scale) scale.checked = false;
+    updateScaleNote();
     showModal(modal);
     if (input) focusSoon(input);
+  }
+
+  // Says what scaling the category caps would do, before the user chooses it
+  function updateScaleNote() {
+    const note = document.getElementById('scale-caps-note');
+    const input = document.getElementById('overall-cap-input');
+    if (!note || !input) return;
+    const oldCap = state.budget?.overallCap || 0;
+    const check = BudgetCalculator.validateOverallCap(input.value);
+    if (!check.valid || check.value === oldCap || oldCap <= 0) {
+      note.textContent = 'Change the monthly budget above to see what this would do.';
+      return;
+    }
+    const activeIds = Object.keys(getCategories());
+    const scaled = BudgetCalculator.scaleCaps(state.budget.categories, oldCap, check.value, activeIds);
+    const first = activeIds.find(id => state.budget.categories[id] !== undefined);
+    const factor = (check.value / oldCap).toFixed(2).replace(/\.?0+$/, '');
+    note.textContent = first
+      ? `Every category cap is multiplied by ${factor}, for example ${getCategories()[first].name}: ₹${formatINR(state.budget.categories[first])} becomes ₹${formatINR(scaled[first])}.`
+      : '';
   }
 
   function closeBudgetModal() {
@@ -1702,6 +1795,10 @@
     hideBudgetCapError();
     const val = check.value;
 
+    const oldCap = state.budget.overallCap;
+    if (document.getElementById('scale-caps')?.checked && oldCap > 0 && val !== oldCap) {
+      state.budget.categories = BudgetCalculator.scaleCaps(state.budget.categories, oldCap, val, Object.keys(getCategories()));
+    }
     state.budget.overallCap = val;
     try {
       await saveBudget();
@@ -1983,6 +2080,403 @@
   // ==========================================
   // TOAST NOTIFICATIONS
   // ==========================================
+  // VIEW: ALL TRANSACTIONS (search, filters, sort, month/day groups)
+  // ==========================================
+  const TX_PAGE_SIZE = 50;
+  const TX_FILTER_FIELDS = {
+    query: 'tx-search', category: 'tx-category', payment: 'tx-payment',
+    from: 'tx-from', to: 'tx-to', min: 'tx-min', max: 'tx-max',
+  };
+
+  function readTxControls() {
+    Object.entries(TX_FILTER_FIELDS).forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      state.tx.filters[key] = el ? el.value.trim() : '';
+    });
+    const sort = document.getElementById('tx-sort');
+    state.tx.sort = sort ? sort.value : 'newest';
+    const activeCount = Object.entries(state.tx.filters).filter(([k, v]) => k !== 'query' && v !== '').length + (state.tx.sort !== 'newest' ? 1 : 0);
+    const label = document.getElementById('tx-filter-toggle-text');
+    if (label) label.textContent = activeCount ? ('Filters (' + activeCount + ')') : 'Filters';
+  }
+
+  function txFiltersActive() {
+    return Object.values(state.tx.filters).some(v => v !== '');
+  }
+
+  function getFilteredTransactions() {
+    const filtered = Tools.filterExpenses(state.expenses, state.tx.filters, getAllCategories(true));
+    return Tools.sortExpenses(filtered, state.tx.sort);
+  }
+
+  function fillTxCategoryOptions() {
+    const select = document.getElementById('tx-category');
+    if (!select) return;
+    const allCats = getAllCategories(true);
+    const options = Object.values(allCats).map(c => ({ id: c.id, name: c.isArchived ? `${c.name} (archived)` : c.name }));
+    if (state.expenses.some(e => !allCats[e.category])) options.push({ id: UNCATEGORIZED_ID, name: 'Uncategorized' });
+    const signature = options.map(o => `${o.id}:${o.name}`).join('|');
+    if (select.dataset.signature === signature) return;
+    const keep = select.value;
+    select.innerHTML = '<option value="">All categories</option>' +
+      options.map(o => `<option value="${escapeHtml(o.id)}">${escapeHtml(o.name)}</option>`).join('');
+    if (options.some(o => o.id === keep)) select.value = keep;
+    select.dataset.signature = signature;
+  }
+
+  function renderTransactions() {
+    state.renderCounts.transactions++;
+    const list = document.getElementById('tx-list');
+    if (!list) return;
+    fillTxCategoryOptions();
+
+    const emptyAll = document.getElementById('tx-empty-all');
+    const emptyNone = document.getElementById('tx-empty-none');
+    const moreBtn = document.getElementById('tx-more');
+    const summaryEl = document.getElementById('tx-summary');
+    const allCats = getAllCategories(true);
+
+    if (state.expenses.length === 0) {
+      list.innerHTML = '';
+      emptyAll.classList.remove('hidden');
+      emptyNone.classList.add('hidden');
+      moreBtn.classList.add('hidden');
+      summaryEl.textContent = '';
+      return;
+    }
+    emptyAll.classList.add('hidden');
+
+    const sorted = getFilteredTransactions();
+    const total = Tools.summarize(sorted);
+    summaryEl.textContent = `${total.count.toLocaleString('en-IN')} transaction${total.count === 1 ? '' : 's'}, ₹${formatINR(total.total)} in total` +
+      (txFiltersActive() ? ` (filtered from ${state.expenses.length.toLocaleString('en-IN')})` : '');
+
+    if (sorted.length === 0) {
+      list.innerHTML = '';
+      emptyNone.classList.remove('hidden');
+      moreBtn.classList.add('hidden');
+      return;
+    }
+    emptyNone.classList.add('hidden');
+
+    const limit = state.tx.limit;
+    let shown = 0;
+    let html = '';
+    if (state.tx.sort === 'newest' || state.tx.sort === 'oldest') {
+      for (const month of Tools.groupByMonthAndDay(sorted)) {
+        if (shown >= limit) break;
+        html += `<section class="flex flex-col gap-space-sm" aria-label="${escapeHtml(month.label)}">
+          <div class="flex items-baseline justify-between px-1 pt-space-sm">
+            <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">${escapeHtml(month.label)}</h2>
+            <span class="font-label-md text-label-md text-on-surface-variant">₹${formatINR(month.total)} &middot; ${month.count}</span>
+          </div>`;
+        for (const day of month.days) {
+          if (shown >= limit) break;
+          html += `<div class="flex items-baseline justify-between px-1 mt-1">
+            <h3 class="font-label-md text-label-md text-on-surface-variant font-semibold">${escapeHtml(Tools.dayLabel(day.date))}</h3>
+            <span class="font-label-sm text-label-sm text-on-surface-variant">₹${formatINR(day.total)}</span>
+          </div>`;
+          for (const exp of day.items) {
+            if (shown >= limit) break;
+            html += renderExpenseRow(exp, allCats);
+            shown++;
+          }
+        }
+        html += '</section>';
+      }
+    } else {
+      sorted.slice(0, limit).forEach(exp => {
+        html += renderExpenseRow(exp, allCats, { dateText: Tools.formatDate(exp.date) });
+        shown++;
+      });
+    }
+    list.innerHTML = html;
+
+    const left = sorted.length - shown;
+    moreBtn.classList.toggle('hidden', left <= 0);
+    moreBtn.textContent = `Show more (${left.toLocaleString('en-IN')} left)`;
+  }
+
+  function resetTxFilters() {
+    Object.values(TX_FILTER_FIELDS).forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const sort = document.getElementById('tx-sort');
+    if (sort) sort.value = 'newest';
+    state.tx.limit = TX_PAGE_SIZE;
+    readTxControls();
+    renderTransactions();
+  }
+
+  function initTransactionsEvents() {
+    let timer = null;
+    const refresh = () => {
+      state.tx.limit = TX_PAGE_SIZE;
+      readTxControls();
+      renderTransactions();
+    };
+    const debounced = () => { clearTimeout(timer); timer = setTimeout(refresh, 150); };
+    ['tx-search', 'tx-min', 'tx-max'].forEach(id => document.getElementById(id)?.addEventListener('input', debounced));
+    ['tx-category', 'tx-payment', 'tx-from', 'tx-to', 'tx-sort', 'tx-min', 'tx-max', 'tx-search']
+      .forEach(id => document.getElementById(id)?.addEventListener('change', refresh));
+    document.getElementById('tx-filters')?.addEventListener('submit', e => e.preventDefault());
+    document.getElementById('tx-clear')?.addEventListener('click', resetTxFilters);
+    document.getElementById('tx-clear-empty')?.addEventListener('click', resetTxFilters);
+    // On a phone the less-used filters sit behind a button
+    const filterToggle = document.getElementById('tx-filter-toggle');
+    const filterExtra = document.getElementById('tx-filter-extra');
+    filterToggle?.addEventListener('click', () => {
+      const open = filterToggle.getAttribute('aria-expanded') !== 'true';
+      filterToggle.setAttribute('aria-expanded', String(open));
+      filterExtra.classList.toggle('hidden', !open);
+      ['grid', 'grid-cols-1', 'gap-space-md', 'col-span-full'].forEach(c => filterExtra.classList.toggle(c, open));
+    });
+    document.getElementById('tx-more')?.addEventListener('click', () => {
+      state.tx.limit += TX_PAGE_SIZE;
+      renderTransactions();
+    });
+    document.getElementById('tx-export')?.addEventListener('click', exportCsv);
+    document.getElementById('tx-import')?.addEventListener('click', () => document.getElementById('csv-file')?.click());
+    document.getElementById('csv-file')?.addEventListener('change', onCsvFileChosen);
+    document.getElementById('import-close')?.addEventListener('click', closeImportModal);
+    document.getElementById('import-cancel')?.addEventListener('click', closeImportModal);
+    document.getElementById('import-confirm')?.addEventListener('click', confirmImport);
+    document.getElementById('import-include-dups')?.addEventListener('change', updateImportConfirm);
+  }
+
+  // ==========================================
+  // CSV EXPORT / IMPORT
+  // ==========================================
+  function downloadFile(name, text, type) {
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function exportCsv() {
+    const all = state.expenses;
+    if (all.length === 0) {
+      showToast('There is nothing to export yet.', 'info');
+      return;
+    }
+    let list = all;
+    const filtered = getFilteredTransactions();
+    if (txFiltersActive() && filtered.length !== all.length) {
+      const choice = await askDialog({
+        title: 'Export which transactions?',
+        message: `${filtered.length} match your current filters. You have ${all.length} in total.`,
+        confirmLabel: `Filtered (${filtered.length})`,
+        extraLabel: `All (${all.length})`,
+      });
+      if (choice === 'cancel') return;
+      list = choice === 'confirm' ? filtered : all;
+    }
+    if (list.length === 0) {
+      showToast('Nothing matches the filters, so there is nothing to export.', 'info');
+      return;
+    }
+    const csv = Tools.toCSV(Tools.sortExpenses(list, 'newest'), getAllCategories(true));
+    downloadFile(`expensetrack-${localDateString()}.csv`, csv, 'text/csv;charset=utf-8');
+    showToast(`Exported ${list.length} transaction${list.length === 1 ? '' : 's'}.`, 'success');
+  }
+
+  let importState = null;
+
+  function closeImportModal() {
+    hideModal(document.getElementById('import-modal'));
+    importState = null;
+  }
+
+  function updateImportConfirm() {
+    if (!importState || !importState.result.rows) return;
+    const { counts } = importState.result;
+    const includeDups = document.getElementById('import-include-dups')?.checked;
+    const n = counts.ok + (includeDups ? counts.duplicate : 0);
+    const btn = document.getElementById('import-confirm');
+    btn.disabled = n === 0;
+    btn.textContent = n === 0 ? 'Nothing to import' : `Import ${n.toLocaleString('en-IN')} expense${n === 1 ? '' : 's'}`;
+  }
+
+  async function onCsvFileChosen(e) {
+    const input = e.target;
+    const file = input.files && input.files[0];
+    input.value = ''; // so choosing the same file again still triggers a change
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('That file is larger than 2 MB. Split it into smaller files.', 'error');
+      return;
+    }
+    let text;
+    try {
+      text = await file.text();
+    } catch (err) {
+      showToast(`Couldn't read that file: ${errorDetail(err)}`, 'error');
+      return;
+    }
+    const active = getCategories();
+    const result = Tools.prepareImport(text, {
+      categories: getAllCategories(true),
+      existing: state.expenses,
+      resolveCategory: (name) => { const key = normalizeCategoryKey(name); return active[key] ? key : null; },
+      validate: (row) => DataLayer.validateExpenseInput(row),
+    });
+    importState = { result, fileName: file.name };
+    renderImportPreview();
+    showModal(document.getElementById('import-modal'));
+  }
+
+  function renderImportPreview() {
+    const { result, fileName } = importState;
+    const active = getCategories();
+    document.getElementById('import-file-name').textContent = fileName;
+    const fatal = document.getElementById('import-fatal');
+    const body = document.getElementById('import-body');
+    const confirmBtn = document.getElementById('import-confirm');
+    if (result.fatal) {
+      fatal.textContent = result.fatal;
+      fatal.classList.remove('hidden');
+      body.classList.add('hidden');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Import';
+      return;
+    }
+    fatal.classList.add('hidden');
+    body.classList.remove('hidden');
+
+    const { counts, rows } = result;
+    document.getElementById('import-summary').textContent =
+      `${rows.length.toLocaleString('en-IN')} rows read: ${counts.ok} ready to import, ${counts.duplicate} already in your list, ${counts.invalid} with problems.`;
+
+    const ok = rows.filter(r => r.status === 'ok');
+    document.getElementById('import-ok-wrap').classList.toggle('hidden', ok.length === 0);
+    document.getElementById('import-ok-list').innerHTML = ok.slice(0, 8).map(r => {
+      const d = r.data;
+      return `<li class="flex items-center justify-between gap-2 py-2"><span class="min-w-0 truncate">${escapeHtml(Tools.formatDate(d.date))} &middot; ${escapeHtml(d.note || active[d.category]?.name || '')} &middot; ${escapeHtml(active[d.category]?.name || '')}</span><span class="font-semibold tabular-nums">₹${formatINR(d.amount)}</span></li>`;
+    }).join('');
+
+    document.getElementById('import-dup-wrap').classList.toggle('hidden', counts.duplicate === 0);
+    document.getElementById('import-dup-text').textContent = `${counts.duplicate} row${counts.duplicate === 1 ? '' : 's'}`;
+    document.getElementById('import-include-dups').checked = false;
+
+    const bad = rows.filter(r => r.status === 'invalid');
+    document.getElementById('import-bad-wrap').classList.toggle('hidden', bad.length === 0);
+    document.getElementById('import-bad-list').innerHTML = bad.slice(0, 10).map(r =>
+      `<li><strong>Row ${r.line}:</strong> ${escapeHtml(r.errors.join(' '))}</li>`
+    ).join('') + (bad.length > 10 ? `<li>...and ${bad.length - 10} more.</li>` : '');
+    updateImportConfirm();
+  }
+
+  async function confirmImport() {
+    if (!importState || !importState.result.rows) return;
+    const includeDups = document.getElementById('import-include-dups')?.checked;
+    const rows = importState.result.rows
+      .filter(r => r.status === 'ok' || (includeDups && r.status === 'duplicate'))
+      .map(r => ({ ...r.data, paymentMethod: r.data.paymentMethod || undefined }));
+    if (rows.length === 0) return;
+    const btn = document.getElementById('import-confirm');
+    btn.disabled = true;
+    try {
+      await DataLayer.addExpensesBulk(rows);
+    } catch (err) {
+      const fatal = document.getElementById('import-fatal');
+      fatal.textContent = `Couldn't import: ${errorDetail(err)}`;
+      fatal.classList.remove('hidden');
+      btn.disabled = false;
+      reloadFromDataLayer();
+      return;
+    }
+    closeImportModal();
+    reloadFromDataLayer();
+    showToast(savedMessage(`Imported ${rows.length.toLocaleString('en-IN')} expense${rows.length === 1 ? '' : 's'}.`), 'success');
+  }
+
+  // ==========================================
+  // REMEMBERED CHOICES (this browser only)
+  // ==========================================
+  const PREFS_KEY = 'expensetrack_prefs';
+
+  function loadPrefs() {
+    try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { return {}; }
+  }
+
+  function savePrefs(patch) {
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify({ ...loadPrefs(), ...patch })); } catch (e) { /* private mode */ }
+  }
+
+  function selectPaymentChip(method) {
+    document.querySelectorAll('#expense-payment-chips .payment-chip').forEach(chip => {
+      const selected = chip.dataset.payment === method;
+      chip.setAttribute('aria-pressed', String(selected));
+      chip.classList.toggle('bg-primary', selected);
+      chip.classList.toggle('text-on-primary', selected);
+      chip.classList.toggle('bg-surface-container-low', !selected);
+      chip.classList.toggle('text-on-surface', !selected);
+    });
+    const input = document.getElementById('expense-payment');
+    if (input) input.value = method || '';
+  }
+
+  // ==========================================
+  // SYNC STATUS AND LOAD ERRORS
+  // ==========================================
+  function updateSyncIndicator() {
+    const el = document.getElementById('sync-indicator');
+    if (!el || !DataLayer || !DataLayer.getSyncState) return;
+    const states = {
+      synced: ['cloud_done', 'Synced', 'All your changes are saved to your account.'],
+      syncing: ['sync', 'Saving...', 'Saving your changes.'],
+      offline: ['cloud_off', 'Offline', 'You are offline. Changes will sync when you are back online.'],
+      local: ['save', 'This browser', 'Changes are stored in this browser only.'],
+    };
+    const s = DataLayer.getSyncState();
+    const [icon, text, title] = states[s] || states.synced;
+    document.getElementById('sync-icon').textContent = icon;
+    document.getElementById('sync-icon').classList.toggle('animate-spin', s === 'syncing');
+    document.getElementById('sync-text').textContent = text;
+    el.title = title;
+    el.dataset.state = s;
+  }
+
+  function updateLoadErrorBanner() {
+    const banner = document.getElementById('load-error-banner');
+    if (!banner) return;
+    banner.classList.toggle('hidden', !(DataLayer && DataLayer.getLoadError && DataLayer.getLoadError()));
+  }
+
+  async function retryLoad() {
+    const btn = document.getElementById('btn-retry-load');
+    if (btn) btn.disabled = true;
+    try {
+      await DataLayer.initUser(currentUid);
+      reloadFromDataLayer();
+    } finally {
+      if (btn) btn.disabled = false;
+      updateLoadErrorBanner();
+    }
+  }
+
+  // ==========================================
+  // KEYBOARD SHORTCUTS: N = new expense, / = search
+  // ==========================================
+  function handleShortcuts(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+    if (openModals.length > 0) return;
+    const t = e.target;
+    if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+    if (e.key === 'n' || e.key === 'N') {
+      e.preventDefault();
+      openAddExpenseModal();
+    } else if (e.key === '/') {
+      e.preventDefault();
+      navigateTo('transactions');
+      document.getElementById('tx-search')?.focus();
+    }
+  }
+
   // ==========================================
   // MODALS (focus trap, Escape, backdrop click, focus return) AND DIALOGS
   // ==========================================
@@ -1993,6 +2487,7 @@
       'expense-modal': closeExpenseModal,
       'budget-modal': closeBudgetModal,
       'custom-category-modal': closeCustomCategoryModal,
+      'import-modal': closeImportModal,
       'confirm-modal': () => settleDialog('cancel'),
     };
     return closers[modalEl.id];
@@ -2126,6 +2621,7 @@
     return (await askDialog(options)) === 'confirm';
   }
 
+  // Toast notifications (short messages at the bottom of the screen)
   function showToast(message, type = 'info', options = {}) {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -2136,7 +2632,10 @@
 
     let bg = 'bg-inverse-surface text-inverse-on-surface';
     let icon = 'info';
-    if (isError) {
+    if (type === 'warning') {
+      bg = 'bg-tertiary text-on-tertiary';
+      icon = 'warning';
+    } else if (isError) {
       bg = 'bg-error text-on-error';
       icon = 'warning';
     } else if (isSuccess) {
@@ -2185,7 +2684,7 @@
       navigateTo: (arg) => navigateTo(arg),
       openBudgetModal: () => openBudgetModal(),
       openAddExpenseModal: () => openAddExpenseModal(),
-      dismissBanner: () => document.getElementById('budget-warning-banner')?.classList.add('hidden'),
+      dismissBanner: () => dismissBudgetBanner(),
     };
     document.addEventListener('click', e => {
       const el = e.target.closest('[data-click]');
@@ -2248,8 +2747,50 @@
     document.addEventListener('change', e => {
       if (e.target && e.target.matches && e.target.matches('.budget-slider')) {
         handleSliderChange(e.target);
+      } else if (e.target && e.target.matches && e.target.matches('.cap-input')) {
+        handleCapInputChange(e.target);
       }
     });
+
+    // Exact amount for a category cap, typed instead of dragged
+    async function handleCapInputChange(input) {
+      const id = input.dataset.category;
+      const check = BudgetCalculator.validateCategoryCap(input.value);
+      if (!check.valid) {
+        showToast(check.error, 'error');
+        reloadFromDataLayer();
+        return;
+      }
+      if (!state.budget.categories) state.budget.categories = {};
+      const alertsBefore = currentAlerts();
+      state.budget.categories[id] = check.value;
+      try {
+        await saveBudget();
+      } catch (err) {
+        showToast(`Couldn't save your budget: ${errorDetail(err)}`, 'error');
+        reloadFromDataLayer();
+        return;
+      }
+      syncAllViewsWithData();
+      toastNewAlerts(alertsBefore); // a cap lowered below what is already spent warns right away
+    }
+
+    // Quick Log: payment method chips (pressing the chosen one again clears it)
+    document.getElementById('expense-payment-chips')?.addEventListener('click', e => {
+      const chip = e.target.closest('.payment-chip');
+      if (!chip) return;
+      const current = document.getElementById('expense-payment').value;
+      selectPaymentChip(current === chip.dataset.payment ? '' : chip.dataset.payment);
+    });
+
+    document.getElementById('overall-cap-input')?.addEventListener('input', updateScaleNote);
+    document.getElementById('btn-retry-load')?.addEventListener('click', retryLoad);
+    document.addEventListener('keydown', handleShortcuts);
+    initTransactionsEvents();
+    if (DataLayer && DataLayer.onSyncChange) DataLayer.onSyncChange(updateSyncIndicator);
+    window.addEventListener('online', updateSyncIndicator);
+    window.addEventListener('offline', updateSyncIndicator);
+    updateSyncIndicator();
 
     // Budget Setup Action Buttons
     const resetBtn = document.getElementById('reset-defaults');
@@ -2502,11 +3043,14 @@
         return;
       }
 
+      currentUid = user.uid;
       try {
         if (DataLayer && typeof DataLayer.initUser === 'function') {
           await DataLayer.initUser(user.uid);
         }
         loadState();
+        updateLoadErrorBanner();
+        updateSyncIndicator();
 
         // Synchronize toggle-80 input state with user's settings
         const toggle80 = document.getElementById('toggle-80');
@@ -2516,7 +3060,7 @@
 
         applyUserProfile({
           displayName: user.displayName || user.phoneNumber || 'Student',
-          email: user.email || user.phoneNumber || 'Campus Living',
+          email: user.email || user.phoneNumber || 'Signed in with Google',
           photoURL: user.photoURL || '',
           phoneNumber: user.phoneNumber || ''
         });
@@ -2534,12 +3078,15 @@
           DataLayer.onDataChanged(() => {
             loadState();
             syncAllViewsWithData();
+            updateLoadErrorBanner();
           });
         }
       } catch (err) {
         console.error('ExpenseTrack: Error initializing user data:', err);
       } finally {
         hideLoadingOverlay();
+        document.body.removeAttribute('data-loading');
+        updateLoadErrorBanner();
       }
 
       promptLegacyImport();
@@ -2622,6 +3169,7 @@
     getActiveCategories: () => getCategories(),
     getAllCategories: (archived = false) => getAllCategories(archived),
     getState: () => state,
+    getAlerts: () => currentAlerts(),
     // Testing aid: the data layer's active change listeners
     getDataListenerCount: () => (DataLayer && DataLayer.getDataListenerCount ? DataLayer.getDataListenerCount() : 0),
   };

@@ -11,7 +11,7 @@ function todayLocal() {
 
 // Runs inside the page, before any page script. It replaces the Firebase SDK with a stub.
 function installStub(options) {
-  const { useFirestore, seed, signedOut, signInError, persistenceError } = options;
+  const { useFirestore, seed, signedOut, signInError, persistenceError, fsSeed, failReads } = options;
   if (!sessionStorage.getItem('__seeded')) {
     sessionStorage.setItem('__seeded', '1');
     if (signedOut) sessionStorage.setItem('__signedOut', '1');
@@ -19,6 +19,8 @@ function installStub(options) {
   }
   const db = window.FakeFirestore.createFakeFirestore();
   window.__db = db;
+  Object.entries(fsSeed || {}).forEach(([k, v]) => db._store.set(k, v));
+  if (failReads) db.failReads = new Error('unavailable');
   if (persistenceError) db.enablePersistence = () => Promise.reject({ code: persistenceError });
   const user = { uid: 'test-uid', displayName: 'Test Student', email: 'test@example.com', photoURL: '' };
   let listener = null;
@@ -67,10 +69,10 @@ async function routeExternals(page) {
   await page.route(/fonts\.gstatic\.com|googleusercontent\.com/, (r) => r.abort());
 }
 
-async function installStubOnPage(page, { useFirestore = false, seed = {}, signedOut = false, signInError = null, persistenceError = null } = {}) {
+async function installStubOnPage(page, { useFirestore = false, seed = {}, signedOut = false, signInError = null, persistenceError = null, fsSeed = {}, failReads = false } = {}) {
   await routeExternals(page);
   // Added as plain script text (not eval), so it also works under the site's Content-Security-Policy
-  const content = `${fakeFirestoreSource}\n;(${installStub.toString()})(${JSON.stringify({ useFirestore, seed, signedOut, signInError, persistenceError })});`;
+  const content = `${fakeFirestoreSource}\n;(${installStub.toString()})(${JSON.stringify({ useFirestore, seed, signedOut, signInError, persistenceError, fsSeed, failReads })});`;
   await page.addInitScript({ content });
 }
 
