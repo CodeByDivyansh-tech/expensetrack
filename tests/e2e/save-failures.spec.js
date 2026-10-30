@@ -23,6 +23,8 @@ test.describe('B4: the UI reports failed saves instead of success', () => {
     await failWrites(page);
     await quickLog(page, 75);
     await expect(page.locator('#toast-container')).toContainText(/couldn.?t save/i);
+    await expect(page.locator('#toast-container')).toContainText(/don't have permission/i); // not the raw Firebase text
+    await expect(page.locator('#toast-container')).not.toContainText(/insufficient permissions|permission-denied/i);
     await expect(page.locator('#toast-container')).not.toContainText('logged successfully');
     await expect(page.locator('#expense-modal')).toBeVisible();
     expect(await page.evaluate(() => window.ExpenseTrackApp.getExpenses().length)).toBe(0);
@@ -46,7 +48,7 @@ test.describe('B4: the UI reports failed saves instead of success', () => {
     await page.locator('#custom-category-name').fill('Gym');
     await page.locator('#custom-category-cap').fill('500');
     await page.locator('#custom-category-form button[type="submit"]').click();
-    await expect(page.locator('#custom-category-error-text')).toContainText(/insufficient permissions/i);
+    await expect(page.locator('#custom-category-error-text')).toContainText(/don't have permission/i);
     await expect(page.locator('#custom-category-modal')).toBeVisible();
   });
 

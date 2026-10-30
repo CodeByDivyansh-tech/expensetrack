@@ -1,7 +1,7 @@
-﻿# ExpenseTrack: Debug & Professionalize: final report
+# ExpenseTrack: Debug & Professionalize: final report
 
-Branch `fix/professional-overhaul` (base `e82754f`). Nothing has been pushed, merged to `main`, or deployed.
-Tests at the last run (two full runs in a row): 142 unit, 80 Firestore-rules (emulator), 169 browser (Playwright, Chrome). All pass. The 2 real-Google-popup tests moved to `npm run test:network` (internet needed, can be flaky); they passed too.
+Branch `fix/professional-overhaul` (base `e82754f`). The branch is pushed for review; nothing has been merged to `main` or deployed.
+Tests at the last run: 149 unit, 80 Firestore-rules (emulator), 169 browser (Playwright, Chrome). All pass. The 2 real-Google-popup tests moved to `npm run test:network` (internet needed, can be flaky); they passed too.
 
 ## 1. Bugs and rules
 
@@ -17,7 +17,7 @@ Tests at the last run (two full runs in a row): 142 unit, 80 Firestore-rules (em
 | B8 | Clear-all and migration used one batch, which fails above 500 writes | Fixed (chunks of 450) |
 | B9 | Misleading insights: "leader" at 0, wrong daily average, 10-day "Week 4", future months | Fixed |
 | B10 | Emergency card claimed to be auto-saved | Fixed |
-| B11 | No limits on amount, note length or date | Fixed (amount â‰¤ 10,00,000, note â‰¤ 100, date 2000 to today) |
+| B11 | No limits on amount, note length or date | Fixed (amount ≤ 10,00,000, note ≤ 100, date 2000 to today) |
 | B12 | False copy, hardcoded numbers that disagreed with defaults, permanent bell dot | Fixed |
 | B13 | Two "Coming Soon" toggles that saved a setting and did nothing | Fixed (removed; stored keys are harmless) |
 | B14 | Previous user's cached data and old localStorage data leaked into the next sign-in | Fixed (cache cleared on sign-out; legacy data needs an explicit import/delete choice) |
@@ -29,7 +29,7 @@ Tests at the last run (two full runs in a row): 142 unit, 80 Firestore-rules (em
 | B20 | Chart.js unpinned and unchecked | Fixed (4.5.1, SRI hash; a test compares it with the real CDN file) |
 | B21 | Offline-cache-in-use logged as a warning | Fixed (info log). The move to the modular SDK is not done |
 | B22 | Third-party images and ui-avatars.com (sends names to a third party) | Fixed (drawn locally) |
-| B23 | Missing or relative share-card metadata | Fixed (absolute OG/Twitter/canonical, 1200Ã—630 image) |
+| B23 | Missing or relative share-card metadata | Fixed (absolute OG/Twitter/canonical, 1200×630 image) |
 | B24 | Icon names flashed as text | Fixed (`display=block`, preload) |
 | B25 | `render.yaml` wrong service name, no rewrites, no security headers | Fixed in the file; **Needs owner action** to confirm Render applies it (section 4) |
 | B26 | README out of date | Fixed |
@@ -39,11 +39,13 @@ Tests at the last run (two full runs in a row): 142 unit, 80 Firestore-rules (em
 
 Every fix has a test that failed on the old source and passes now.
 
+Also in this PR: save-error toasts say what happened in plain words (for example "You don't have permission to do that" instead of the raw Firebase error) for permission-denied, unavailable, deadline-exceeded, resource-exhausted and unauthenticated.
+
 ## 2. Features added
 
 **P1:** payment method on expenses (UPI, Cash, Card, Wallet, Other, optional); an All Transactions page (search, filters, sort, month and day groups, paging); CSV export and import with a preview and duplicate detection; alerts at 80% and 100%, overall and per category; exact cap boxes with optional scaling when the monthly budget changes; loading, error and sync states (Synced, Saving, Offline, This browser); 44 px touch targets and a six-item mobile bar that fits at 320 px.
 
-**P2:** dark mode (system, light, dark; WCAG AA contrast tested); preferences (currency symbol, week start, budget period start day 1â€“28, warning threshold); recurring expenses (monthly, weekly); savings goals with contributions; analytics comparison, six-period totals and month-end projection; installable app and offline use (manifest, service worker, install and update prompts); delete my account.
+**P2:** dark mode (system, light, dark; WCAG AA contrast tested); preferences (currency symbol, week start, budget period start day 1–28, warning threshold); recurring expenses (monthly, weekly); savings goals with contributions; analytics comparison, six-period totals and month-end projection; installable app and offline use (manifest, service worker, install and update prompts); delete my account.
 
 **Not built:** P3 (splitting expenses, weekly digest). It needs your decision, and the digest needs a backend or paid scheduler.
 
@@ -80,8 +82,8 @@ No one-time rewrite of existing Firestore data was needed, and none was written.
 
 | Page | Before (mobile / desktop) | After (mobile / desktop) |
 |---|---|---|
-| Sign-in (`/login`) | 69â€“74 / 98 | 100 / 100 |
-| Signed-in app (demo data) | 59â€“64 / 90 | 92 / 99â€“100 |
+| Sign-in (`/login`) | 69–74 / 98 | 100 / 100 |
+| Signed-in app (demo data) | 59–64 / 90 | 92 / 99–100 |
 
 Accessibility, Best Practices and SEO are 100 on both pages after (SEO was 92 before). Mobile performance varies by about 10 points run to run, so treat 92 as "around 90". The signed-out `/` redirects to sign-in before any app code downloads (Best Practices 96 there, because of that redirect).
 
@@ -91,7 +93,7 @@ Accessibility, Best Practices and SEO are 100 on both pages after (SEO was 92 be
 - The Lighthouse numbers come from a stubbed signed-in demo on localhost, not the live site.
 
 **Known limits:**
-- Validation messages say â‚¹ whatever the currency setting is. The currency setting changes the symbol and grouping only; amounts are never converted.
+- Validation messages say ₹ whatever the currency setting is. The currency setting changes the symbol and grouping only; amounts are never converted.
 - `enablePersistence` (compat SDK) is deprecated upstream; the move to the modular SDK is left as a follow-up.
 - esbuild is a new build-time dev dependency; its install script shows a warning on this machine but works.
 

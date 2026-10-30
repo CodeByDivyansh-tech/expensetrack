@@ -195,7 +195,7 @@
   }
 
   function errorDetail(err) {
-    return (err && err.message) ? err.message : 'Something went wrong.';
+    return Tools.friendlyError(err);
   }
 
   // Put the in-memory state back in line with what the data layer really holds.
@@ -2143,7 +2143,7 @@
         selectCategoryChip(savedId);
       }
     } catch (err) {
-      showCustomCategoryError(err.message || 'Failed to save category');
+      showCustomCategoryError(errorDetail(err));
       reloadFromDataLayer();
     } finally {
       if (submitBtn) submitBtn.disabled = false;

@@ -174,6 +174,30 @@ describe('CSV import preview', () => {
     assert.equal(r.rows[0].data.note, '=1+1');
   });
 
+  describe('friendlyError: save errors read as plain sentences', () => {
+    for (const code of ['permission-denied', 'unavailable', 'deadline-exceeded', 'resource-exhausted', 'unauthenticated']) {
+      test(`${code} gets a plain message, with no raw code in it`, () => {
+        const text = T.friendlyError(Object.assign(new Error(`some raw ${code} text`), { code }));
+        assert.ok(text.length > 20);
+        assert.doesNotMatch(text, new RegExp(code));
+        assert.doesNotMatch(text, /raw/);
+      });
+    }
+
+    test('the same errors are recognised by prefix, by message and as a bare code', () => {
+      assert.equal(T.friendlyError({ code: 'firestore/unavailable' }), T.friendlyError({ code: 'unavailable' }));
+      assert.equal(T.friendlyError(new Error('Missing or insufficient permissions.')), T.friendlyError({ code: 'permission-denied' }));
+      assert.equal(T.friendlyError(new Error('permission-denied')), T.friendlyError({ code: 'permission-denied' }));
+    });
+
+    test('our own validation messages and unknown errors are left alone', () => {
+      assert.equal(T.friendlyError(new Error('Amount must be at most 10,00,000.')), 'Amount must be at most 10,00,000.');
+      assert.equal(T.friendlyError({ code: 'weird', message: 'Strange' }), 'Strange');
+      assert.equal(T.friendlyError(null), 'Something went wrong.');
+      assert.equal(T.friendlyError({}), 'Something went wrong.');
+    });
+  });
+
   test('too many rows or a huge file is refused', () => {
     const many = 'Date,Amount,Category\n' + '2026-10-01,1,food\n'.repeat(T.MAX_IMPORT_ROWS + 1);
     assert.match(prep(many).fatal, /more than 5,000/);

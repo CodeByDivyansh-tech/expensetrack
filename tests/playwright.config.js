@@ -1,4 +1,4 @@
-﻿const { defineConfig } = require('@playwright/test');
+const { defineConfig } = require('@playwright/test');
 
 // Runs the real build in public/ (run `npm run build` first; `npm run test:e2e` does it for you).
 module.exports = defineConfig({

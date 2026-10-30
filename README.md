@@ -1,6 +1,6 @@
-﻿# ExpenseTrack
+# ExpenseTrack
 
-A simple monthly budget and expense tracker for students (amounts in â‚¹). Sign in with Google, log what
+A simple monthly budget and expense tracker for students (amounts in ₹). Sign in with Google, log what
 you spend, set a monthly budget with per-category caps, and see where the money goes.
 
 **Live site:** https://expensetrack-app.onrender.com

@@ -415,7 +415,30 @@
     return { rows, counts };
   }
 
+  // Plain-language text for the Firestore error codes people actually meet; our own validation
+  // messages (which have no code) pass through unchanged.
+  const ERROR_MESSAGES = {
+    'permission-denied': "You don't have permission to do that. Try signing out and back in.",
+    unauthenticated: 'You are signed out. Sign in again and retry.',
+    unavailable: "Can't reach the server right now. Check your connection and try again.",
+    'deadline-exceeded': 'The server took too long to answer. Try again.',
+    'resource-exhausted': 'Too many requests right now, or the usage limit was reached. Wait a moment and try again.',
+  };
+
+  function friendlyError(err) {
+    const raw = err && typeof err === 'object' ? String(err.code || '') : '';
+    const code = raw.replace(/^(firestore|auth)\//, '');
+    if (ERROR_MESSAGES[code]) return ERROR_MESSAGES[code];
+    if (raw === 'auth/requires-recent-login') return ERROR_MESSAGES.unauthenticated;
+    const message = err && err.message ? String(err.message) : '';
+    if (/missing or insufficient permissions/i.test(message)) return ERROR_MESSAGES['permission-denied'];
+    const lead = message.match(/^[a-z-]+/);
+    if (lead && ERROR_MESSAGES[lead[0]]) return ERROR_MESSAGES[lead[0]]; // a bare code used as the message
+    return message || 'Something went wrong.';
+  }
+
   return {
+    friendlyError,
     PAYMENT_METHODS,
     CSV_HEADERS,
     MAX_IMPORT_ROWS,
