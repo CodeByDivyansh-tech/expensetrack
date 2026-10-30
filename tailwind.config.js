@@ -9,12 +9,6 @@ module.exports = {
     "./expense-tools.js",
     "./login.js"
   ],
-  safelist: [
-    { pattern: /bg-(primary|secondary|tertiary|error|surface).*/ },
-    { pattern: /text-(primary|secondary|tertiary|error|surface|on-).*/ },
-    { pattern: /ring-(primary|secondary|tertiary|error).*/ },
-    { pattern: /border-(primary|secondary|tertiary|error|surface).*/ }
-  ],
   darkMode: "class",
   theme: {
     extend: {

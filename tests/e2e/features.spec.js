@@ -514,6 +514,7 @@ test.describe('P1 touch targets and layout on a phone', () => {
       await openApp(page, { seed: { expensetrack_expenses: many(3) } });
       for (const v of ['dashboard', 'transactions', 'budget-setup', 'analytics']) {
         await nav(page, v);
+        if (v === 'analytics') await page.waitForFunction(() => !!window.ExpenseTrackApp.getState().charts.monthlyBar); // measure with the charts drawn
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         expect(overflow, `${v} at ${width}px overflows by ${overflow}px`).toBeLessThanOrEqual(0);
       }

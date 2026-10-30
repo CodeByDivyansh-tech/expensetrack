@@ -64,6 +64,26 @@
     },
   };
 
+  // Chart.js is pinned to one version and checked against this hash, whichever page asks for it
+  const CHART_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js';
+  const CHART_SRI = 'sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ';
+  let chartLoading = null;
+
+  function ensureChart() {
+    if (typeof Chart !== 'undefined') return Promise.resolve(true);
+    if (chartLoading) return chartLoading;
+    chartLoading = new Promise(resolve => {
+      const script = document.createElement('script');
+      script.src = CHART_URL;
+      script.integrity = CHART_SRI;
+      script.crossOrigin = 'anonymous';
+      script.onload = () => resolve(true);
+      script.onerror = () => { chartLoading = null; resolve(false); };
+      document.head.appendChild(script);
+    });
+    return chartLoading;
+  }
+
   function prefersReducedMotion() {
     return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
@@ -1301,7 +1321,8 @@
 
   function initOrUpdateCharts(spendingMap, monthExpenses = []) {
     if (typeof Chart === 'undefined') {
-      console.warn('Chart.js is not loaded.');
+      // Charts are only needed here, so the library is fetched the first time Analytics is opened
+      ensureChart().then(ok => { if (ok && state.currentView === 'analytics') renderAnalytics(); });
       return;
     }
 

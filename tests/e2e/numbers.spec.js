@@ -141,8 +141,7 @@ test.describe('B9: numbers that agree with each other', () => {
       seed: { expensetrack_expenses: [{ id: 'e2', amount: 60, category: 'food', date: todayLocal(), note: 'now', createdAt: 2 }] },
     });
     await page.evaluate(() => window.ExpenseTrackApp.navigateTo('analytics'));
-    const hasChart = await page.evaluate(() => typeof Chart !== 'undefined');
-    test.skip(!hasChart, 'Chart.js CDN not reachable');
+    await page.waitForFunction(() => !!window.ExpenseTrackApp.getState().charts.monthlyBar);
     const labels = await page.evaluate(() => window.ExpenseTrackApp.getState().charts.monthlyBar.data.labels);
     expect(labels.length).toBeGreaterThanOrEqual(4);
     // calendar weeks from the chosen first day (Monday by default): the first block starts on the 1st and may be short

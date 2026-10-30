@@ -142,6 +142,16 @@
   outline-offset: 2px;
 }
 
+/* Icon names are plain text until the icon font loads: do not show them */
+html:not(.icons-ready) .material-symbols-outlined {
+  color: transparent !important;
+}
+
+/* While the first data loads, the page content is hidden (not removed), so nothing jumps when it appears */
+body[data-loading="true"] > *:not(#auth-loading-overlay) {
+  visibility: hidden;
+}
+
 /* Placeholder blocks shown until the first data arrives */
 [data-loading="true"] .skel {
   color: transparent !important;

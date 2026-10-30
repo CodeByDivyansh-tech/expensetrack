@@ -17,6 +17,10 @@ function installStub(options) {
     if (signedOut) sessionStorage.setItem('__signedOut', '1');
     Object.entries(seed).forEach(([k, v]) => localStorage.setItem(k, JSON.stringify(v)));
   }
+  // A signed-in browser has a saved session; without one the app sends you to the sign-in page at once
+  if (!signedOut && !sessionStorage.getItem('__signedOut')) {
+    localStorage.setItem('expensetrack_user_session', JSON.stringify({ uid: 'test-uid' }));
+  }
   const db = window.FakeFirestore.createFakeFirestore();
   window.__db = db;
   Object.entries(fsSeed || {}).forEach(([k, v]) => db._store.set(k, v));
@@ -106,4 +110,4 @@ async function openLogin(page, options = {}) {
   await page.goto('/login');
 }
 
-module.exports = { openApp, openLogin, installStubOnPage, todayLocal };
+module.exports = { openApp, openLogin, installStubOnPage, installStub, todayLocal };

@@ -41,12 +41,11 @@ test.describe('Content-Security-Policy with the real Firebase SDK', () => {
     expect(consoleCsp).toEqual([]);
   });
 
-  test('the integrity hash in index.html matches the file the real CDN serves', async ({ page, request }) => {
+  test('the integrity hash in app.js matches the file the real CDN serves', async ({ page, request }) => {
     test.skip(!(await online(request)), 'no internet access');
-    const html = await (await page.request.get('/')).text();
-    const tag = html.match(/<script[^>]+chart\.js[^>]*>/)[0];
-    const url = tag.match(/src="([^"]+)"/)[1];
-    const expected = tag.match(/integrity="sha384-([^"]+)"/)[1];
+    const js = await (await page.request.get('/app.js')).text();
+    const url = js.match(/https:\/\/cdn\.jsdelivr\.net\/npm\/chart\.js@[\d.]+\/dist\/chart\.umd\.min\.js/)[0];
+    const expected = js.match(/sha384-([A-Za-z0-9+/=]+)/)[1];
     const body = await (await request.get(url)).body();
     const actual = require('crypto').createHash('sha384').update(body).digest('base64');
     expect(actual).toBe(expected);

@@ -19,6 +19,7 @@ const filesToCopy = [
   'theme-init.js',
   'pwa.js',
   'manifest.webmanifest',
+  'robots.txt',
   'app.js',
   'data-layer.js',
   'expense-tools.js',
@@ -29,11 +30,19 @@ const filesToCopy = [
   'apple-touch-icon.png'
 ];
 
+// Our own scripts are minified (whitespace and names only; no bundling, no code changes)
+const esbuild = require('esbuild');
+
 for (const file of filesToCopy) {
   const srcPath = path.join(rootDir, file);
   const destPath = path.join(publicDir, file);
   if (fs.existsSync(srcPath)) {
-    fs.copyFileSync(srcPath, destPath);
+    if (file.endsWith('.js')) {
+      const out = esbuild.transformSync(fs.readFileSync(srcPath, 'utf8'), { minify: true, target: 'es2019', legalComments: 'none', charset: 'utf8' });
+      fs.writeFileSync(destPath, out.code);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
   } else {
     console.warn(`[build] Warning: ${file} was not found.`);
   }
@@ -67,6 +76,6 @@ const hash = crypto.createHash('sha1');
 })(publicDir);
 const buildId = hash.digest('hex').slice(0, 12);
 const swSource = fs.readFileSync(path.join(rootDir, 'sw.js'), 'utf8');
-fs.writeFileSync(path.join(publicDir, 'sw.js'), swSource.replace('__BUILD_ID__', buildId));
+fs.writeFileSync(path.join(publicDir, 'sw.js'), esbuild.transformSync(swSource.replace('__BUILD_ID__', buildId), { minify: true, target: 'es2019', legalComments: 'none' }).code);
 
 console.log('[build] Public directory prepared successfully at:', publicDir, '(service worker build', buildId + ')');

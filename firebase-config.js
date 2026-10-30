@@ -107,7 +107,13 @@
       if (!auth || !googleProvider) {
         throw new Error('Firebase Auth not initialized.');
       }
-      return auth.signInWithPopup(googleProvider);
+      const result = await auth.signInWithPopup(googleProvider);
+      // Leave a session marker before the page moves on: the app's first script sends visitors without one to sign-in.
+      try {
+        const u = result && result.user;
+        if (u) localStorage.setItem('expensetrack_user_session', JSON.stringify({ uid: u.uid, email: u.email || '', displayName: u.displayName || 'Student', photoURL: u.photoURL || '', phoneNumber: u.phoneNumber || '' }));
+      } catch (e) { /* storage unavailable: the app's own listener will cope */ }
+      return result;
     },
 
     /**

@@ -47,6 +47,7 @@ test.describe('P2.12 dark mode', () => {
   test('charts are drawn again in the new colours', async ({ page }) => {
     await openApp(page, { seed: { expensetrack_expenses: [exp(1)] } });
     await nav(page, 'analytics');
+    await page.waitForFunction(() => !!window.ExpenseTrackApp.getState().charts.categoryDonut);
     const legend = () => page.evaluate(() => window.ExpenseTrackApp.getState().charts.categoryDonut.options.plugins.legend.labels.color);
     const before = await legend();
     await nav(page, 'profile-&-settings');
@@ -129,6 +130,7 @@ test.describe('P2.13 preferences', () => {
     await nav(page, 'profile-&-settings');
     await page.locator('#pref-week-start').selectOption('0');
     await nav(page, 'analytics');
+    await page.waitForFunction(() => !!window.ExpenseTrackApp.getState().charts.monthlyBar);
     const labels = await page.evaluate(() => window.ExpenseTrackApp.getState().charts.monthlyBar.data.labels);
     expect(labels).toEqual(['1–3 Oct', '4–10 Oct', '11–17 Oct', '18–24 Oct', '25–31 Oct']);
     await nav(page, 'profile-&-settings');
@@ -350,6 +352,7 @@ test.describe('P2.9 analytics: last month, six months, projection', () => {
     await page.clock.setFixedTime(FIXED);
     await openApp(page, { seed: { expensetrack_expenses: data } });
     await nav(page, 'analytics');
+    await page.waitForFunction(() => !!window.ExpenseTrackApp.getState().charts.trend);
     const chart = await page.evaluate(() => ({ labels: window.ExpenseTrackApp.getState().charts.trend.data.labels, data: window.ExpenseTrackApp.getState().charts.trend.data.datasets[0].data }));
     expect(chart.labels).toEqual(['May 26', 'Jun 26', 'Jul 26', 'Aug 26', 'Sep 26', 'Oct 26']);
     expect(chart.data).toEqual([0, 0, 999, 0, 650, 600]);
@@ -399,7 +402,7 @@ test.describe('P2.11 installable app', () => {
     expect(res.headers()['cache-control']).toContain('no-cache');
     const text = await res.text();
     expect(text).not.toContain('__BUILD_ID__');
-    expect(text).toMatch(/const BUILD = '[0-9a-f]{12}'/);
+    expect(text).toMatch(/["'][0-9a-f]{12}["']/);
   });
 
   test('Settings offers to install when the browser says it can, and uses the saved prompt', async ({ page }) => {

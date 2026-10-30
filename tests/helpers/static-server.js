@@ -7,8 +7,10 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.join(__dirname, '../../public');
-const YAML = fs.readFileSync(path.join(__dirname, '../../render.yaml'), 'utf8');
+// SITE_DIR lets the same server serve another checkout (used to compare against the original site)
+const SITE = process.env.SITE_DIR || path.join(__dirname, '../..');
+const ROOT = path.join(SITE, 'public');
+const YAML = fs.readFileSync(path.join(SITE, 'render.yaml'), 'utf8');
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',

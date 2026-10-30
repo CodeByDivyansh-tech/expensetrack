@@ -7,20 +7,22 @@ const { readRenderConfig } = require('../helpers/static-server');
 const get = async (page, url) => (await page.request.get(url)).text();
 
 test.describe('B20: Chart.js is pinned and integrity-checked', () => {
-  test('the script tag names an exact version and an SRI hash', async ({ page }) => {
-    const html = await get(page, '/');
-    const tag = html.match(/<script[^>]+chart\.js[^>]*>/)[0];
-    expect(tag).toMatch(/chart\.js@\d+\.\d+\.\d+\/dist\/chart\.umd\.min\.js/);
-    expect(tag).toMatch(/integrity="sha384-[A-Za-z0-9+/=]+"/);
-    expect(tag).toContain('crossorigin="anonymous"');
+  test('the app names an exact version and an SRI hash for it, and the page does not load it up front', async ({ page }) => {
+    const js = await get(page, '/app.js');
+    expect(js).toMatch(/chart\.js@\d+\.\d+\.\d+\/dist\/chart\.umd\.min\.js/);
+    expect(js).toMatch(/sha384-[A-Za-z0-9+/=]+/);
+    expect(js).toMatch(/crossOrigin\s*=\s*["']anonymous["']/);
+    expect(await get(page, '/')).not.toContain('chart.js');
   });
 
-  test('the browser accepts the file under that hash, so charts can draw', async ({ page }) => {
-    await openApp(page);
-    expect(await page.evaluate(() => typeof Chart)).toBe('function');
+  test('the browser accepts the file under that hash when Analytics is opened, so charts can draw', async ({ page }) => {
+    await openApp(page, { seed: { expensetrack_expenses: [{ id: 'e1', amount: 40, category: 'food', date: new Date().toISOString().slice(0, 10), note: 'x', createdAt: 1 }] } });
+    expect(await page.evaluate(() => typeof Chart)).toBe('undefined'); // not fetched until needed
+    await page.evaluate(() => window.ExpenseTrackApp.navigateTo('analytics'));
+    await page.waitForFunction(() => typeof Chart === 'function');
+    await page.waitForFunction(() => !!window.ExpenseTrackApp.getState().charts.categoryDonut);
   });
 });
-
 test.describe('B21: the offline cache being unavailable is not a warning', () => {
   test('a second tab holding the cache logs no warning or error', async ({ page }) => {
     const noisy = [];
