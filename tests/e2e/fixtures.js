@@ -2,10 +2,76 @@ const fs = require('fs');
 const path = require('path');
 
 const fakeFirestoreSource = fs.readFileSync(path.join(__dirname, '../helpers/fake-firestore.js'), 'utf8');
+const chartSource = fs.readFileSync(path.join(__dirname, '../node_modules/chart.js/dist/chart.umd.min.js'), 'utf8');
 
 function todayLocal() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Runs inside the page, before any page script. It replaces the Firebase SDK with a stub.
+function installStub(options) {
+  const { useFirestore, seed, signedOut, signInError, persistenceError } = options;
+  if (!sessionStorage.getItem('__seeded')) {
+    sessionStorage.setItem('__seeded', '1');
+    if (signedOut) sessionStorage.setItem('__signedOut', '1');
+    Object.entries(seed).forEach(([k, v]) => localStorage.setItem(k, JSON.stringify(v)));
+  }
+  const db = window.FakeFirestore.createFakeFirestore();
+  window.__db = db;
+  if (persistenceError) db.enablePersistence = () => Promise.reject({ code: persistenceError });
+  const user = { uid: 'test-uid', displayName: 'Test Student', email: 'test@example.com', photoURL: '' };
+  let listener = null;
+  const authObj = {
+    currentUser: user,
+    setPersistence: () => Promise.resolve(),
+    onAuthStateChanged(cb) {
+      listener = cb;
+      setTimeout(() => cb(sessionStorage.getItem('__signedOut') ? null : user), 0);
+      return () => {};
+    },
+    signInWithPopup() {
+      if (signInError) return Promise.reject({ code: signInError, message: 'stub failure' });
+      sessionStorage.removeItem('__signedOut');
+      return Promise.resolve({ user });
+    },
+    signOut() {
+      sessionStorage.setItem('__signedOut', '1');
+      if (listener) listener(null);
+      return Promise.resolve();
+    },
+  };
+  window.__fireAuth = () => { if (listener) listener(user); };
+  // Remember cache-clearing calls across the redirect to login.html
+  ['terminate', 'clearPersistence'].forEach((name) => {
+    const original = db[name];
+    db[name] = () => {
+      sessionStorage.setItem('__fsCalls', (sessionStorage.getItem('__fsCalls') || '') + name + ',');
+      return original();
+    };
+  });
+  const auth = () => authObj;
+  auth.Auth = { Persistence: { LOCAL: 'local' } };
+  auth.GoogleAuthProvider = function () { this.setCustomParameters = () => {}; };
+  window.firebase = { apps: [], initializeApp() { this.apps.push({}); }, auth };
+  if (useFirestore) window.firebase.firestore = () => db;
+}
+
+async function routeExternals(page) {
+  await page.route('**/www.gstatic.com/firebasejs/**', (r) =>
+    r.fulfill({ contentType: 'application/javascript', body: '/* stubbed */' }));
+  // The pinned Chart.js file, served from the npm copy: also proves the SRI hash in index.html matches
+  await page.route('**/cdn.jsdelivr.net/npm/chart.js@4.5.1/**', (r) =>
+    r.fulfill({ contentType: 'application/javascript', body: chartSource }));
+  await page.route('**/fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));
+  await page.route(/fonts\.gstatic\.com|googleusercontent\.com/, (r) => r.abort());
+}
+
+async function installStubOnPage(page, { useFirestore = false, seed = {}, signedOut = false, signInError = null, persistenceError = null } = {}) {
+  await routeExternals(page);
+  // Added as plain script text (not eval), so it also works under the site's Content-Security-Policy
+  const content = `${fakeFirestoreSource}\n;(${installStub.toString()})(${JSON.stringify({ useFirestore, seed, signedOut, signInError, persistenceError })});`;
+  await page.addInitScript({ content });
 }
 
 /**
@@ -14,54 +80,16 @@ function todayLocal() {
  *   useFirestore: false -> no firestore(), so the data layer uses its localStorage fallback
  *   seed: { localStorageKey: value } written once, before the app boots (legacy-format fixtures)
  */
-async function openApp(page, { useFirestore = false, seed = {} } = {}) {
-  await page.route('**/www.gstatic.com/firebasejs/**', (r) =>
-    r.fulfill({ contentType: 'application/javascript', body: '/* stubbed */' }));
-  await page.route('**/fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));
-  await page.route(/fonts\.gstatic\.com|ui-avatars\.com|googleusercontent\.com/, (r) => r.abort());
-
-  await page.addInitScript(({ fakeSrc, useFirestore, seed }) => {
-    if (!sessionStorage.getItem('__seeded')) {
-      sessionStorage.setItem('__seeded', '1');
-      Object.entries(seed).forEach(([k, v]) => localStorage.setItem(k, JSON.stringify(v)));
-    }
-    (0, eval)(fakeSrc);
-    const db = window.FakeFirestore.createFakeFirestore();
-    window.__db = db;
-    const user = { uid: 'test-uid', displayName: 'Test Student', email: 'test@example.com', photoURL: '' };
-    let listener = null;
-    const authObj = {
-      currentUser: user,
-      setPersistence: () => Promise.resolve(),
-      onAuthStateChanged(cb) {
-        listener = cb;
-        setTimeout(() => cb(sessionStorage.getItem('__signedOut') ? null : user), 0);
-        return () => {};
-      },
-      signOut() {
-        sessionStorage.setItem('__signedOut', '1');
-        if (listener) listener(null);
-        return Promise.resolve();
-      },
-    };
-    window.__fireAuth = () => { if (listener) listener(user); };
-    // Remember cache-clearing calls across the redirect to login.html
-    ['terminate', 'clearPersistence'].forEach((name) => {
-      const original = db[name];
-      db[name] = () => {
-        sessionStorage.setItem('__fsCalls', (sessionStorage.getItem('__fsCalls') || '') + name + ',');
-        return original();
-      };
-    });
-    const auth = () => authObj;
-    auth.Auth = { Persistence: { LOCAL: 'local' } };
-    auth.GoogleAuthProvider = function () { this.setCustomParameters = () => {}; };
-    window.firebase = { apps: [], initializeApp() { this.apps.push({}); }, auth };
-    if (useFirestore) window.firebase.firestore = () => db;
-  }, { fakeSrc: fakeFirestoreSource, useFirestore, seed });
-
+async function openApp(page, options = {}) {
+  await installStubOnPage(page, options);
   await page.goto('/');
   await page.waitForFunction(() => document.getElementById('auth-loading-overlay').style.display === 'none');
 }
 
-module.exports = { openApp, todayLocal };
+/** Opens the login page with a signed-out stub. signInError: an auth error code the popup should fail with. */
+async function openLogin(page, options = {}) {
+  await installStubOnPage(page, { ...options, signedOut: true });
+  await page.goto('/login');
+}
+
+module.exports = { openApp, openLogin, installStubOnPage, todayLocal };

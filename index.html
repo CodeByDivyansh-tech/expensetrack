@@ -10,7 +10,17 @@
   <meta name="theme-color" content="#006948"/>
   <meta property="og:title" content="ExpenseTrack - Student Finance App"/>
   <meta property="og:description" content="Mindful, stress-free student budgeting and expense tracking for college life."/>
-  <meta property="og:image" content="apple-touch-icon.png"/>
+  <meta property="og:image" content="https://expensetrack-app.onrender.com/assets/og-image.png"/>
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+  <meta property="og:image:alt" content="ExpenseTrack: simple monthly budgeting for students"/>
+  <meta property="og:url" content="https://expensetrack-app.onrender.com/"/>
+  <meta property="og:site_name" content="ExpenseTrack"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="ExpenseTrack - Student Finance App"/>
+  <meta name="twitter:description" content="Mindful, stress-free student budgeting and expense tracking."/>
+  <meta name="twitter:image" content="https://expensetrack-app.onrender.com/assets/og-image.png"/>
+  <link rel="canonical" href="https://expensetrack-app.onrender.com/"/>
   <meta property="og:type" content="website"/>
 
   <!-- Favicons & App Icons -->
@@ -24,10 +34,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   
   <!-- Material Symbols Outlined (Full Variable Font Range) -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"/>
   
   <!-- Chart.js for Analytics -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
 
   <!-- Compiled Tailwind CSS -->
   <link rel="stylesheet" href="dist/styles.css"/>
@@ -63,7 +74,7 @@
   <aside class="hidden lg:flex fixed left-0 top-0 h-full w-72 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex-col justify-between py-space-lg px-space-md">
     <div class="flex flex-col gap-space-xl">
       <!-- Logo -->
-      <div class="flex items-center gap-space-sm px-space-sm cursor-pointer" onclick="window.ExpenseTrackApp.navigateTo('dashboard')">
+      <div role="button" tabindex="0" class="flex items-center gap-space-sm px-space-sm cursor-pointer" data-click="navigateTo" data-arg="dashboard">
         <img alt="ExpenseTrack Logo" class="h-8 w-auto object-contain" src="assets/logo.svg"/>
         <div class="flex flex-col">
           <span class="font-title-md text-title-md text-on-surface font-bold tracking-tight">ExpenseTrack</span>
@@ -107,7 +118,7 @@
     </div>
 
     <!-- Live Sidebar Semester Budget Summary Widget -->
-    <div class="bg-surface-container-low rounded-xl p-space-md flex flex-col gap-space-xs cursor-pointer hover:bg-surface-container transition-colors" onclick="window.ExpenseTrackApp.navigateTo('budget-setup')">
+    <div role="button" tabindex="0" class="bg-surface-container-low rounded-xl p-space-md flex flex-col gap-space-xs cursor-pointer hover:bg-surface-container transition-colors" data-click="navigateTo" data-arg="budget-setup">
       <div class="flex items-center justify-between">
         <span class="font-label-sm text-label-sm text-on-surface-variant">Monthly Budget</span>
         <span class="font-label-sm text-label-sm text-primary font-bold" id="sidebar-safe-percent">—</span>
@@ -128,7 +139,7 @@
     <header class="fixed top-0 right-0 left-0 lg:left-72 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40">
       <div class="h-16 w-full px-margin sm:px-margin-tablet lg:px-margin-desktop flex items-center justify-between">
         <!-- Mobile Logo -->
-        <div class="flex items-center gap-space-sm lg:hidden cursor-pointer" onclick="window.ExpenseTrackApp.navigateTo('dashboard')">
+        <div role="button" tabindex="0" class="flex items-center gap-space-sm lg:hidden cursor-pointer" data-click="navigateTo" data-arg="dashboard">
           <img alt="ExpenseTrack Logo" class="h-8 w-auto object-contain" src="assets/logo.svg"/>
           <span class="font-title-md text-title-md text-on-surface font-bold">ExpenseTrack</span>
         </div>
@@ -141,17 +152,17 @@
 
         <!-- Right Side Header Icons & Profile -->
         <div class="flex items-center gap-space-md ml-auto">
-          <button aria-label="Notifications" class="relative p-2 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" onclick="window.ExpenseTrackApp.navigateTo('budget-setup')">
+          <button aria-label="Notifications" class="relative p-2 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-click="navigateTo" data-arg="budget-setup">
             <span class="material-symbols-outlined text-2xl">notifications</span>
             
           </button>
           
-          <div class="flex items-center gap-space-sm pl-2 cursor-pointer" onclick="window.ExpenseTrackApp.navigateTo('profile-&-settings')">
+          <div role="button" tabindex="0" class="flex items-center gap-space-sm pl-2 cursor-pointer" data-click="navigateTo" data-arg="profile-&-settings">
             <div class="hidden sm:flex flex-col text-right">
               <span class="font-label-md text-label-md text-on-surface font-semibold" id="header-user-name">Student</span>
               <span class="font-body-sm text-body-sm text-on-surface-variant" id="header-user-email">Google Account</span>
             </div>
-            <img id="header-user-avatar" alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary/20" src="https://ui-avatars.com/api/?name=Student&background=006948&color=ffffff&bold=true"/>
+            <img id="header-user-avatar" alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary/20" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23006948'/%3E%3Ctext x='32' y='43' font-size='30' font-family='sans-serif' font-weight='700' text-anchor='middle' fill='white'%3ES%3C/text%3E%3C/svg%3E" width="64" height="64"/>
           </div>
         </div>
       </div>
@@ -185,11 +196,11 @@
           </div>
           <!-- Action Buttons -->
           <div class="flex items-center gap-space-sm">
-            <button class="flex items-center gap-space-xs px-space-md py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-all duration-200" onclick="window.ExpenseTrackApp.openBudgetModal()">
+            <button class="flex items-center gap-space-xs px-space-md py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-all duration-200" data-click="openBudgetModal">
               <span class="material-symbols-outlined text-lg">tune</span>
               Edit Budget Cap
             </button>
-            <button class="flex items-center gap-space-xs px-space-lg py-2.5 rounded-full bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container font-label-md text-label-md shadow-sm transition-all duration-200" onclick="window.ExpenseTrackApp.openAddExpenseModal()">
+            <button class="flex items-center gap-space-xs px-space-lg py-2.5 rounded-full bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container font-label-md text-label-md shadow-sm transition-all duration-200" data-click="openAddExpenseModal">
               <span class="material-symbols-outlined text-lg">add_circle</span>
               Quick Log Expense
             </button>
@@ -205,7 +216,7 @@
               <span class="font-body-sm text-body-sm text-amber-800" id="budget-warning-desc">You have spent over 80% of your allocated monthly budget.</span>
             </div>
           </div>
-          <button type="button" onclick="document.getElementById('budget-warning-banner').classList.add('hidden')" class="text-amber-800 hover:text-amber-950 p-1 flex-shrink-0" title="Dismiss" aria-label="Dismiss">
+          <button type="button" data-click="dismissBanner" class="text-amber-800 hover:text-amber-950 p-1 flex-shrink-0" title="Dismiss" aria-label="Dismiss">
             <span class="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
@@ -265,7 +276,6 @@
               <span class="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant dynamic-term-cycle">This month</span>
             </div>
             <div class="my-space-xs z-10 flex items-center gap-space-md">
-              <img class="w-20 h-20 rounded-2xl object-cover shadow-sm flex-shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsUNiZ6hY5zhO4Io6PjpzsgU7Oj2WMYEsM_Dlv9VBaL3RXar_mY4m0z5Htg-rFK014tRax7akLeodTdk-siD-T9g6lLDSkm81vyLre2fZSu_eZxb7S-tZZns5s0Qzm4Yxdfsrb1Lp5OW9WSidFnj1yAtApJ2blUqiKTRmaWQFHM88QRE0AAqriaeXOBc38ylsoG9hIKp_n7amWlTr_u7Iu98_JdQBaNGoHvn77N6w2jB221HjIo-D8" alt="Student on campus"/>
               <div class="flex flex-col">
                 <span class="font-label-md text-label-md text-on-surface font-semibold">This month at a glance</span>
                 <p id="dash-spending-insight" class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
@@ -278,7 +288,7 @@
                 <span class="w-2 h-2 rounded-full bg-primary"></span>
                 Synced to your Google account
               </span>
-              <button class="text-primary font-bold hover:underline" onclick="window.ExpenseTrackApp.navigateTo('analytics')">
+              <button class="text-primary font-bold hover:underline" data-click="navigateTo" data-arg="analytics">
                 View Analytics &rarr;
               </button>
             </div>
@@ -292,7 +302,7 @@
               <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">Category Budgets Snapshot</h2>
               <p class="font-body-sm text-body-sm text-on-surface-variant">Live spending vs allocated limits</p>
             </div>
-            <button class="text-primary font-label-md text-label-md font-bold hover:underline" onclick="window.ExpenseTrackApp.navigateTo('budget-setup')">
+            <button class="text-primary font-label-md text-label-md font-bold hover:underline" data-click="navigateTo" data-arg="budget-setup">
               Configure Limits &rarr;
             </button>
           </div>
@@ -313,7 +323,7 @@
               <span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-3 py-1 rounded-full" id="dash-transactions-count">
                 0 Total
               </span>
-              <button class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors shadow-sm" onclick="window.ExpenseTrackApp.openAddExpenseModal()">
+              <button class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors shadow-sm" data-click="openAddExpenseModal">
                 <span class="material-symbols-outlined text-sm">add</span> Add New
               </button>
             </div>
@@ -328,7 +338,7 @@
             <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm mt-1 mb-space-md">
               Start tracking your college spending by logging your morning coffee, grocery trip, or book rentals.
             </p>
-            <button class="px-space-lg py-2 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors" onclick="window.ExpenseTrackApp.openAddExpenseModal()">
+            <button class="px-space-lg py-2 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors" data-click="openAddExpenseModal">
               Log First Expense
             </button>
           </div>
@@ -428,7 +438,6 @@
               <span class="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant dynamic-term-week">This month</span>
             </div>
             <div class="my-space-xs z-10 flex items-center gap-space-md">
-              <img class="w-20 h-20 rounded-2xl object-cover shadow-sm flex-shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsUNiZ6hY5zhO4Io6PjpzsgU7Oj2WMYEsM_Dlv9VBaL3RXar_mY4m0z5Htg-rFK014tRax7akLeodTdk-siD-T9g6lLDSkm81vyLre2fZSu_eZxb7S-tZZns5s0Qzm4Yxdfsrb1Lp5OW9WSidFnj1yAtApJ2blUqiKTRmaWQFHM88QRE0AAqriaeXOBc38ylsoG9hIKp_n7amWlTr_u7Iu98_JdQBaNGoHvn77N6w2jB221HjIo-D8" alt="Campus Quad"/>
               <div class="flex flex-col">
                 <span class="font-label-md text-label-md text-on-surface font-semibold dynamic-term-cycle">This month's plan</span>
                 <p id="budget-spending-insight" class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
@@ -441,7 +450,7 @@
                 <span class="w-2 h-2 rounded-full bg-primary"></span>
                 Live Budget Pacing
               </span>
-              <a class="text-primary font-bold hover:underline" href="#" onclick="window.ExpenseTrackApp.navigateTo('analytics')">View History</a>
+              <a class="text-primary font-bold hover:underline" href="#" data-click="navigateTo" data-arg="analytics">View History</a>
             </div>
           </div>
         </div>
@@ -807,7 +816,7 @@
               </p>
               <div class="flex items-center justify-between pt-space-xs border-t border-white/10">
                 <span class="font-label-sm text-label-sm text-primary-fixed">Safe Student Cushion</span>
-                <button class="px-3 py-1.5 rounded-full bg-white text-primary font-label-sm text-label-sm font-bold hover:bg-surface-container transition-colors" onclick="window.ExpenseTrackApp.openBudgetModal()">
+                <button class="px-3 py-1.5 rounded-full bg-white text-primary font-label-sm text-label-sm font-bold hover:bg-surface-container transition-colors" data-click="openBudgetModal">
                   Edit Monthly Cap
                 </button>
               </div>
@@ -815,7 +824,6 @@
 
             <!-- Campus Quick Snapshot Photo Card -->
             <div class="bg-surface-container-lowest rounded-3xl p-space-md shadow-sm flex flex-col gap-space-sm">
-              <img class="w-full h-36 rounded-2xl object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdebDfwE_GfmknnNRghanQQcm2aCG0dnmF1rUIACpuTRWuHgR7X9R9naCmBYxYlIuIpZj3touZ0whud1NiuKQ0AR8nvIHF-J77_iQ2MWpMV7pY_8RCHgnmcvyLD5RYwP7k6XNEWT7Xo_JcnRISWo3_ffVx3nmxY0WAAMt_YVxCUv7ziwF1P1hx4PrhIOG7bb5bG_m-IblBJZMATs5tyYCtM4aVSx3JtksXjT3Z116EuEtZ1jQj6vmA" alt="Student study desk"/>
               <div class="p-1">
                 <span class="font-label-sm text-label-sm text-primary font-bold">Student Pro-Tip</span>
                 <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
@@ -856,7 +864,7 @@
                 <span class="material-symbols-outlined text-lg">chevron_right</span>
               </button>
             </div>
-            <button class="flex items-center gap-space-xs px-space-lg py-2.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all duration-200" onclick="window.ExpenseTrackApp.openAddExpenseModal()">
+            <button class="flex items-center gap-space-xs px-space-lg py-2.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all duration-200" data-click="openAddExpenseModal">
               <span class="material-symbols-outlined text-lg">add_circle</span> Quick Log
             </button>
           </div>
@@ -871,7 +879,7 @@
           <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm mt-1 mb-space-md">
             Log transactions to unlock interactive category distributions, velocity trends, and personalized student insights.
           </p>
-          <button class="px-space-lg py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md" onclick="window.ExpenseTrackApp.openAddExpenseModal()">
+          <button class="px-space-lg py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md" data-click="openAddExpenseModal">
             Log An Expense
           </button>
         </div>
@@ -964,7 +972,7 @@
           <!-- Student Profile Card (6 Cols) -->
           <div class="lg:col-span-6 bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-space-md">
             <div class="flex items-center gap-space-md">
-              <img id="profile-user-avatar" alt="Student" class="w-16 h-16 rounded-full object-cover ring-4 ring-primary/10 shadow-sm" src="https://ui-avatars.com/api/?name=Student&background=006948&color=ffffff&bold=true"/>
+              <img id="profile-user-avatar" alt="Student" class="w-16 h-16 rounded-full object-cover ring-4 ring-primary/10 shadow-sm" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23006948'/%3E%3Ctext x='32' y='43' font-size='30' font-family='sans-serif' font-weight='700' text-anchor='middle' fill='white'%3ES%3C/text%3E%3C/svg%3E" width="64" height="64"/>
               <div class="flex flex-col flex-1">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">

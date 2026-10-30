@@ -1,8 +1,66 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // A map of numbers (category caps). Rules cannot loop over a map, so the size is bounded instead.
+    function isCapMap(m) {
+      return m is map && m.size() <= 100;
+    }
+
+    // users/{uid}: the profile document holding budget, settings and custom categories
+    function validUserDoc() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['budget', 'settings', 'customCategories', 'updatedAt', 'legacyImportHandled'])
+        && (!('budget' in d) || (
+              d.budget is map
+              && d.budget.keys().hasOnly(['overallCap', 'categories'])
+              && (!('overallCap' in d.budget) || (d.budget.overallCap is number && d.budget.overallCap > 0 && d.budget.overallCap <= 100000000))
+              && (!('categories' in d.budget) || isCapMap(d.budget.categories))
+           ))
+        && (!('settings' in d) || (
+              d.settings is map
+              && d.settings.keys().hasOnly(['notify80', 'weeklyDigest', 'roommateAlert'])
+              && (!('notify80' in d.settings) || d.settings.notify80 is bool)
+              && (!('weeklyDigest' in d.settings) || d.settings.weeklyDigest is bool)
+              && (!('roommateAlert' in d.settings) || d.settings.roommateAlert is bool)
+           ))
+        && (!('customCategories' in d) || isCapMap(d.customCategories))
+        && (!('updatedAt' in d) || d.updatedAt is number)
+        && (!('legacyImportHandled' in d) || d.legacyImportHandled is bool);
+    }
+
+    // users/{uid}/expenses/{id}
+    function validExpense(expenseId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id', 'amount', 'category', 'date', 'note', 'createdAt', 'updatedAt', 'paymentMethod'])
+        && d.keys().hasAll(['amount', 'category', 'date', 'createdAt'])
+        && d.amount is number && d.amount > 0 && d.amount <= 1000000
+        && d.category is string && d.category.size() > 0 && d.category.size() <= 64
+        && d.date is string && d.date.matches('^\\d{4}-\\d{2}-\\d{2}$') && d.date >= '2000-01-01'
+        && (!('note' in d) || (d.note is string && d.note.size() <= 200))
+        && d.createdAt is number
+        && (!('updatedAt' in d) || d.updatedAt is number)
+        && (!('id' in d) || d.id == expenseId)
+        && (!('paymentMethod' in d) || (d.paymentMethod is string && d.paymentMethod.size() <= 20));
+    }
+
+    match /users/{uid} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validUserDoc();
+
+      match /expenses/{expenseId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validExpense(expenseId);
+      }
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -14,6 +14,8 @@ fs.mkdirSync(publicDir, { recursive: true });
 const filesToCopy = [
   'index.html',
   'login.html',
+  '404.html',
+  'login.js',
   'app.js',
   'data-layer.js',
   'budget-calculator.js',

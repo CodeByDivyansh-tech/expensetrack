@@ -38,10 +38,11 @@
   // Enable Firestore offline persistence
   if (db) {
     db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+      // Expected situations, not problems: the app works fine without the offline cache.
       if (err.code === 'failed-precondition') {
-        console.warn('Firestore persistence warning: Multiple tabs open; persistence restricted to first tab.');
+        console.info('Firestore offline cache is limited because another tab is using it.');
       } else if (err.code === 'unimplemented') {
-        console.warn('Firestore persistence is not supported by this browser environment.');
+        console.info('Firestore offline cache is not supported by this browser.');
       } else {
         console.warn('Firestore persistence error:', err);
       }

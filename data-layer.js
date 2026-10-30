@@ -480,14 +480,18 @@
     const expensesColRef = userDocRef.collection('expenses');
 
     // Fix ids once so the cloud copy and the in-memory copy agree.
-    const expenses = legacy.expenses.map(exp => ({
-      id: exp.id || ('exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000000)),
-      amount: Number(exp.amount) || 0,
-      category: normalizeCategoryKey(exp.category),
-      date: exp.date || localDateString(),
-      note: exp.note || '',
-      createdAt: exp.createdAt || Date.now(),
-    }));
+    // Only rows the security rules would accept are copied: a positive amount within the limit,
+    // a real YYYY-MM-DD date, and text within the length limits.
+    const expenses = legacy.expenses
+      .map(exp => ({
+        id: String(exp.id || ('exp-' + Date.now() + '-' + Math.floor(Math.random() * 1000000))),
+        amount: BudgetCalc.roundMoney(exp.amount),
+        category: String(normalizeCategoryKey(exp.category)).slice(0, 64),
+        date: /^\d{4}-\d{2}-\d{2}$/.test(String(exp.date || '')) ? String(exp.date) : localDateString(),
+        note: String(exp.note || '').slice(0, 200),
+        createdAt: Number(exp.createdAt) || Date.now(),
+      }))
+      .filter(exp => exp.amount > 0 && exp.amount <= MAX_EXPENSE_AMOUNT);
     const budget = mergeBudget(legacy.budget || _budget || DEFAULT_BUDGET);
     const settings = { ...DEFAULT_SETTINGS, ...(legacy.settings || _settings || {}) };
     const customCategories = { ..._customCategories, ...legacy.customCategories };

@@ -7,14 +7,15 @@ module.exports = defineConfig({
   retries: 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: 'http://127.0.0.1:4173',
     channel: 'chrome',
     viewport: { width: 1280, height: 900 },
   },
   webServer: {
-    command: 'npx serve ../public -l 4173 --no-clipboard',
-    url: 'http://localhost:4173',
+    command: 'node helpers/static-server.js 4173',
+    url: 'http://127.0.0.1:4173',
     reuseExistingServer: true,
     timeout: 60000,
   },
 });
+

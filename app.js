@@ -443,7 +443,7 @@
 
     if (dashProgressSubtitle) {
       if (!hasBudget) {
-        dashProgressSubtitle.innerHTML = `<span class="text-on-surface-variant">Tap <button class="text-primary font-bold underline" onclick="window.ExpenseTrackApp.openBudgetModal()">Set Budget</button> to configure your monthly budget.</span>`;
+        dashProgressSubtitle.innerHTML = `<span class="text-on-surface-variant">Tap <button class="text-primary font-bold underline" data-click="openBudgetModal">Set Budget</button> to configure your monthly budget.</span>`;
       } else if (isOverBudget) {
         dashProgressSubtitle.innerHTML = `<span class="text-error font-bold flex items-center gap-1"><span class="material-symbols-outlined text-sm">warning</span> Monthly limit exceeded by ₹${formatINR(Math.abs(remaining))}</span>`;
       } else {
@@ -2180,6 +2180,28 @@
   // EVENT LISTENERS & INITIALIZATION
   // ==========================================
   function initEventListeners() {
+    // Buttons in the page markup (no inline handlers, so a strict Content-Security-Policy works)
+    const CLICK_ACTIONS = {
+      navigateTo: (arg) => navigateTo(arg),
+      openBudgetModal: () => openBudgetModal(),
+      openAddExpenseModal: () => openAddExpenseModal(),
+      dismissBanner: () => document.getElementById('budget-warning-banner')?.classList.add('hidden'),
+    };
+    document.addEventListener('click', e => {
+      const el = e.target.closest('[data-click]');
+      const action = el && CLICK_ACTIONS[el.getAttribute('data-click')];
+      if (action) action(el.getAttribute('data-arg'));
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const el = e.target.closest && e.target.closest('[data-click][role="button"]');
+      const action = el && CLICK_ACTIONS[el.getAttribute('data-click')];
+      if (action) {
+        e.preventDefault();
+        action(el.getAttribute('data-arg'));
+      }
+    });
+
     // Row actions in rendered lists (no inline handlers: ids come from stored data)
     document.addEventListener('click', e => {
       const actionBtn = e.target.closest('[data-action]');
@@ -2418,6 +2440,14 @@
   // ==========================================
   // AUTH GUARD & USER PROFILE SYNC
   // ==========================================
+  // An initial on the brand green, drawn locally so no name is sent to an avatar service.
+  function avatarDataUri(name) {
+    const initial = (String(name || 'S').trim().match(/[\p{L}\p{N}]/u) || ['S'])[0].toUpperCase();
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#006948"/>` +
+      `<text x="32" y="43" font-size="30" font-family="sans-serif" font-weight="700" text-anchor="middle" fill="#fff">${escapeHtml(initial)}</text></svg>`;
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  }
+
   function applyUserProfile(profile) {
     if (!profile) return;
     const headerName = document.getElementById('header-user-name');
@@ -2429,7 +2459,7 @@
 
     const name = profile.displayName || 'Student';
     const contact = profile.email || 'Signed in via Google';
-    const photo = profile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=006948&color=ffffff&bold=true`;
+    const photo = profile.photoURL || avatarDataUri(name);
 
     if (headerName) headerName.textContent = name;
     if (headerEmail) headerEmail.textContent = contact;
