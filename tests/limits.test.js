@@ -140,7 +140,10 @@ describe('B9: analytics numbers', () => {
   test('weeklyBuckets never makes a bucket longer than seven days', () => {
     const oct = BC.weeklyBuckets(2026, 9, []);
     assert.equal(oct.length, 5);
-    assert.deepEqual(oct.map((b) => [b.start, b.end]), [[1, 7], [8, 14], [15, 21], [22, 28], [29, 31]]);
+    assert.deepEqual(oct.map((b) => [b.start, b.end]), [
+      ['2026-10-01', '2026-10-07'], ['2026-10-08', '2026-10-14'], ['2026-10-15', '2026-10-21'],
+      ['2026-10-22', '2026-10-28'], ['2026-10-29', '2026-10-31'],
+    ]);
     assert.equal(oct[4].label, '29–31 Oct');
     assert.equal(BC.weeklyBuckets(2026, 1, []).length, 4); // February 2026
   });

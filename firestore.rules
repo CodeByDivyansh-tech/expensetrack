@@ -23,10 +23,15 @@ service cloud.firestore {
            ))
         && (!('settings' in d) || (
               d.settings is map
-              && d.settings.keys().hasOnly(['notify80', 'weeklyDigest', 'roommateAlert'])
+              && d.settings.keys().hasOnly(['notify80', 'weeklyDigest', 'roommateAlert', 'theme', 'currency', 'weekStart', 'monthStartDay', 'alertWarnPct'])
               && (!('notify80' in d.settings) || d.settings.notify80 is bool)
               && (!('weeklyDigest' in d.settings) || d.settings.weeklyDigest is bool)
               && (!('roommateAlert' in d.settings) || d.settings.roommateAlert is bool)
+              && (!('theme' in d.settings) || d.settings.theme in ['system', 'light', 'dark'])
+              && (!('currency' in d.settings) || d.settings.currency in ['INR', 'USD', 'EUR', 'GBP'])
+              && (!('weekStart' in d.settings) || (d.settings.weekStart is number && d.settings.weekStart >= 0 && d.settings.weekStart <= 6))
+              && (!('monthStartDay' in d.settings) || (d.settings.monthStartDay is number && d.settings.monthStartDay >= 1 && d.settings.monthStartDay <= 28))
+              && (!('alertWarnPct' in d.settings) || (d.settings.alertWarnPct is number && d.settings.alertWarnPct >= 50 && d.settings.alertWarnPct <= 95))
            ))
         && (!('customCategories' in d) || isCapMap(d.customCategories))
         && (!('updatedAt' in d) || d.updatedAt is number)
@@ -36,7 +41,7 @@ service cloud.firestore {
     // users/{uid}/expenses/{id}
     function validExpense(expenseId) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['id', 'amount', 'category', 'date', 'note', 'createdAt', 'updatedAt', 'paymentMethod'])
+      return d.keys().hasOnly(['id', 'amount', 'category', 'date', 'note', 'createdAt', 'updatedAt', 'paymentMethod', 'recurringId'])
         && d.keys().hasAll(['amount', 'category', 'date', 'createdAt'])
         && d.amount is number && d.amount > 0 && d.amount <= 1000000
         && d.category is string && d.category.size() > 0 && d.category.size() <= 64
@@ -45,7 +50,42 @@ service cloud.firestore {
         && d.createdAt is number
         && (!('updatedAt' in d) || d.updatedAt is number)
         && (!('id' in d) || d.id == expenseId)
+        && (!('paymentMethod' in d) || (d.paymentMethod is string && d.paymentMethod.size() <= 20))
+        && (!('recurringId' in d) || (d.recurringId is string && d.recurringId.size() <= 64));
+    }
+
+    // users/{uid}/recurring/{id}: a repeating expense (monthly or weekly)
+    function validRecurring(ruleId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id', 'name', 'amount', 'category', 'paymentMethod', 'frequency', 'startDate', 'endDate', 'active', 'lastGenerated', 'createdAt', 'updatedAt'])
+        && d.keys().hasAll(['name', 'amount', 'category', 'frequency', 'startDate', 'active', 'createdAt'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 100
+        && d.amount is number && d.amount > 0 && d.amount <= 1000000
+        && d.category is string && d.category.size() > 0 && d.category.size() <= 64
+        && d.frequency in ['monthly', 'weekly']
+        && d.startDate is string && d.startDate.matches('^\\d{4}-\\d{2}-\\d{2}$') && d.startDate >= '2000-01-01'
+        && (!('endDate' in d) || (d.endDate is string && d.endDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && (!('lastGenerated' in d) || (d.lastGenerated is string && d.lastGenerated.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && d.active is bool
+        && d.createdAt is number
+        && (!('updatedAt' in d) || d.updatedAt is number)
+        && (!('id' in d) || d.id == ruleId)
         && (!('paymentMethod' in d) || (d.paymentMethod is string && d.paymentMethod.size() <= 20));
+    }
+
+    // users/{uid}/goals/{id}: a savings goal with its contributions
+    function validGoal(goalId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id', 'name', 'target', 'saved', 'deadline', 'contributions', 'createdAt', 'updatedAt'])
+        && d.keys().hasAll(['name', 'target', 'saved', 'createdAt'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 60
+        && d.target is number && d.target > 0 && d.target <= 100000000
+        && d.saved is number && d.saved >= 0 && d.saved <= 100000000
+        && (!('deadline' in d) || (d.deadline is string && d.deadline.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && (!('contributions' in d) || (d.contributions is list && d.contributions.size() <= 200))
+        && d.createdAt is number
+        && (!('updatedAt' in d) || d.updatedAt is number)
+        && (!('id' in d) || d.id == goalId);
     }
 
     match /users/{uid} {
@@ -55,6 +95,16 @@ service cloud.firestore {
       match /expenses/{expenseId} {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid) && validExpense(expenseId);
+      }
+
+      match /recurring/{ruleId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validRecurring(ruleId);
+      }
+
+      match /goals/{goalId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validGoal(goalId);
       }
     }
 

@@ -157,6 +157,96 @@ describe('user document', () => {
   });
 });
 
+describe('preferences in settings', () => {
+  const put = (settings) => userRef(me()).set({ settings, updatedAt: 1 });
+
+  test('accepts the full set of preferences', async () => {
+    await assertSucceeds(put({ notify80: true, weeklyDigest: false, roommateAlert: false, theme: 'dark', currency: 'USD', weekStart: 0, monthStartDay: 15, alertWarnPct: 70 }));
+  });
+
+  for (const [name, settings] of Object.entries({
+    'an unknown theme': { theme: 'neon' },
+    'an unknown currency': { currency: 'XYZ' },
+    'a week start of 7': { weekStart: 7 },
+    'a month start day of 0': { monthStartDay: 0 },
+    'a month start day of 29': { monthStartDay: 29 },
+    'a warning level of 10%': { alertWarnPct: 10 },
+    'a warning level of 99%': { alertWarnPct: 99 },
+    'a text warning level': { alertWarnPct: '80' },
+  })) {
+    test(`rejects ${name}`, async () => {
+      await assertFails(put(settings));
+    });
+  }
+});
+
+describe('recurring expenses', () => {
+  const ref = (db, id = 'r1') => db.collection('users').doc(ME).collection('recurring').doc(id);
+  const rule = (over = {}) => ({
+    id: 'r1', name: 'Rent', amount: 5000, category: 'custom_rent', frequency: 'monthly', startDate: '2026-01-05', active: true, createdAt: 1, ...over,
+  });
+
+  test('the owner can create, update and delete one; others cannot touch it', async () => {
+    await assertSucceeds(ref(me()).set(rule()));
+    await assertSucceeds(ref(me()).set({ lastGenerated: '2026-10-05', updatedAt: 2 }, { merge: true }));
+    await assertFails(ref(other()).get());
+    await assertFails(ref(other()).set(rule()));
+    await assertFails(ref(anon()).get());
+    await assertSucceeds(ref(me()).delete());
+  });
+
+  for (const [name, make] of Object.entries({
+    'an unknown frequency': () => rule({ frequency: 'daily' }),
+    'a zero amount': () => rule({ amount: 0 }),
+    'an amount over the limit': () => rule({ amount: 1000001 }),
+    'a missing name': () => { const r = rule(); delete r.name; return r; },
+    'a name over 100 characters': () => rule({ name: 'n'.repeat(101) }),
+    'a bad start date': () => rule({ startDate: '5/1/2026' }),
+    'a start date before 2000': () => rule({ startDate: '1999-01-01' }),
+    'a text "active" flag': () => rule({ active: 'yes' }),
+    'an extra field': () => rule({ admin: true }),
+    'an id that is not the document id': () => rule({ id: 'other' }),
+  })) {
+    test(`rejects ${name}`, async () => {
+      await assertFails(ref(me()).set(make()));
+    });
+  }
+
+  test('an expense may carry the id of the rule that created it', async () => {
+    await assertSucceeds(expRef(me(), 'rec-r1-2026-10-05').set(expense({ id: 'rec-r1-2026-10-05', recurringId: 'r1' })));
+    await assertFails(expRef(me(), 'x').set(expense({ id: 'x', recurringId: 'r'.repeat(65) })));
+  });
+});
+
+describe('savings goals', () => {
+  const ref = (db, id = 'g1') => db.collection('users').doc(ME).collection('goals').doc(id);
+  const goal = (over = {}) => ({ id: 'g1', name: 'Laptop', target: 60000, saved: 0, createdAt: 1, ...over });
+
+  test('the owner can create and update one; others cannot', async () => {
+    await assertSucceeds(ref(me()).set(goal()));
+    await assertSucceeds(ref(me()).set({ saved: 2500, contributions: [{ id: 'c1', date: '2026-10-30', amount: 2500 }], deadline: '2027-06-01', updatedAt: 2 }, { merge: true }));
+    await assertFails(ref(other()).get());
+    await assertFails(ref(other()).set(goal()));
+    await assertSucceeds(ref(me()).delete());
+  });
+
+  for (const [name, make] of Object.entries({
+    'a zero target': () => goal({ target: 0 }),
+    'a negative saved amount': () => goal({ saved: -1 }),
+    'a text target': () => goal({ target: '100' }),
+    'a missing name': () => { const g = goal(); delete g.name; return g; },
+    'a name over 60 characters': () => goal({ name: 'n'.repeat(61) }),
+    'a bad deadline': () => goal({ deadline: 'soon' }),
+    'more than 200 contributions': () => goal({ contributions: Array.from({ length: 201 }, (_, i) => ({ id: `c${i}`, amount: 1 })) }),
+    'contributions that are not a list': () => goal({ contributions: { a: 1 } }),
+    'an extra field': () => goal({ owner: 'me' }),
+  })) {
+    test(`rejects ${name}`, async () => {
+      await assertFails(ref(me()).set(make()));
+    });
+  }
+});
+
 describe('everything else is closed', () => {
   test('unknown sub-collections under the user are denied', async () => {
     await assertFails(me().collection('users').doc(ME).collection('secrets').doc('x').set({ a: 1 }));

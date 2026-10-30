@@ -56,6 +56,84 @@
 
   const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
+  // ---------- Recurring expenses ----------
+  function daysInMonthOf(y, m) {
+    return new Date(y, m + 1, 0).getDate();
+  }
+
+  function isoOf(y, m, d) {
+    return isoFromParts(y, m + 1, d);
+  }
+
+  /**
+   * Every date a rule is due on, up to and including `today` (and its end date), that has not been
+   * generated yet. A monthly rule keeps the day of its first date, using the last day of shorter
+   * months (the 31st becomes the 30th, or the 28th/29th in February). A weekly rule keeps the weekday.
+   * The result is oldest first and holds at most `limit` dates; the next run picks up the rest.
+   */
+  function occurrenceDates(rule, today, limit = 120) {
+    const end = rule.endDate && rule.endDate < today ? rule.endDate : today;
+    const out = [];
+    const afterLast = (d) => !rule.lastGenerated || d > rule.lastGenerated;
+    if (rule.frequency === 'weekly') {
+      for (let d = rule.startDate; d <= end && out.length < limit; d = addDaysISO(d, 7)) {
+        if (afterLast(d)) out.push(d);
+      }
+    } else {
+      const dom = Number(rule.startDate.slice(8, 10));
+      let y = Number(rule.startDate.slice(0, 4));
+      let m = Number(rule.startDate.slice(5, 7)) - 1;
+      for (;;) {
+        const d = isoOf(y, m, Math.min(dom, daysInMonthOf(y, m)));
+        if (d > end || out.length >= limit) break;
+        if (d >= rule.startDate && afterLast(d)) out.push(d);
+        m += 1;
+        if (m > 11) { m = 0; y += 1; }
+      }
+    }
+    return out;
+  }
+
+  /** The next due date after `today` (or the first date, if it is still ahead); null once the rule has ended. */
+  function nextOccurrence(rule, today) {
+    const horizon = addDaysISO(today, 400);
+    const upcoming = occurrenceDates({ ...rule, lastGenerated: today }, rule.endDate && rule.endDate < horizon ? rule.endDate : horizon, 1);
+    return upcoming[0] || null;
+  }
+
+  const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  function ordinal(n) {
+    const v = n % 100;
+    if (v >= 11 && v <= 13) return `${n}th`;
+    return `${n}${['th', 'st', 'nd', 'rd'][n % 10 < 4 ? n % 10 : 0]}`;
+  }
+
+  function describeRule(rule) {
+    if (rule.frequency === 'weekly') {
+      const [y, m, d] = rule.startDate.split('-').map(Number);
+      return `Every ${WEEKDAYS[new Date(y, m - 1, d).getDay()]}`;
+    }
+    const dom = Number(rule.startDate.slice(8, 10));
+    return dom > 28 ? `Every month on the ${ordinal(dom)} (the last day in shorter months)` : `Every month on the ${ordinal(dom)}`;
+  }
+
+  // ---------- Savings goals ----------
+  function goalProgress(goal, today) {
+    const target = Number(goal.target) || 0;
+    const saved = Number(goal.saved) || 0;
+    const pct = target > 0 ? Math.min(100, Math.floor((saved / target) * 100)) : 0;
+    const remaining = round2(Math.max(0, target - saved));
+    let perMonth = null;
+    if (goal.deadline && remaining > 0 && goal.deadline > today) {
+      const [ty, tm] = today.split('-').map(Number);
+      const [dy, dm] = goal.deadline.split('-').map(Number);
+      const months = Math.max(1, (dy - ty) * 12 + (dm - tm));
+      perMonth = round2(remaining / months);
+    }
+    return { pct, remaining, perMonth, done: target > 0 && saved >= target, overdue: !!goal.deadline && goal.deadline < today && saved < target };
+  }
+
   // ---------- Search, filter, sort, group ----------
   function categoryName(categories, id) {
     return (categories && categories[id] && categories[id].name) || 'Uncategorized';
@@ -346,6 +424,10 @@
     formatDate,
     dayLabel,
     monthLabel,
+    occurrenceDates,
+    nextOccurrence,
+    describeRule,
+    goalProgress,
     filterExpenses,
     sortExpenses,
     summarize,

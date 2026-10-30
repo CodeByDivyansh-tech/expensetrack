@@ -25,6 +25,8 @@
     SETTINGS: 'expensetrack_settings',
     CUSTOM_CATEGORIES: 'expensetrack_custom_categories',
     USER_SESSION: 'expensetrack_user_session',
+    RECURRING: 'expensetrack_recurring',
+    GOALS: 'expensetrack_goals',
   };
 
   const DEFAULT_CATEGORIES = {
@@ -150,10 +152,31 @@
   };
 
   const DEFAULT_SETTINGS = {
-    notify80: false,
+    notify80: false,        // show budget warnings (the name is historical: it now covers 80% and 100%)
     weeklyDigest: false,
     roommateAlert: false,
+    theme: 'system',        // 'system' | 'light' | 'dark'
+    currency: 'INR',        // display only; amounts are never converted
+    weekStart: 1,           // first day of the week, 0 = Sunday
+    monthStartDay: 1,       // the day a budget month begins (1-28)
+    alertWarnPct: 80,       // warn when a budget reaches this percentage (50-95)
   };
+
+  const THEMES = ['system', 'light', 'dark'];
+
+  /** Clamp every preference to a legal value, so a stored or typed oddity can never break the app. */
+  function normalizeSettings(raw) {
+    const s = { ...DEFAULT_SETTINGS, ...(raw || {}) };
+    s.theme = THEMES.includes(s.theme) ? s.theme : DEFAULT_SETTINGS.theme;
+    s.currency = BudgetCalc.CURRENCIES[s.currency] ? s.currency : DEFAULT_SETTINGS.currency;
+    const week = Math.floor(Number(s.weekStart));
+    s.weekStart = week >= 0 && week <= 6 ? week : DEFAULT_SETTINGS.weekStart;
+    s.monthStartDay = BudgetCalc.clampStartDay(s.monthStartDay);
+    const warn = Math.round(Number(s.alertWarnPct));
+    s.alertWarnPct = warn >= 50 && warn <= 95 ? warn : DEFAULT_SETTINGS.alertWarnPct;
+    ['notify80', 'weeklyDigest', 'roommateAlert'].forEach(k => { s[k] = !!s[k]; });
+    return s;
+  }
 
   // --- Local Time Helpers (Fix for midnight - 5:30 AM IST UTC offset) ---
   function localDateString(date = new Date()) {
@@ -276,6 +299,10 @@
   // --- In-Memory State for Active User ---
   let _currentUid = null;
   let _expenses = [];
+  let _recurring = [];
+  let _goals = [];
+  let _unsubscribeRecurring = null;
+  let _unsubscribeGoals = null;
   let _budget = null;
   let _settings = null;
   let _customCategories = null;
@@ -583,6 +610,8 @@
     if (!db) {
       // Offline or non-Firebase environment: fallback to localStorage
       _expenses = readJSON(STORAGE_KEYS.EXPENSES, []);
+      _recurring = readJSON(STORAGE_KEYS.RECURRING, []);
+      _goals = readJSON(STORAGE_KEYS.GOALS, []);
       _budget = readJSON(STORAGE_KEYS.BUDGET, DEFAULT_BUDGET);
       _settings = readJSON(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
       _customCategories = readJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, {});
@@ -592,10 +621,14 @@
     const userDocRef = db.collection('users').doc(uid);
     const expensesColRef = userDocRef.collection('expenses');
 
+    const recurringColRef = userDocRef.collection('recurring');
+    const goalsColRef = userDocRef.collection('goals');
     let userDocSnap = null;
     let expensesSnap = null;
+    let recurringSnap = null;
+    let goalsSnap = null;
     try {
-      [userDocSnap, expensesSnap] = await Promise.all([userDocRef.get(), expensesColRef.get()]);
+      [userDocSnap, expensesSnap, recurringSnap, goalsSnap] = await Promise.all([userDocRef.get(), expensesColRef.get(), recurringColRef.get(), goalsColRef.get()]);
       _loadError = null;
     } catch (err) {
       console.warn('ExpenseTrack: first read failed, continuing with live listeners:', err);
@@ -626,6 +659,10 @@
       _expenses = [];
       expensesSnap.forEach(doc => _expenses.push(expenseFromDoc(doc)));
       sortExpenses(_expenses);
+      _recurring = [];
+      recurringSnap.forEach(doc => _recurring.push({ ...doc.data(), id: doc.id }));
+      _goals = [];
+      goalsSnap.forEach(doc => _goals.push({ ...doc.data(), id: doc.id }));
     } else {
       if (!_budget) _budget = { ...DEFAULT_BUDGET };
       if (!_settings) _settings = { ...DEFAULT_SETTINGS };
@@ -635,6 +672,8 @@
     // Detach any previous listeners
     if (_unsubscribeUserDoc) { _unsubscribeUserDoc(); _unsubscribeUserDoc = null; }
     if (_unsubscribeExpenses) { _unsubscribeExpenses(); _unsubscribeExpenses = null; }
+    if (_unsubscribeRecurring) { _unsubscribeRecurring(); _unsubscribeRecurring = null; }
+    if (_unsubscribeGoals) { _unsubscribeGoals(); _unsubscribeGoals = null; }
 
     _unsubscribeUserDoc = userDocRef.onSnapshot(snap => {
       if (snap && snap.exists) {
@@ -648,6 +687,24 @@
     }, err => {
       console.warn('ExpenseTrack: User doc snapshot listener notice:', err);
     });
+
+    _unsubscribeRecurring = recurringColRef.onSnapshot(snap => {
+      if (snap) {
+        const list = [];
+        snap.forEach(doc => list.push({ ...doc.data(), id: doc.id }));
+        _recurring = list;
+        notifyChange();
+      }
+    }, err => console.warn('ExpenseTrack: Recurring snapshot listener notice:', err));
+
+    _unsubscribeGoals = goalsColRef.onSnapshot(snap => {
+      if (snap) {
+        const list = [];
+        snap.forEach(doc => list.push({ ...doc.data(), id: doc.id }));
+        _goals = list;
+        notifyChange();
+      }
+    }, err => console.warn('ExpenseTrack: Goals snapshot listener notice:', err));
 
     _unsubscribeExpenses = expensesColRef.onSnapshot(snap => {
       if (snap) {
@@ -673,9 +730,13 @@
       _unsubscribeExpenses();
       _unsubscribeExpenses = null;
     }
+    if (_unsubscribeRecurring) { _unsubscribeRecurring(); _unsubscribeRecurring = null; }
+    if (_unsubscribeGoals) { _unsubscribeGoals(); _unsubscribeGoals = null; }
     _currentUid = null;
     _pendingLegacy = null;
     _expenses = [];
+    _recurring = [];
+    _goals = [];
     _budget = null;
     _settings = null;
     _customCategories = null;
@@ -686,6 +747,8 @@
       storage.removeItem(STORAGE_KEYS.BUDGET);
       storage.removeItem(STORAGE_KEYS.SETTINGS);
       storage.removeItem(STORAGE_KEYS.CUSTOM_CATEGORIES);
+      storage.removeItem(STORAGE_KEYS.RECURRING);
+      storage.removeItem(STORAGE_KEYS.GOALS);
       storage.removeItem(STORAGE_KEYS.USER_SESSION);
     } catch (e) {}
   }
@@ -1089,6 +1152,286 @@
     return docs;
   }
 
+  // ==========================================
+  // Recurring expenses, savings goals, account deletion
+  // ==========================================
+  function toolsLib() {
+    return (typeof window !== 'undefined' && window.ExpenseTools) || require('./expense-tools.js');
+  }
+
+  const STORAGE_FULL_MESSAGE = 'Could not save to this browser\'s storage. It may be full or blocked.';
+
+  /** Write (or delete, when data is null) one document of a user sub-collection. */
+  async function writeSubdoc(collection, localKey, id, data, nextList) {
+    const db = getDb();
+    if (db && _currentUid) {
+      const ref = db.collection('users').doc(_currentUid).collection(collection).doc(id);
+      return commitWrite(data === null ? ref.delete() : ref.set(data));
+    }
+    if (!writeJSON(localKey, nextList)) throw new Error(STORAGE_FULL_MESSAGE);
+    return { queued: false };
+  }
+
+  function validDateString(date) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || ''));
+    if (!m) return false;
+    const d = new Date(+m[1], +m[2] - 1, +m[3]);
+    return d.getFullYear() === +m[1] && d.getMonth() === +m[2] - 1 && d.getDate() === +m[3];
+  }
+
+  // --- Recurring expenses ---
+  function getRecurring() {
+    return _recurring.map(r => ({ ...r })).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
+
+  function validateRecurringInput(input, today = localDateString()) {
+    const name = String(input.name || '').trim();
+    if (!name) return { valid: false, error: 'Give it a name, like "Hostel rent".' };
+    if (name.length > 100) return { valid: false, error: 'The name must be 100 characters or fewer.' };
+    const amountCheck = validateExpenseInput({ amount: input.amount, paymentMethod: input.paymentMethod }, today);
+    if (!amountCheck.valid) return { valid: false, error: amountCheck.error };
+    const category = normalizeCategoryKey(input.category);
+    if (!getActiveCategories()[category]) return { valid: false, error: 'Please choose a category.' };
+    if (!['monthly', 'weekly'].includes(input.frequency)) return { valid: false, error: 'Choose how often it repeats.' };
+    if (!validDateString(input.startDate)) return { valid: false, error: 'Please enter a valid first date.' };
+    if (input.startDate < MIN_EXPENSE_DATE) return { valid: false, error: "The first date can't be before 2000." };
+    const limit = BudgetCalc.addDays(today, 366);
+    if (input.startDate > limit) return { valid: false, error: 'The first date can be at most a year ahead.' };
+    if (input.endDate) {
+      if (!validDateString(input.endDate)) return { valid: false, error: 'Please enter a valid last date.' };
+      if (input.endDate < input.startDate) return { valid: false, error: 'The last date must not be before the first date.' };
+    }
+    const value = {
+      name,
+      amount: amountCheck.amount,
+      category,
+      frequency: input.frequency,
+      startDate: input.startDate,
+    };
+    if (input.paymentMethod) value.paymentMethod = input.paymentMethod;
+    if (input.endDate) value.endDate = input.endDate;
+    return { valid: true, value };
+  }
+
+  async function addRecurring(input) {
+    const check = validateRecurringInput(input);
+    if (!check.valid) throw new Error(check.error);
+    const id = 'rule_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    const doc = { id, ...check.value, active: true, createdAt: Date.now() };
+    const previous = _recurring;
+    _recurring = [...previous, doc];
+    try {
+      await writeSubdoc('recurring', STORAGE_KEYS.RECURRING, id, doc, _recurring);
+    } catch (err) {
+      _recurring = previous;
+      throw err;
+    }
+    return doc;
+  }
+
+  async function updateRecurring(id, patch) {
+    const current = _recurring.find(r => r.id === id);
+    if (!current) throw new Error('That recurring expense no longer exists.');
+    const today = localDateString();
+    const merged = { ...current, ...patch };
+    if (patch.paymentMethod === '') delete merged.paymentMethod;
+    if (patch.endDate === '' || patch.endDate === null) delete merged.endDate;
+    const check = validateRecurringInput(merged, today);
+    if (!check.valid) throw new Error(check.error);
+    const next = { ...check.value, id, active: !!merged.active, createdAt: current.createdAt, updatedAt: Date.now() };
+    if (current.lastGenerated) next.lastGenerated = current.lastGenerated;
+    // Resuming after a pause does not back-fill the paused weeks
+    if (patch.active === true && !current.active) {
+      const yesterday = BudgetCalc.addDays(today, -1);
+      if (!next.lastGenerated || next.lastGenerated < yesterday) next.lastGenerated = yesterday;
+    }
+    const previous = _recurring;
+    _recurring = previous.map(r => (r.id === id ? next : r));
+    try {
+      await writeSubdoc('recurring', STORAGE_KEYS.RECURRING, id, next, _recurring);
+    } catch (err) {
+      _recurring = previous;
+      throw err;
+    }
+    return next;
+  }
+
+  async function deleteRecurring(id) {
+    const previous = _recurring;
+    _recurring = previous.filter(r => r.id !== id);
+    try {
+      await writeSubdoc('recurring', STORAGE_KEYS.RECURRING, id, null, _recurring);
+    } catch (err) {
+      _recurring = previous;
+      throw err;
+    }
+    return true;
+  }
+
+  let _runningRecurring = false;
+
+  /**
+   * Create the expenses that have fallen due since the last run. Safe to run any number of times,
+   * on any number of devices: each occurrence has a fixed id (rec-<rule>-<date>), so the same date can
+   * only ever exist once, and an expense you already have (even one you edited) is never overwritten.
+   */
+  async function runDueRecurring(today = localDateString()) {
+    if (_runningRecurring) return { created: 0, skipped: 0 };
+    _runningRecurring = true;
+    try {
+      const Tools = toolsLib();
+      const all = getAllCategories(true);
+      const have = new Set(_expenses.map(e => e.id));
+      const newDocs = [];
+      const ruleUpdates = [];
+      let skipped = 0;
+
+      for (const rule of _recurring) {
+        if (!rule.active) continue;
+        const dates = Tools.occurrenceDates(rule, today);
+        if (dates.length === 0) continue;
+        if (!all[rule.category]) { skipped += 1; continue; } // its category is gone: leave it for the user to fix
+        dates.forEach(date => {
+          const id = `rec-${rule.id}-${date}`;
+          if (have.has(id)) return;
+          const doc = { id, amount: rule.amount, category: rule.category, date, note: rule.name, createdAt: Date.now(), recurringId: rule.id };
+          if (rule.paymentMethod) doc.paymentMethod = rule.paymentMethod;
+          newDocs.push(doc);
+        });
+        ruleUpdates.push({ ...rule, lastGenerated: dates[dates.length - 1], updatedAt: Date.now() });
+      }
+      if (ruleUpdates.length === 0) return { created: 0, skipped };
+
+      const previousExpenses = _expenses;
+      const previousRules = _recurring;
+      _expenses = sortExpenses([...newDocs, ...previousExpenses]);
+      _recurring = previousRules.map(r => ruleUpdates.find(u => u.id === r.id) || r);
+      try {
+        const db = getDb();
+        if (db && _currentUid) {
+          const user = db.collection('users').doc(_currentUid);
+          // The new expenses first, the rules last: if the run is cut short, the next run finishes the job
+          const writes = newDocs.map(d => ({ ref: user.collection('expenses').doc(d.id), data: d }));
+          ruleUpdates.forEach(r => writes.push({ ref: user.collection('recurring').doc(r.id), data: r }));
+          await commitWrite(commitInBatches(db, writes));
+        } else if (!writeJSON(STORAGE_KEYS.EXPENSES, _expenses) || !writeJSON(STORAGE_KEYS.RECURRING, _recurring)) {
+          throw new Error(STORAGE_FULL_MESSAGE);
+        }
+      } catch (err) {
+        _expenses = previousExpenses;
+        _recurring = previousRules;
+        throw err;
+      }
+      return { created: newDocs.length, skipped };
+    } finally {
+      _runningRecurring = false;
+    }
+  }
+
+  // --- Savings goals ---
+  function getGoals() {
+    return _goals.map(g => ({ ...g, contributions: [...(g.contributions || [])] })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  }
+
+  function validateGoalInput(input, today = localDateString()) {
+    const name = String(input.name || '').trim();
+    if (!name) return { valid: false, error: 'Give the goal a name.' };
+    if (name.length > 60) return { valid: false, error: 'The name must be 60 characters or fewer.' };
+    const target = Number(input.target);
+    if (!isFinite(target) || target <= 0) return { valid: false, error: 'Enter a target amount above zero.' };
+    if (target > 100000000) return { valid: false, error: 'The target can be at most 10,00,00,000.' };
+    if (input.deadline && !validDateString(input.deadline)) return { valid: false, error: 'Please enter a valid target date.' };
+    if (input.deadline && input.deadline < today) return { valid: false, error: 'The target date has to be in the future.' };
+    const value = { name, target: BudgetCalc.roundMoney(target) };
+    if (input.deadline) value.deadline = input.deadline;
+    return { valid: true, value };
+  }
+
+  async function saveGoalDoc(doc, previousList) {
+    try {
+      await writeSubdoc('goals', STORAGE_KEYS.GOALS, doc.id, doc, _goals);
+    } catch (err) {
+      _goals = previousList;
+      throw err;
+    }
+    return doc;
+  }
+
+  async function addGoal(input) {
+    const check = validateGoalInput(input);
+    if (!check.valid) throw new Error(check.error);
+    const id = 'goal_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    const doc = { id, ...check.value, saved: 0, contributions: [], createdAt: Date.now() };
+    const previous = _goals;
+    _goals = [...previous, doc];
+    return saveGoalDoc(doc, previous);
+  }
+
+  async function updateGoal(id, input) {
+    const current = _goals.find(g => g.id === id);
+    if (!current) throw new Error('That goal no longer exists.');
+    // Keeping an old, already-passed target date is fine; only a changed date must be in the future
+    const check = validateGoalInput({ ...input, deadline: input.deadline === current.deadline ? '' : input.deadline });
+    if (!check.valid) throw new Error(check.error);
+    const doc = { ...current, ...check.value, updatedAt: Date.now() };
+    if (!input.deadline) delete doc.deadline;
+    else doc.deadline = input.deadline;
+    const previous = _goals;
+    _goals = previous.map(g => (g.id === id ? doc : g));
+    return saveGoalDoc(doc, previous);
+  }
+
+  async function deleteGoal(id) {
+    const previous = _goals;
+    _goals = previous.filter(g => g.id !== id);
+    try {
+      await writeSubdoc('goals', STORAGE_KEYS.GOALS, id, null, _goals);
+    } catch (err) {
+      _goals = previous;
+      throw err;
+    }
+    return true;
+  }
+
+  /** kind: 'add' puts money in, 'withdraw' takes money out (never more than is saved). */
+  async function addContribution(goalId, { amount, kind = 'add', date, note }) {
+    const current = _goals.find(g => g.id === goalId);
+    if (!current) throw new Error('That goal no longer exists.');
+    const num = parseFloat(amount);
+    if (isNaN(num) || num <= 0) throw new Error('Enter an amount above zero.');
+    if (num > 100000000) throw new Error('That amount is too large.');
+    const when = date || localDateString();
+    if (!validDateString(when) || when > localDateString()) throw new Error('The date can not be in the future.');
+    const signed = BudgetCalc.roundMoney(kind === 'withdraw' ? -num : num);
+    const saved = BudgetCalc.roundMoney((Number(current.saved) || 0) + signed);
+    if (saved < 0) throw new Error("You can't take out more than you have saved.");
+    if (saved > 100000000) throw new Error('That would be more than the goal can hold.');
+    const entry = { id: 'c_' + Date.now() + '_' + Math.floor(Math.random() * 1000), date: when, amount: signed };
+    if (note && String(note).trim()) entry.note = String(note).trim().slice(0, 60);
+    const contributions = [...(current.contributions || []), entry].slice(-200);
+    const doc = { ...current, saved, contributions, updatedAt: Date.now() };
+    const previous = _goals;
+    _goals = previous.map(g => (g.id === goalId ? doc : g));
+    return saveGoalDoc(doc, previous);
+  }
+
+  /** Delete everything this account has stored (used before the sign-in itself is removed). */
+  async function deleteAllUserData() {
+    const db = getDb();
+    if (db && _currentUid) {
+      const user = db.collection('users').doc(_currentUid);
+      const writes = [];
+      for (const name of ['expenses', 'recurring', 'goals']) {
+        const snap = await user.collection(name).get();
+        snap.forEach(doc => writes.push({ ref: doc.ref, remove: true }));
+      }
+      writes.push({ ref: user, remove: true });
+      await commitInBatches(db, writes);
+    }
+    clearUserData();
+    return true;
+  }
+
   /** Put back an expense that was just deleted (the Undo action). It keeps its id and fields. */
   async function restoreExpense(expense) {
     const { id } = expense || {};
@@ -1187,15 +1530,15 @@
   // --- Settings CRUD Operations ---
   function getSettings() {
     if (_settings && typeof _settings === 'object') {
-      return { ...DEFAULT_SETTINGS, ..._settings };
+      return normalizeSettings(_settings);
     }
     const stored = readJSON(STORAGE_KEYS.SETTINGS, null);
-    return (stored && typeof stored === 'object') ? { ...DEFAULT_SETTINGS, ...stored } : { ...DEFAULT_SETTINGS };
+    return normalizeSettings(stored && typeof stored === 'object' ? stored : null);
   }
 
   async function saveSettings(settings) {
     const previous = _settings;
-    _settings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+    _settings = normalizeSettings(settings);
     try {
       await persistUserFields({ settings: _settings });
     } catch (err) {
@@ -1245,6 +1588,7 @@
     getDataListenerCount: () => _changeListeners.length,
     onWriteError,
     isOffline,
+    normalizeSettings,
     getSyncState,
     onSyncChange,
     getLoadError,
@@ -1269,6 +1613,21 @@
     deleteExpense,
     addExpensesBulk,
     restoreExpense,
+    // Recurring expenses
+    getRecurring,
+    validateRecurringInput,
+    addRecurring,
+    updateRecurring,
+    deleteRecurring,
+    runDueRecurring,
+    // Savings goals
+    getGoals,
+    validateGoalInput,
+    addGoal,
+    updateGoal,
+    deleteGoal,
+    addContribution,
+    deleteAllUserData,
     clearAllExpenses,
     // Budget operations
     getBudget,
