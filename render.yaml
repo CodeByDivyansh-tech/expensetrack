@@ -11,6 +11,9 @@ services:
       - type: rewrite
         source: /dashboard
         destination: /index.html
+      - type: rewrite
+        source: /portal
+        destination: /portal.html
     headers:
       - path: /*
         name: X-Frame-Options

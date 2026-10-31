@@ -317,3 +317,51 @@ body[data-loading="true"] > *:not(#auth-loading-overlay) {
   -webkit-font-smoothing: antialiased;
   font-feature-settings: 'liga' 1;
 }
+
+/* =====================================================================================
+   ANIMATED LETTERS (text-fx.js)
+   Titles rise in letter by letter when their page opens; big amounts settle in when they
+   change; the ExpenseTrack wordmark has a slow light sweep. Text content never changes.
+   ===================================================================================== */
+.fx-word { display: inline-block; white-space: nowrap; }
+.fx-ch { display: inline-block; will-change: transform, opacity, filter; }
+.fx-play .fx-ch {
+  animation: fx-letter-in 0.7s cubic-bezier(.2, .8, .2, 1) both;
+  animation-delay: calc(var(--i) * 0.028s);
+}
+@keyframes fx-letter-in {
+  0% { opacity: 0; transform: translateY(0.45em) rotateX(-70deg); filter: blur(6px); }
+  60% { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+span.fx-num-play { display: inline-block; }
+.fx-num-play {
+  animation: fx-num-in 0.65s cubic-bezier(.2, .8, .2, 1) both;
+}
+@keyframes fx-num-in {
+  0% { opacity: 0.25; transform: translateY(0.18em) scale(0.97); filter: blur(5px); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+.fx-shimmer {
+  background-image: linear-gradient(110deg,
+    rgb(var(--c-on-surface)) 0%, rgb(var(--c-on-surface)) 40%,
+    rgb(var(--c-on-surface) / 0.35) 50%,
+    rgb(var(--c-on-surface)) 60%, rgb(var(--c-on-surface)) 100%);
+  background-size: 250% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: fx-shimmer 7s ease-in-out 1.2s infinite;
+}
+@keyframes fx-shimmer {
+  0%, 70% { background-position: 100% 0; }
+  100% { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-play .fx-ch, .fx-num-play { animation: none !important; }
+  .fx-shimmer { animation: none; -webkit-text-fill-color: currentColor; background: none; }
+}
