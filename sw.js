@@ -17,7 +17,6 @@ const SHELL_FILES = [
   '/', '/login', '/index.html', '/login.html', '/404.html',
   '/app.js', '/data-layer.js', '/budget-calculator.js', '/expense-tools.js', '/firebase-config.js',
   '/login.js', '/theme-init.js', '/pwa.js', '/text-fx.js', '/dist/styles.css',
-  '/portal.html', '/portal.css', '/portal.js', '/portal-config.js', '/assets/divyansh-logo.svg',
   '/assets/logo.svg', '/favicon.svg', '/favicon.ico', '/manifest.webmanifest',
   '/assets/icons/icon-192.png', '/assets/icons/icon-512.png',
 ];
@@ -97,8 +96,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin === self.location.origin) {
     if (url.pathname === '/sw.js') return; // always check the network for a new worker
     if (request.mode === 'navigate') {
-      const fallback = url.pathname.startsWith('/login') ? ['/login', '/login.html', '/']
-        : url.pathname.startsWith('/portal') ? ['/portal.html', '/'] : ['/', '/index.html'];
+      const fallback = url.pathname.startsWith('/login') ? ['/login', '/login.html', '/'] : ['/', '/index.html'];
       event.respondWith(networkFirst(request, SHELL_CACHE, fallback));
     } else {
       event.respondWith(staleWhileRevalidate(request, SHELL_CACHE));
