@@ -1,0 +1,461 @@
+/* =====================================================================================
+   DIVYANSH: cinematic portal landing page (portal.html)
+   Plain CSS, no build step. Every scene layer is positioned in % of a 16:9 stage that
+   always covers the screen, so the door, glass, fog and reflection stay lined up at any size.
+   ===================================================================================== */
+
+:root {
+  --door-x: 50.2%;
+  --door-y: 57%;
+  --door-w: 7.2%;
+  --door-h: 21.7%;
+  --door-left: calc(var(--door-x) - var(--door-w) / 2);
+  --door-top: calc(var(--door-y) - var(--door-h) / 2);
+  --door-bottom: calc(var(--door-y) + var(--door-h) / 2);
+  --gold: #ffe699;
+  --gold-deep: #ffbf5a;
+  --mx: 0; /* mouse position, -1 to 1, set by portal.js */
+  --my: 0;
+  --hover: 0; /* 1 while the door is hovered or focused */
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body.portal-body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #04060b;
+  color: #f9fafb;
+  font-family: "Geist", "Inter", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------ brand header */
+.brand {
+  position: fixed;
+  z-index: 30;
+  top: 0;
+  left: 0;
+  height: 68px;
+  padding: 0 clamp(18px, 3vw, 36px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+  user-select: none;
+}
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+  animation: mark-in 1.4s cubic-bezier(.2, .8, .2, 1) both;
+}
+.brand-word {
+  display: inline-flex;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #f9fafb;
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.18);
+}
+/* Letters are wrapped one by one by portal.js: they rise in, then a soft light sweeps across now and then */
+.brand-word .ch {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.55em);
+  filter: blur(6px);
+  animation: letter-in 0.9s cubic-bezier(.2, .8, .2, 1) forwards, letter-glint 7s ease-in-out infinite;
+  animation-delay: calc(0.35s + var(--i) * 0.07s), calc(2.4s + var(--i) * 0.09s);
+}
+@keyframes mark-in {
+  from { opacity: 0; transform: scale(0.6) rotate(-90deg); filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes letter-in {
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes letter-glint {
+  0%, 86%, 100% { color: #f9fafb; text-shadow: 0 0 18px rgba(255, 255, 255, 0.18); }
+  90% { color: #ffffff; text-shadow: 0 0 14px rgba(255, 255, 255, 0.95), 0 0 30px rgba(255, 230, 153, 0.55); }
+}
+
+/* ------------------------------------------------------------------ stage */
+.stage {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: max(100vw, calc(100vh * 16 / 9));
+  height: max(100vh, calc(100vw * 9 / 16));
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  background: #05070e;
+}
+.scene {
+  position: absolute;
+  inset: 0;
+  transform-origin: var(--door-x) var(--door-y);
+  transition: transform 1000ms cubic-bezier(.7, 0, .3, 1), filter 1000ms ease;
+  perspective: 1400px;
+  perspective-origin: var(--door-x) var(--door-y);
+}
+.landscape, .birds {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* Gentle depth: the far scene moves a little against the mouse */
+.landscape {
+  transform: translate3d(calc(var(--mx) * -0.35%), calc(var(--my) * -0.25%), 0) scale(1.015);
+  transition: transform 1.2s cubic-bezier(.2, .8, .2, 1);
+}
+
+/* ------------------------------------------------------------------ birds */
+.birds .wing {
+  fill: none;
+  stroke: #0a0d14;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+.bird { transform-box: fill-box; }
+.wing { transform-box: view-box; transform-origin: 0 0; }
+.wing-l { animation: flap-l 0.62s ease-in-out infinite alternate; }
+.wing-r { animation: flap-r 0.62s ease-in-out infinite alternate; }
+.b2 .wing { animation-delay: -0.18s; animation-duration: 0.58s; }
+.b3 .wing { animation-delay: -0.33s; animation-duration: 0.66s; }
+.b4 .wing { animation-delay: -0.47s; animation-duration: 0.6s; }
+@keyframes flap-l { from { transform: rotate(-22deg); } to { transform: rotate(28deg) scaleY(0.6); } }
+@keyframes flap-r { from { transform: rotate(22deg); } to { transform: rotate(-28deg) scaleY(0.6); } }
+.flock { animation: fly 46s linear infinite; }
+.flock-b { animation-duration: 62s; animation-delay: -21s; }
+@keyframes fly {
+  0% { transform: translate(-160px, 0); }
+  25% { transform: translate(300px, -14px); }
+  50% { transform: translate(800px, 6px); }
+  75% { transform: translate(1300px, -10px); }
+  100% { transform: translate(1820px, 4px); }
+}
+
+/* ------------------------------------------------------------------ atmosphere */
+.sunset-glow {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 34%;
+  height: 44%;
+  background: radial-gradient(50% 50% at 50% 55%, rgba(255, 214, 160, 0.42), rgba(255, 170, 110, 0.14) 45%, transparent 75%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: glow-breathe 9s ease-in-out infinite;
+}
+@keyframes glow-breathe { 50% { opacity: 0.78; } }
+
+.fog {
+  position: absolute;
+  left: -30%;
+  width: 160%;
+  pointer-events: none;
+}
+.fog-slow {
+  top: 44%;
+  height: 30%;
+  background:
+    radial-gradient(18% 32% at 12% 55%, rgba(205, 216, 236, 0.30), transparent 70%),
+    radial-gradient(22% 30% at 36% 62%, rgba(214, 222, 238, 0.24), transparent 70%),
+    radial-gradient(16% 26% at 61% 50%, rgba(255, 232, 205, 0.20), transparent 70%),
+    radial-gradient(24% 34% at 86% 60%, rgba(205, 216, 236, 0.28), transparent 70%);
+  filter: blur(8px);
+  animation: fog-drift-slow 70s ease-in-out infinite alternate;
+}
+.fog-high {
+  top: 24%;
+  height: 20%;
+  background:
+    radial-gradient(16% 30% at 30% 60%, rgba(210, 220, 238, 0.16), transparent 70%),
+    radial-gradient(14% 26% at 66% 45%, rgba(210, 220, 238, 0.14), transparent 70%);
+  filter: blur(12px);
+  animation: fog-drift-reverse 80s ease-in-out infinite alternate;
+}
+.fog-reverse {
+  top: 56%;
+  height: 22%;
+  background:
+    radial-gradient(20% 40% at 20% 50%, rgba(220, 228, 242, 0.24), transparent 70%),
+    radial-gradient(26% 36% at 54% 58%, rgba(255, 236, 214, 0.18), transparent 70%),
+    radial-gradient(20% 40% at 82% 46%, rgba(220, 228, 242, 0.22), transparent 70%);
+  filter: blur(10px);
+  animation: fog-drift-reverse 54s ease-in-out infinite alternate;
+}
+@keyframes fog-drift-slow { from { transform: translateX(-6%); } to { transform: translateX(8%); } }
+@keyframes fog-drift-reverse { from { transform: translateX(7%); } to { transform: translateX(-7%); } }
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(2, 3, 7, 0.75), transparent 18%, transparent 78%, rgba(2, 3, 7, 0.85)),
+    linear-gradient(to right, rgba(2, 3, 7, 0.7), transparent 20%, transparent 80%, rgba(2, 3, 7, 0.7)),
+    radial-gradient(70% 70% at 50% 55%, transparent 55%, rgba(0, 0, 0, 0.45));
+  z-index: 20;
+}
+
+/* ------------------------------------------------------------------ light rays above the door */
+.portal-rays {
+  position: absolute;
+  left: calc(var(--door-x) - 9%);
+  width: 18%;
+  top: calc(var(--door-top) - 34%);
+  height: 36%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,0.6) 45%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,0.6) 45%, transparent 100%);
+  opacity: calc(0.75 + var(--hover) * 0.25);
+  filter: blur(7px);
+  transition: opacity 0.6s ease;
+}
+.portal-rays span {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 22%;
+  height: 100%;
+  transform-origin: 50% 100%;
+  background: linear-gradient(to top, rgba(255, 236, 180, 0.55), rgba(255, 214, 140, 0.12) 60%, transparent);
+  animation: ray-shimmer 6s ease-in-out infinite;
+}
+.portal-rays span:nth-child(1) { transform: translateX(-50%) rotate(-14deg); animation-delay: -1s; width: 14%; }
+.portal-rays span:nth-child(2) { transform: translateX(-50%) rotate(-6deg); animation-delay: -3s; }
+.portal-rays span:nth-child(3) { transform: translateX(-50%); width: 34%; animation-delay: -2s; }
+.portal-rays span:nth-child(4) { transform: translateX(-50%) rotate(7deg); animation-delay: -4s; }
+.portal-rays span:nth-child(5) { transform: translateX(-50%) rotate(15deg); animation-delay: -5s; width: 13%; }
+@keyframes ray-shimmer { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+/* ------------------------------------------------------------------ reflection on the lake */
+.lake-reflection {
+  position: absolute;
+  left: calc(var(--door-x) - 3.4%);
+  width: 6.8%;
+  top: calc(var(--door-bottom) + 0.2%);
+  height: 24%;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0) 0 5px, rgba(255, 255, 255, 0.0) 5px, rgba(0, 0, 0, 0.32) 6px 8px),
+    linear-gradient(to bottom, rgba(255, 240, 180, 0.65), rgba(255, 214, 140, 0.28) 45%, transparent);
+  -webkit-mask-image: radial-gradient(60% 100% at 50% 0%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(60% 100% at 50% 0%, #000 40%, transparent 100%);
+  filter: blur(1.2px) brightness(calc(1 + var(--hover) * 0.35));
+  mix-blend-mode: screen;
+  transform-origin: 50% 0;
+  animation: lake-ripple 3.6s ease-in-out infinite;
+  transition: filter 0.6s ease;
+}
+@keyframes lake-ripple {
+  0%, 100% { transform: scaleX(1) skewX(0deg); background-position: 0 0, 0 0; }
+  33% { transform: scaleX(1.12) skewX(1.5deg); background-position: 0 3px, 0 0; }
+  66% { transform: scaleX(0.94) skewX(-1.2deg); background-position: 0 6px, 0 0; }
+}
+
+/* ------------------------------------------------------------------ glass monoliths */
+.glass-row { position: absolute; inset: 0; transform-style: preserve-3d; pointer-events: none; }
+.glass {
+  position: absolute;
+  overflow: hidden;
+  border: 1px solid rgba(207, 250, 254, 0.22);
+  border-radius: 2px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02) 45%, rgba(255, 255, 255, 0.06));
+  -webkit-backdrop-filter: blur(7px) saturate(1.15);
+  backdrop-filter: blur(7px) saturate(1.15);
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  transform: translateX(-50%) rotateY(calc(var(--rot) + var(--mx) * var(--tilt))) rotateX(calc(var(--my) * -1.5deg));
+  transition: transform 1.1s cubic-bezier(.2, .8, .2, 1), box-shadow 0.6s ease;
+}
+.glass-inner { top: 38.5%; height: 30%; width: 3.9%; --tilt: 5deg; }
+.glass-outer { top: 43.5%; height: 24.6%; width: 3.3%; --tilt: 7deg; opacity: 0.92; }
+.glass-left.glass-inner { left: 42.2%; --rot: 14deg; }
+.glass-left.glass-outer { left: 36.5%; --rot: 22deg; }
+.glass-right.glass-inner { left: 58.2%; --rot: -14deg; }
+.glass-right.glass-outer { left: 63.9%; --rot: -22deg; }
+
+/* The inward edge catches the portal's warm light */
+.glass::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.40), rgba(253, 230, 138, 0.50) 50%, rgba(255, 255, 255, 0.20));
+  opacity: calc(0.35 + var(--hover) * 0.4);
+  transition: opacity 0.6s ease;
+  -webkit-mask-image: linear-gradient(var(--edge-dir), #000, transparent);
+  mask-image: linear-gradient(var(--edge-dir), #000, transparent);
+}
+.glass-left::before { right: 0; --edge-dir: to left; }
+.glass-right::before { left: 0; --edge-dir: to right; }
+/* A light sweep that refracts as the mouse moves */
+.glass-sheen {
+  position: absolute;
+  inset: -20% -60%;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.18) 48%, rgba(255, 245, 220, 0.08) 52%, transparent 60%);
+  transform: translateX(calc(var(--mx) * 22%)) translateY(calc(var(--my) * 6%));
+  transition: transform 1s cubic-bezier(.2, .8, .2, 1);
+}
+/* Faint reflection of each panel on the water */
+.glass-refl {
+  position: absolute;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(220, 235, 255, 0.10), transparent 70%);
+  border-left: 1px solid rgba(207, 250, 254, 0.08);
+  border-right: 1px solid rgba(207, 250, 254, 0.08);
+  transform: translateX(-50%) rotateY(var(--rot));
+  filter: blur(1.5px);
+}
+.glass-refl.glass-inner { top: 68.6%; height: 16%; }
+.glass-refl.glass-outer { top: 68.2%; height: 12%; }
+
+/* ------------------------------------------------------------------ the portal (a real button) */
+.portal {
+  position: absolute;
+  left: var(--door-left);
+  top: var(--door-top);
+  width: var(--door-w);
+  height: var(--door-h);
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  perspective: 900px;
+  transform-style: preserve-3d;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  z-index: 5;
+}
+.portal-light {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 45% at 50% 55%, #ffffff, rgba(255, 249, 225, 0.95) 40%, transparent 75%),
+    linear-gradient(to bottom, #fff3cf, #ffd98a 55%, #ffbf5a);
+  box-shadow:
+    0 0 18px 3px rgba(255, 220, 140, 0.65),
+    0 0 60px 16px rgba(255, 196, 100, 0.35),
+    0 0 120px 36px rgba(255, 170, 70, 0.16);
+  animation: portal-golden-idle 4.2s ease-in-out infinite;
+}
+.portal-frame {
+  position: absolute;
+  inset: -3px;
+  border: 2px solid rgba(255, 230, 153, 0.9);
+  box-shadow: 0 0 10px rgba(255, 230, 153, 0.6), inset 0 0 12px rgba(255, 230, 153, 0.5);
+  pointer-events: none;
+}
+/* The door leaf: warm frosted glass hinged on the left */
+.portal-leaf {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 35%),
+    linear-gradient(to bottom, rgba(255, 238, 190, 0.55), rgba(255, 210, 130, 0.42));
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  border-right: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 0 18px rgba(255, 255, 255, 0.45);
+  transition: transform 1000ms cubic-bezier(.65, 0, .35, 1), opacity 1000ms ease;
+}
+.portal:hover .portal-light,
+.portal:focus-visible .portal-light { animation-name: portal-golden-hover; }
+.portal:focus-visible .portal-frame { border-color: #fff7d6; box-shadow: 0 0 0 3px rgba(255, 247, 214, 0.55), 0 0 22px rgba(255, 230, 153, 0.9); }
+
+@keyframes portal-golden-idle {
+  0%, 100% {
+    opacity: 0.94;
+    box-shadow: 0 0 18px 3px rgba(255, 220, 140, 0.6), 0 0 60px 16px rgba(255, 196, 100, 0.32), 0 0 120px 36px rgba(255, 170, 70, 0.14);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 24px 5px rgba(255, 226, 150, 0.75), 0 0 76px 22px rgba(255, 200, 110, 0.42), 0 0 140px 46px rgba(255, 170, 70, 0.2);
+  }
+}
+@keyframes portal-golden-hover {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 28px 7px rgba(255, 232, 160, 0.9), 0 0 90px 28px rgba(255, 205, 115, 0.52), 0 0 150px 56px rgba(255, 175, 75, 0.26);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 34px 10px rgba(255, 240, 180, 1), 0 0 104px 34px rgba(255, 210, 120, 0.6), 0 0 160px 64px rgba(255, 180, 80, 0.3);
+  }
+}
+
+/* ------------------------------------------------------------------ embers canvas */
+.embers {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  z-index: 6;
+}
+
+/* ------------------------------------------------------------------ opening sequence */
+.portal-burst {
+  position: absolute;
+  left: var(--door-x);
+  top: var(--door-y);
+  width: 10%;
+  height: 30%;
+  transform: translate(-50%, -50%) scale(0.2);
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(closest-side, rgba(255, 255, 255, 1), rgba(255, 246, 214, 0.8) 35%, rgba(255, 214, 140, 0.25) 70%, transparent),
+    conic-gradient(from 0deg, transparent 0 8deg, rgba(255, 244, 210, 0.5) 10deg, transparent 13deg 40deg, rgba(255, 244, 210, 0.45) 43deg, transparent 47deg 85deg, rgba(255, 244, 210, 0.5) 88deg, transparent 92deg 130deg, rgba(255, 244, 210, 0.45) 134deg, transparent 138deg 175deg, rgba(255, 244, 210, 0.5) 178deg, transparent 182deg 220deg, rgba(255, 244, 210, 0.45) 224deg, transparent 228deg 265deg, rgba(255, 244, 210, 0.5) 268deg, transparent 272deg 310deg, rgba(255, 244, 210, 0.45) 314deg, transparent 318deg 360deg);
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  filter: blur(2px);
+  z-index: 7;
+  transition: transform 1100ms cubic-bezier(.5, 0, .2, 1), opacity 600ms ease;
+}
+.flash {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 55%, #ffffff, #fffaf0 45%, #fff3d6);
+  transition: opacity 650ms ease-in;
+}
+
+.is-opening .portal-leaf { transform: rotateY(-92deg); opacity: 0.7; }
+.is-opening .portal-light { animation: none; opacity: 1; box-shadow: 0 0 40px 12px rgba(255, 240, 190, 1), 0 0 160px 60px rgba(255, 220, 140, 0.7); }
+.is-opening .portal-burst { opacity: 1; transform: translate(-50%, -50%) scale(9); }
+.is-opening .scene { transform: scale(3.8); }
+.is-opening .portal-rays { opacity: 1; transform: scale(1.4); transition: transform 1000ms ease, opacity 300ms ease; }
+.is-opening .glass::before { opacity: 1; }
+.is-opening .glass, .is-opening .portal-leaf { -webkit-backdrop-filter: none; backdrop-filter: none; }
+.is-flashing .flash { opacity: 1; }
+.is-opening .portal { cursor: default; }
+
+/* ------------------------------------------------------------------ reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+  }
+  .brand-word .ch { opacity: 1; transform: none; filter: none; }
+  .flock { display: none; }
+  .landscape, .glass, .glass-sheen { transition: none; transform: translateX(-50%) rotateY(var(--rot)); }
+  .landscape { transform: none; }
+  .glass-sheen { transform: none; }
+  .scene, .portal-leaf, .portal-burst { transition-duration: 0.01ms; }
+  .is-opening .scene { transform: none; }
+  .flash { transition: opacity 300ms ease; }
+}

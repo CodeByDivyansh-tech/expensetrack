@@ -7,6 +7,18 @@
     if (dark) document.documentElement.classList.add('dark');
   } catch (e) { /* storage blocked: stay light */ }
 
+  // The front door: the DIVYANSH portal (portal.html) is shown once per browser tab, before the app.
+  // The installed app (?source=pwa) and its shortcuts (?action=...) open straight into the app.
+  try {
+    var onLoginPage = /\/login(\.html)?\/?$/.test(window.location.pathname);
+    var skipPortal = /[?&](source=pwa|action=)/.test(window.location.search);
+    if (onLoginPage) sessionStorage.setItem('et_portal_seen', '1'); // came in through sign-in: already past the front door
+    if (!onLoginPage && !skipPortal && !sessionStorage.getItem('et_portal_seen')) {
+      window.location.replace('portal.html');
+      return;
+    }
+  } catch (e) { /* storage blocked: skip the portal */ }
+
   // Not signed in (this browser has no saved session)? Go straight to the sign-in page, before any of the
   // app's scripts are fetched. The sign-in page sends you back if you are in fact still signed in.
   try {

@@ -18,6 +18,8 @@ function installStub(options) {
     Object.entries(seed).forEach(([k, v]) => localStorage.setItem(k, JSON.stringify(v)));
   }
   // A signed-in browser has a saved session; without one the app sends you to the sign-in page at once
+  // Tests open the app directly: count the DIVYANSH portal (the front door) as already passed
+  if (!options.showPortal) sessionStorage.setItem('et_portal_seen', '1');
   if (!signedOut && !sessionStorage.getItem('__signedOut')) {
     localStorage.setItem('expensetrack_user_session', JSON.stringify({ uid: 'test-uid' }));
   }

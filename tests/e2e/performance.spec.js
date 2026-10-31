@@ -40,6 +40,7 @@ test.describe('page weight and loading order', () => {
     const requested = [];
     page.on('request', (r) => requested.push(new URL(r.url()).pathname));
     await page.route('**/www.gstatic.com/**', (r) => r.abort());
+    await page.addInitScript(() => sessionStorage.setItem('et_portal_seen', '1')); // already through the portal
     await page.goto('/');
     await page.waitForURL(/\/login(\.html)?$/);
     expect(requested).not.toContain('/app.js');

@@ -20,6 +20,9 @@ Read this first. It is the project guide for Claude Code (and anyone else) worki
 |---|---|
 | `index.html` | The app shell: sidebar, views (dashboard, transactions, budget-setup, analytics, recurring, goals, profile-&-settings), modals |
 | `login.html`, `login.js` | Google sign-in page and its script (no inline scripts: the CSP forbids them) |
+| `portal.html`, `portal.css`, `portal.js`, `portal-config.js` | The **DIVYANSH portal**: the cinematic front door (alpine lake scene, golden door, glass monoliths, canvas embers). Plain HTML/CSS/JS, no build step. `portal-config.js` holds `FUTURE_SITE_URL` (where the door leads; `/` = the app). `theme-init.js` sends each new browser tab to `portal.html` once (flag `sessionStorage.et_portal_seen`); `?source=pwa` / `?action=` and the sign-in page skip it. DIVYANSH must stay the only visible text on that page. `/portal` is a clean-URL rewrite in `render.yaml` |
+| `assets/divyansh-logo.svg` | The DIVYANSH emblem (portal header and the portal page's favicon) |
+| `text-fx.js` | Animated letters: page titles (`h1`, `[data-fx-title]`) rise in letter by letter when their page opens; `[data-fx-num]` amounts settle in when they change; `.fx-shimmer` wordmark sweep (CSS). Text content and accessible names never change; off with reduced motion |
 | `app.js` | UI logic, rendering, state, modal manager, delegated events (`data-action` / `data-click`). Exposes `window.ExpenseTrackApp` |
 | `data-layer.js` | Data access layer (Firestore + localStorage fallback). UMD, also loads in Node. Exposes `window.ExpenseTrackDataLayer` |
 | `budget-calculator.js` | Pure maths: allocation, caps, alerts, budget periods, currency display, analytics totals. UMD |
@@ -119,3 +122,4 @@ wrong types, a mismatched `id`, oversized strings or maps are refused). Any new 
 10. Do not write files with PowerShell `Set-Content` / `Out-File` on Windows: they add a BOM and break ₹, × and ≤.
     Use the editor tools.
 11. Console changes (Firebase rules, authorized domains, Render settings) are the owner's; list them, do not attempt them.
+12. Browser tests that open the app directly must count the portal as passed (`fixtures.js` sets `et_portal_seen`); portal behaviour is covered in `tests/e2e/portal.spec.js`.
