@@ -247,6 +247,46 @@ describe('savings goals', () => {
   }
 });
 
+describe('money received', () => {
+  const ref = (db, id = 'i1') => db.collection('users').doc(ME).collection('income').doc(id);
+  const income = (over = {}) => ({ id: 'i1', amount: 5000, source: 'parents', date: '2026-11-01', createdAt: 1, ...over });
+
+  test('the owner can create, read, update and delete an entry; others cannot', async () => {
+    await assertSucceeds(ref(me()).set(income({ from: 'Papa', note: 'November allowance', paymentMethod: 'UPI' })));
+    await assertSucceeds(ref(me()).get());
+    await assertSucceeds(ref(me()).set({ amount: 5500.5, updatedAt: 2 }, { merge: true }));
+    await assertFails(ref(other()).get());
+    await assertFails(ref(other()).set(income()));
+    await assertFails(ref(anon()).get());
+    await assertSucceeds(ref(me()).delete());
+  });
+
+  for (const source of ['parents', 'scholarship', 'job', 'gift', 'refund', 'other']) {
+    test(`accepts the source "${source}"`, async () => {
+      await assertSucceeds(ref(me()).set(income({ source })));
+    });
+  }
+
+  for (const [name, make] of Object.entries({
+    'a zero amount': () => income({ amount: 0 }),
+    'a negative amount': () => income({ amount: -10 }),
+    'an amount over 10,00,000': () => income({ amount: 1000001 }),
+    'a text amount': () => income({ amount: '5000' }),
+    'an unknown source': () => income({ source: 'lottery' }),
+    'a missing source': () => { const x = income(); delete x.source; return x; },
+    'a bad date': () => income({ date: '01/11/2026' }),
+    'a date before 2000': () => income({ date: '1999-12-31' }),
+    'a "from" over 40 characters': () => income({ from: 'f'.repeat(41) }),
+    'a note over 200 characters': () => income({ note: 'n'.repeat(201) }),
+    'a mismatched id': () => income({ id: 'other-id' }),
+    'an extra field': () => income({ category: 'food' }),
+  })) {
+    test(`rejects ${name}`, async () => {
+      await assertFails(ref(me()).set(make()));
+    });
+  }
+});
+
 describe('everything else is closed', () => {
   test('unknown sub-collections under the user are denied', async () => {
     await assertFails(me().collection('users').doc(ME).collection('secrets').doc('x').set({ a: 1 }));

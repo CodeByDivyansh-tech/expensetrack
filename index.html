@@ -42,8 +42,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=optional" rel="stylesheet" media="print" data-async-css/>
   
   <!-- Material Symbols Outlined (Full Variable Font Range) -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance_wallet,add,add_circle,auto_stories,bar_chart,category,celebration,check_circle,chevron_left,chevron_right,close,cloud_done,cloud_off,delete,directions_bus,donut_large,download,edit,error,fitness_center,flight,home,info,insights,local_cafe,local_laundry_service,local_mall,lock,logout,manage_accounts,medical_services,menu_book,notifications,notifications_active,payments,person,phone_android,pie_chart,psychology_alt,receipt_long,repeat,restaurant,save,savings,school,search_off,security,shopping_bag,show_chart,sports_esports,subscriptions,sync,trending_up,tune,upload_file,verified,verified_user,warning&display=block"/>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance_wallet,add,add_circle,auto_stories,bar_chart,category,celebration,check_circle,chevron_left,chevron_right,close,cloud_done,cloud_off,delete,directions_bus,donut_large,download,edit,error,fitness_center,flight,home,info,insights,local_cafe,local_laundry_service,local_mall,lock,logout,manage_accounts,medical_services,menu_book,notifications,notifications_active,payments,person,phone_android,pie_chart,psychology_alt,receipt_long,repeat,restaurant,save,savings,school,search_off,security,shopping_bag,show_chart,sports_esports,subscriptions,sync,trending_up,tune,upload_file,verified,verified_user,warning&display=block" media="print" data-async-css/>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance_wallet,add,add_circle,auto_stories,bar_chart,call_received,category,celebration,check_circle,chevron_left,chevron_right,close,cloud_done,cloud_off,delete,directions_bus,donut_large,download,edit,error,family_restroom,fitness_center,flight,home,info,insights,local_cafe,local_laundry_service,local_mall,lock,logout,manage_accounts,medical_services,menu_book,notifications,notifications_active,payments,person,phone_android,pie_chart,psychology_alt,receipt_long,redeem,repeat,restaurant,save,savings,school,search_off,security,shopping_bag,show_chart,sports_esports,subscriptions,sync,trending_up,tune,upload_file,verified,verified_user,warning,work&display=block"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance_wallet,add,add_circle,auto_stories,bar_chart,call_received,category,celebration,check_circle,chevron_left,chevron_right,close,cloud_done,cloud_off,delete,directions_bus,donut_large,download,edit,error,family_restroom,fitness_center,flight,home,info,insights,local_cafe,local_laundry_service,local_mall,lock,logout,manage_accounts,medical_services,menu_book,notifications,notifications_active,payments,person,phone_android,pie_chart,psychology_alt,receipt_long,redeem,repeat,restaurant,save,savings,school,search_off,security,shopping_bag,show_chart,sports_esports,subscriptions,sync,trending_up,tune,upload_file,verified,verified_user,warning,work&display=block" media="print" data-async-css/>
 
   <!-- Compiled Tailwind CSS -->
   <link rel="stylesheet" href="dist/styles.css"/>
@@ -106,6 +106,10 @@
         <a class="flex items-center gap-space-md px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="transactions" href="#">
           <span class="material-symbols-outlined text-2xl">receipt_long</span>
           <span class="font-label-md text-label-md">Transactions</span>
+        </a>
+        <a class="flex items-center gap-space-md px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="income" href="#">
+          <span class="material-symbols-outlined text-2xl">call_received</span>
+          <span class="font-label-md text-label-md">Money received</span>
         </a>
         <a class="flex items-center gap-space-md px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="analytics" href="#">
           <span class="material-symbols-outlined text-2xl">pie_chart</span>
@@ -311,6 +315,38 @@
               </button>
             </div>
           </div>
+        </div>
+
+        <!-- Money in this month: received vs spent -->
+        <div id="dash-income-card" class="mb-space-lg bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-space-md">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+            <div class="flex items-center gap-space-sm">
+              <div class="w-10 h-10 rounded-2xl bg-surface-container flex items-center justify-center text-on-surface"><span class="material-symbols-outlined text-xl">call_received</span></div>
+              <div class="flex flex-col">
+                <h2 class="font-title-md text-title-md text-on-surface font-bold">Money in this month</h2>
+                <span id="dash-income-period" class="font-body-sm text-body-sm text-on-surface-variant">Allowance, scholarship, pay and gifts</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-space-sm">
+              <button type="button" data-click="navigateTo" data-arg="income" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">View all</button>
+              <button type="button" id="dash-income-add" data-click="openIncomeModal" class="flex items-center gap-1 px-space-md py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm"><span class="material-symbols-outlined text-lg">add_circle</span> Money received</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-space-sm">
+            <div class="flex flex-col gap-0.5 rounded-2xl bg-surface-container-low p-space-md min-w-0">
+              <span class="font-label-sm text-label-sm text-on-surface-variant">Received</span>
+              <span id="dash-income-received" data-fx-num class="font-title-md text-title-md font-bold text-on-surface tabular-nums truncate"><span data-cur>₹</span>0</span>
+            </div>
+            <div class="flex flex-col gap-0.5 rounded-2xl bg-surface-container-low p-space-md min-w-0">
+              <span class="font-label-sm text-label-sm text-on-surface-variant">Spent</span>
+              <span id="dash-income-spent" data-fx-num class="font-title-md text-title-md font-bold text-on-surface tabular-nums truncate"><span data-cur>₹</span>0</span>
+            </div>
+            <div class="flex flex-col gap-0.5 rounded-2xl bg-surface-container-low p-space-md min-w-0">
+              <span id="dash-income-balance-label" class="font-label-sm text-label-sm text-on-surface-variant">Left</span>
+              <span id="dash-income-balance" data-fx-num class="font-title-md text-title-md font-bold text-on-surface tabular-nums truncate"><span data-cur>₹</span>0</span>
+            </div>
+          </div>
+          <p id="dash-income-note" class="font-body-sm text-body-sm text-on-surface-variant">Log the money you receive to see how much is left after spending.</p>
         </div>
 
         <!-- Category Quick Overview Grid -->
@@ -1133,6 +1169,42 @@
       <!-- =================================================================== -->
       <!-- VIEW: SAVINGS GOALS                                                 -->
       <!-- =================================================================== -->
+      <section id="view-income" class="app-view hidden flex flex-col w-full">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-lg">
+          <div class="flex flex-col">
+            <div class="flex items-center gap-space-xs text-on-surface-variant mb-1"><span class="material-symbols-outlined text-sm text-primary">call_received</span><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Money in</span></div>
+            <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Money received</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Allowance from parents, scholarship, part-time pay, gifts and refunds. Log it to see what is left after spending.</p>
+          </div>
+          <button type="button" id="income-add" class="flex items-center gap-space-xs px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all"><span class="material-symbols-outlined text-lg">add_circle</span> Add money received</button>
+        </div>
+        <p id="income-sync-error" role="alert" class="hidden mb-space-md p-3 rounded-2xl bg-error-container text-on-error-container font-label-md text-label-md"></p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-space-md mb-space-md">
+          <div class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant">Received <span class="income-period-label"></span></span>
+            <span id="income-total-received" data-fx-num class="font-headline-sm text-headline-sm font-bold text-on-surface tabular-nums"><span data-cur>₹</span>0</span>
+          </div>
+          <div class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant">Spent <span class="income-period-label"></span></span>
+            <span id="income-total-spent" data-fx-num class="font-headline-sm text-headline-sm font-bold text-on-surface tabular-nums"><span data-cur>₹</span>0</span>
+          </div>
+          <div class="bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col gap-1">
+            <span id="income-balance-label" class="font-label-sm text-label-sm text-on-surface-variant">Left after spending</span>
+            <span id="income-total-balance" data-fx-num class="font-headline-sm text-headline-sm font-bold text-on-surface tabular-nums"><span data-cur>₹</span>0</span>
+          </div>
+        </div>
+        <div id="income-sources" class="hidden bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 mb-space-md">
+          <h2 class="font-title-md text-title-md text-on-surface font-bold mb-space-sm">Where it came from this month</h2>
+          <ul id="income-source-list" class="flex flex-col gap-space-sm"></ul>
+        </div>
+        <div id="income-empty" class="hidden flex flex-col items-center justify-center py-12 px-4 text-center bg-surface-container-lowest rounded-3xl border border-slate-100">
+          <div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-space-sm"><span class="material-symbols-outlined text-3xl">call_received</span></div>
+          <h2 class="font-title-md text-title-md text-on-surface font-bold">Nothing received yet</h2>
+          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm mt-1">When your parents send your allowance, or you get a scholarship, pay or a gift, add it here.</p>
+        </div>
+        <div id="income-list" class="flex flex-col gap-space-lg"></div>
+      </section>
+
       <section id="view-goals" class="app-view hidden flex flex-col w-full">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-lg">
           <div class="flex flex-col">
@@ -1721,6 +1793,44 @@
         </div>
         <p id="rec-preview" class="font-body-sm text-body-sm text-on-surface-variant"></p>
         <div class="flex items-center justify-end gap-space-sm"><button type="button" id="rec-cancel" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Cancel</button><button type="submit" id="rec-save" class="px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm disabled:opacity-50">Save</button></div>
+      </form>
+    </div>
+  </div>
+  <div id="income-modal" role="dialog" aria-modal="true" aria-labelledby="income-modal-title" aria-hidden="true" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-on-surface/40 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-surface-container-lowest rounded-3xl p-space-lg max-w-lg w-full shadow-2xl flex flex-col gap-space-md max-h-[92vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-space-sm">
+        <div class="flex items-center gap-space-sm">
+          <div class="w-10 h-10 rounded-2xl bg-surface-container flex items-center justify-center text-on-surface"><span class="material-symbols-outlined text-2xl">call_received</span></div>
+          <div>
+            <h3 id="income-modal-title" class="font-title-md text-title-md text-on-surface font-bold">Money received</h3>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">Allowance, scholarship, pay, gift or refund</p>
+          </div>
+        </div>
+        <button type="button" id="income-modal-close" aria-label="Close dialog" class="w-11 h-11 shrink-0 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center"><span class="material-symbols-outlined text-lg">close</span></button>
+      </div>
+      <p id="income-modal-error" role="alert" class="hidden p-3 rounded-2xl bg-error-container text-on-error-container font-label-md text-label-md"></p>
+      <form id="income-form" novalidate class="flex flex-col gap-space-md">
+        <input type="hidden" id="income-id" value=""/>
+        <input type="hidden" id="income-source" value="parents"/>
+        <input type="hidden" id="income-payment" value=""/>
+        <div class="flex flex-col gap-1">
+          <label for="income-amount" class="font-label-sm text-label-sm text-on-surface-variant">Amount received (<span data-cur>₹</span>) *</label>
+          <input id="income-amount" type="number" step="0.01" min="0.01" max="1000000" inputmode="decimal" placeholder="0" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-numeric-balance text-headline-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/>
+        </div>
+        <div class="flex flex-col gap-1">
+          <span id="income-source-label" class="font-label-sm text-label-sm text-on-surface-variant">Where did it come from? *</span>
+          <div id="income-source-chips" role="group" aria-labelledby="income-source-label" class="grid grid-cols-2 sm:grid-cols-3 gap-2"><button type="button" data-income-source="parents" class="income-source-chip flex items-center gap-2 px-3 min-h-[44px] rounded-2xl font-label-md text-label-md bg-surface-container-low text-on-surface text-left" aria-pressed="false"><span class="material-symbols-outlined text-lg">family_restroom</span><span>Parents / family</span></button><button type="button" data-income-source="scholarship" class="income-source-chip flex items-center gap-2 px-3 min-h-[44px] rounded-2xl font-label-md text-label-md bg-surface-container-low text-on-surface text-left" aria-pressed="false"><span class="material-symbols-outlined text-lg">school</span><span>Scholarship</span></button><button type="button" data-income-source="job" class="income-source-chip flex items-center gap-2 px-3 min-h-[44px] rounded-2xl font-label-md text-label-md bg-surface-container-low text-on-surface text-left" aria-pressed="false"><span class="material-symbols-outlined text-lg">work</span><span>Part-time job</span></button><button type="button" data-income-source="gift" class="income-source-chip flex items-center gap-2 px-3 min-h-[44px] rounded-2xl font-label-md text-label-md bg-surface-container-low text-on-surface text-left" aria-pressed="false"><span class="material-symbols-outlined text-lg">redeem</span><span>Gift / friend</span></button><button type="button" data-income-source="refund" class="income-source-chip flex items-center gap-2 px-3 min-h-[44px] rounded-2xl font-label-md text-label-md bg-surface-container-low text-on-surface text-left" aria-pressed="false"><span class="material-symbols-outlined text-lg">receipt_long</span><span>Refund / cashback</span></button><button type="button" data-income-source="other" class="income-source-chip flex items-center gap-2 px-3 min-h-[44px] rounded-2xl font-label-md text-label-md bg-surface-container-low text-on-surface text-left" aria-pressed="false"><span class="material-symbols-outlined text-lg">payments</span><span>Other</span></button></div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+          <div class="flex flex-col gap-1"><label for="income-from" class="font-label-sm text-label-sm text-on-surface-variant">From (optional)</label><input id="income-from" type="text" maxlength="40" placeholder="e.g. Papa, Mummy, Rahul" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+          <div class="flex flex-col gap-1"><label for="income-date" class="font-label-sm text-label-sm text-on-surface-variant">Date *</label><input id="income-date" type="date" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+        </div>
+        <div class="flex flex-col gap-1">
+          <span id="income-pay-label" class="font-label-sm text-label-sm text-on-surface-variant">Received via (optional)</span>
+          <div id="income-pay-chips" role="group" aria-labelledby="income-pay-label" class="flex flex-wrap gap-2"><button type="button" data-income-pay="UPI" class="income-pay-chip px-4 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface" aria-pressed="false">UPI</button><button type="button" data-income-pay="Cash" class="income-pay-chip px-4 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface" aria-pressed="false">Cash</button><button type="button" data-income-pay="Card" class="income-pay-chip px-4 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface" aria-pressed="false">Card</button><button type="button" data-income-pay="Wallet" class="income-pay-chip px-4 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface" aria-pressed="false">Wallet</button><button type="button" data-income-pay="Other" class="income-pay-chip px-4 min-h-[44px] rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface" aria-pressed="false">Other</button></div>
+        </div>
+        <div class="flex flex-col gap-1"><label for="income-note" class="font-label-sm text-label-sm text-on-surface-variant">Note (optional)</label><input id="income-note" type="text" maxlength="100" placeholder="e.g. November pocket money" class="w-full px-4 py-3 min-h-[44px] bg-surface-container-low rounded-2xl font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"/></div>
+        <div class="flex items-center justify-end gap-space-sm pt-space-xs"><button type="button" id="income-cancel" class="px-space-md py-2.5 min-h-[44px] rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors">Cancel</button><button type="submit" id="income-save" class="px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm disabled:opacity-50">Save</button></div>
       </form>
     </div>
   </div>

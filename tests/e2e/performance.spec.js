@@ -106,10 +106,13 @@ test.describe('the icon subset covers every icon the app can show', () => {
         ...Object.fromEntries(expenses.map((e) => [`users/test-uid/expenses/${e.id}`, doc(e)])),
         'users/test-uid/goals/g': { name: 'Laptop', target: 1000, saved: 100, contributions: [{ id: 'c1', date: iso(1), amount: 100 }], createdAt: 1 },
         'users/test-uid/recurring/r': { name: 'Rent', amount: 5, category: 'personal', frequency: 'monthly', startDate: iso(3), lastGenerated: iso(0), active: true, createdAt: 1 },
+        'users/test-uid/income/i': { id: 'i', amount: 5000, source: 'parents', date: iso(1), createdAt: 1 },
+        'users/test-uid/income/j': { id: 'j', amount: 50, source: 'job', date: iso(2), createdAt: 2 },
+        'users/test-uid/income/k': { id: 'k', amount: 50, source: 'gift', date: iso(2), createdAt: 3 },
       },
     });    await collect();
 
-    for (const view of ['transactions', 'budget-setup', 'analytics', 'goals', 'recurring', 'profile-&-settings', 'dashboard']) {
+    for (const view of ['transactions', 'income', 'budget-setup', 'analytics', 'goals', 'recurring', 'profile-&-settings', 'dashboard']) {
       await nav(page, view);
       await page.waitForTimeout(250);
       await collect();
@@ -117,6 +120,9 @@ test.describe('the icon subset covers every icon the app can show', () => {
 
     // every dialog
     await page.evaluate(() => window.ExpenseTrackApp.openAddExpenseModal());
+    await collect();
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => window.ExpenseTrackApp.openIncomeModal());
     await collect();
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.ExpenseTrackApp.openBudgetModal());

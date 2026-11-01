@@ -380,7 +380,42 @@
     return { projected: Math.round(daily.average * range.days), daysElapsed: daily.days, daysTotal: range.days };
   }
 
+  /**
+   * Money in against money out for one budget period.
+   * received: total money received (allowance, scholarship, pay, gifts...) dated inside the period
+   * spent:    total expenses inside the period
+   * balance:  received - spent (negative when more went out than came in)
+   * bySource: { sourceId: total } for the money received
+   */
+  function incomeSummary(income, expenses, year, month, startDay) {
+    const r = periodRange(year, month, startDay);
+    const inside = (x) => x && typeof x.date === 'string' && x.date >= r.start && x.date <= r.end;
+    let received = 0;
+    let count = 0;
+    const bySource = {};
+    (income || []).forEach((x) => {
+      if (!inside(x)) return;
+      const amt = Number(x.amount) || 0;
+      received += amt;
+      count += 1;
+      const key = x.source || 'other';
+      bySource[key] = (bySource[key] || 0) + amt;
+    });
+    const spent = (expenses || []).reduce((sum, e) => (inside(e) ? sum + (Number(e.amount) || 0) : sum), 0);
+    Object.keys(bySource).forEach((k) => { bySource[k] = roundMoney(bySource[k]); });
+    return {
+      received: roundMoney(received),
+      spent: roundMoney(spent),
+      balance: roundMoney(received - spent),
+      bySource,
+      count,
+      start: r.start,
+      end: r.end,
+    };
+  }
+
   return {
+    incomeSummary,
     computeAllocation,
     OVERALL_CAP_MIN,
     OVERALL_CAP_MAX,

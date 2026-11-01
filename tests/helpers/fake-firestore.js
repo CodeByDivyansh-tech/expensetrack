@@ -24,7 +24,10 @@
   function createFakeFirestore() {
     const store = new Map();
     const listeners = [];
-    const db = { _store: store, failWrites: null, failReads: null, hang: false };
+    const db = { _store: store, failWrites: null, failReads: null, hang: false, denyPaths: [] };
+    // Test hook: db.denyPaths = [/regex/] refuses reads, listens and writes there, like a security rule would
+    const denied = (path) => db.denyPaths.some((re) => re.test(path));
+    const deniedError = () => Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' });
 
     const parent = (path) => path.slice(0, path.lastIndexOf('/'));
     const notify = () => listeners.slice().forEach((l) => l.fire());
@@ -76,6 +79,7 @@
         path,
         get: () => (db.failReads ? Promise.reject(db.failReads) : Promise.resolve(docSnap(path))),
         set(data, opts) {
+          if (denied(path)) return Promise.reject(deniedError());
           const g = guardWrite();
           if (g) return g;
           applySet(path, data, opts);
@@ -83,6 +87,7 @@
           return Promise.resolve();
         },
         delete() {
+          if (denied(path)) return Promise.reject(deniedError());
           const g = guardWrite();
           if (g) return g;
           store.delete(path);
@@ -98,8 +103,11 @@
       return {
         path,
         doc: (id) => docRef(path + '/' + id),
-        get: () => (db.failReads ? Promise.reject(db.failReads) : Promise.resolve(colSnap(path))),
-        onSnapshot: (cb) => subscribe(() => colSnap(path), cb),
+        get: () => (denied(path) ? Promise.reject(deniedError()) : db.failReads ? Promise.reject(db.failReads) : Promise.resolve(colSnap(path))),
+        onSnapshot: (cb, errCb) => {
+          if (denied(path)) { Promise.resolve().then(() => errCb && errCb(deniedError())); return () => {}; }
+          return subscribe(() => colSnap(path), cb);
+        },
       };
     }
 
