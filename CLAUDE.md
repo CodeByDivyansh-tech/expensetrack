@@ -4,8 +4,8 @@ Read this first. It is the project guide for Claude Code (and anyone else) worki
 
 ## What this is
 
-- **ExpenseTrack**: a student expense tracker (Dashboard, Transactions, Analytics, Budget Setup, Savings goals,
-  Recurring, Settings & Profile).
+- **ExpenseTrack**: a student expense tracker (Dashboard, Transactions, Money received, Analytics, Budget Setup,
+  Savings goals, Recurring, Settings & Profile).
 - GitHub repo (public): https://github.com/CodeByDivyansh-tech/expensetrack
 - Branch `main` (base commit e82754f). All work happens on `fix/professional-overhaul`; the final report is in
   `docs/FINAL_REPORT.md`.
@@ -18,7 +18,7 @@ Read this first. It is the project guide for Claude Code (and anyone else) worki
 
 | Path | What |
 |---|---|
-| `index.html` | The app shell: sidebar, views (dashboard, transactions, budget-setup, analytics, recurring, goals, profile-&-settings), modals |
+| `index.html` | The app shell: sidebar, views (dashboard, transactions, income, budget-setup, analytics, recurring, goals, profile-&-settings), modals |
 | `login.html`, `login.js` | Google sign-in page and its script (no inline scripts: the CSP forbids them) |
 | `text-fx.js` | Animated letters: page titles (`h1`, `[data-fx-title]`) rise in letter by letter when their page opens; `[data-fx-num]` amounts settle in when they change; `.fx-shimmer` wordmark sweep (CSS). Text content and accessible names never change; off with reduced motion |
 | `app.js` | UI logic, rendering, state, modal manager, delegated events (`data-action` / `data-click`). Exposes `window.ExpenseTrackApp` |
@@ -48,7 +48,7 @@ npx serve public                  # serve the built site (http://localhost:3000)
 
 | Command | What | Last count |
 |---|---|---|
-| `npm test` | Unit tests (`node:test`, in-memory fake Firestore) + module-load check | 149 + 1 check |
+| `npm test` | Unit tests (`node:test`, in-memory fake Firestore) + module-load check | 165 + 1 check |
 | `npm run test:rules` | `firestore.rules` in the Firestore emulator (needs Java 11+) | 80 |
 | `npm run test:e2e` | Builds, then Playwright against `public/` in installed Chrome, Firebase stubbed | 169 |
 | `npm run test:all` | The three above | |
@@ -82,7 +82,15 @@ users/{uid}/expenses/{id}         (documents)
 users/{uid}/recurring/{id}        rule: name, amount, category, frequency ('monthly'|'weekly'), startDate,
                                   lastGenerated, active, createdAt
 users/{uid}/goals/{id}            name, target, saved, contributions[] (max 200, newest kept), createdAt
+users/{uid}/income/{id}           money received: id ("inc-<ts>-<n>"), amount, source, date, createdAt,
+                                  from? (who sent it, <= 40 chars), note?, paymentMethod?, updatedAt?
+                                  source: 'parents'|'scholarship'|'job'|'gift'|'refund'|'other' (INCOME_SOURCES)
 ```
+
+**Money received** (`income`): read separately from the other collections, so if it is refused (for example the
+published rules predate it) expenses still load; `getIncomeError()` reports the problem and the Money received page
+explains it. `BudgetCalculator.incomeSummary()` gives received, spent and what is left for a budget month (it follows
+`monthStartDay`).
 
 Recurring expenses get the fixed id `rec-<ruleId>-<YYYY-MM-DD>`, so generating twice, or on two devices, can only
 ever make one copy. Never change that id format.
@@ -96,7 +104,7 @@ Limits (enforced in the data layer and again in the rules): amount > 0 and ≤ 1
 
 ## firestore.rules
 
-Validating, deny by default. Only `users/{uid}` and its `expenses`, `recurring` and `goals` subcollections for the
+Validating, deny by default. Only `users/{uid}` and its `expenses`, `recurring`, `goals` and `income` subcollections for the
 signed-in uid are readable and writable, and only with the known fields, types and sizes above (unknown fields,
 wrong types, a mismatched `id`, oversized strings or maps are refused). Any new field must be added to the rules
 **and** to `tests/rules/firestore.rules.test.js`, and the owner must publish the rules in the Firebase console

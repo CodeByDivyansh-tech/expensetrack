@@ -88,6 +88,22 @@ service cloud.firestore {
         && (!('id' in d) || d.id == goalId);
     }
 
+    // users/{uid}/income/{id}: money received (allowance, scholarship, pay, gifts, refunds)
+    function validIncome(incomeId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id', 'amount', 'source', 'from', 'date', 'note', 'paymentMethod', 'createdAt', 'updatedAt'])
+        && d.keys().hasAll(['amount', 'source', 'date', 'createdAt'])
+        && d.amount is number && d.amount > 0 && d.amount <= 1000000
+        && d.source in ['parents', 'scholarship', 'job', 'gift', 'refund', 'other']
+        && d.date is string && d.date.matches('^\\d{4}-\\d{2}-\\d{2}$') && d.date >= '2000-01-01'
+        && (!('from' in d) || (d.from is string && d.from.size() <= 40))
+        && (!('note' in d) || (d.note is string && d.note.size() <= 200))
+        && (!('paymentMethod' in d) || (d.paymentMethod is string && d.paymentMethod.size() <= 20))
+        && d.createdAt is number
+        && (!('updatedAt' in d) || d.updatedAt is number)
+        && (!('id' in d) || d.id == incomeId);
+    }
+
     match /users/{uid} {
       allow read, delete: if isOwner(uid);
       allow create, update: if isOwner(uid) && validUserDoc();
@@ -105,6 +121,11 @@ service cloud.firestore {
       match /goals/{goalId} {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid) && validGoal(goalId);
+      }
+
+      match /income/{incomeId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validIncome(incomeId);
       }
     }
 

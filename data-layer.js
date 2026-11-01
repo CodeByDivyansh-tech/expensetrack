@@ -27,6 +27,7 @@
     USER_SESSION: 'expensetrack_user_session',
     RECURRING: 'expensetrack_recurring',
     GOALS: 'expensetrack_goals',
+    INCOME: 'expensetrack_income',
   };
 
   const DEFAULT_CATEGORIES = {
@@ -303,6 +304,9 @@
   let _goals = [];
   let _unsubscribeRecurring = null;
   let _unsubscribeGoals = null;
+  let _income = [];
+  let _unsubscribeIncome = null;
+  let _incomeError = null;
   let _budget = null;
   let _settings = null;
   let _customCategories = null;
@@ -612,6 +616,7 @@
       _expenses = readJSON(STORAGE_KEYS.EXPENSES, []);
       _recurring = readJSON(STORAGE_KEYS.RECURRING, []);
       _goals = readJSON(STORAGE_KEYS.GOALS, []);
+      _income = readJSON(STORAGE_KEYS.INCOME, []);
       _budget = readJSON(STORAGE_KEYS.BUDGET, DEFAULT_BUDGET);
       _settings = readJSON(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
       _customCategories = readJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, {});
@@ -623,10 +628,13 @@
 
     const recurringColRef = userDocRef.collection('recurring');
     const goalsColRef = userDocRef.collection('goals');
+    const incomeColRef = userDocRef.collection('income');
     let userDocSnap = null;
     let expensesSnap = null;
     let recurringSnap = null;
     let goalsSnap = null;
+    // Started now so it loads in parallel; handled on its own below
+    const incomeRead = incomeColRef.get().then(snap => ({ snap }), err => ({ err }));
     try {
       [userDocSnap, expensesSnap, recurringSnap, goalsSnap] = await Promise.all([userDocRef.get(), expensesColRef.get(), recurringColRef.get(), goalsColRef.get()]);
       _loadError = null;
@@ -663,7 +671,20 @@
       recurringSnap.forEach(doc => _recurring.push({ ...doc.data(), id: doc.id }));
       _goals = [];
       goalsSnap.forEach(doc => _goals.push({ ...doc.data(), id: doc.id }));
+    }
+    // Money received is read on its own: if it is refused (for example while older security rules are
+    // still published), the expenses and budget above still load normally.
+    _incomeError = null;
+    const incomeResult = await incomeRead;
+    if (incomeResult.snap) {
+      _income = [];
+      incomeResult.snap.forEach(doc => _income.push(incomeFromDoc(doc)));
+      sortIncome(_income);
     } else {
+      console.warn('ExpenseTrack: money received could not be read yet:', incomeResult.err);
+      if (!isOffline()) _incomeError = incomeResult.err;
+    }
+    if (!userDocSnap || !expensesSnap) {
       if (!_budget) _budget = { ...DEFAULT_BUDGET };
       if (!_settings) _settings = { ...DEFAULT_SETTINGS };
       if (!_customCategories) _customCategories = {};
@@ -674,6 +695,7 @@
     if (_unsubscribeExpenses) { _unsubscribeExpenses(); _unsubscribeExpenses = null; }
     if (_unsubscribeRecurring) { _unsubscribeRecurring(); _unsubscribeRecurring = null; }
     if (_unsubscribeGoals) { _unsubscribeGoals(); _unsubscribeGoals = null; }
+    if (_unsubscribeIncome) { _unsubscribeIncome(); _unsubscribeIncome = null; }
 
     _unsubscribeUserDoc = userDocRef.onSnapshot(snap => {
       if (snap && snap.exists) {
@@ -706,6 +728,19 @@
       }
     }, err => console.warn('ExpenseTrack: Goals snapshot listener notice:', err));
 
+    _unsubscribeIncome = incomeColRef.onSnapshot(snap => {
+      if (snap) {
+        const list = [];
+        snap.forEach(doc => list.push(incomeFromDoc(doc)));
+        _income = sortIncome(list);
+        _incomeError = null;
+        notifyChange();
+      }
+    }, err => {
+      console.warn('ExpenseTrack: Money received snapshot listener notice:', err);
+      if (!isOffline()) { _incomeError = err; notifyChange(); }
+    });
+
     _unsubscribeExpenses = expensesColRef.onSnapshot(snap => {
       if (snap) {
         const updated = [];
@@ -732,11 +767,14 @@
     }
     if (_unsubscribeRecurring) { _unsubscribeRecurring(); _unsubscribeRecurring = null; }
     if (_unsubscribeGoals) { _unsubscribeGoals(); _unsubscribeGoals = null; }
+    if (_unsubscribeIncome) { _unsubscribeIncome(); _unsubscribeIncome = null; }
     _currentUid = null;
     _pendingLegacy = null;
     _expenses = [];
     _recurring = [];
     _goals = [];
+    _income = [];
+    _incomeError = null;
     _budget = null;
     _settings = null;
     _customCategories = null;
@@ -749,6 +787,7 @@
       storage.removeItem(STORAGE_KEYS.CUSTOM_CATEGORIES);
       storage.removeItem(STORAGE_KEYS.RECURRING);
       storage.removeItem(STORAGE_KEYS.GOALS);
+      storage.removeItem(STORAGE_KEYS.INCOME);
       storage.removeItem(STORAGE_KEYS.USER_SESSION);
     } catch (e) {}
   }
@@ -1415,13 +1454,134 @@
     return saveGoalDoc(doc, previous);
   }
 
+  // --- Money received (allowance from parents, scholarship, pay, gifts...) ---
+  const INCOME_SOURCES = [
+    { id: 'parents', name: 'Parents / family', icon: 'family_restroom' },
+    { id: 'scholarship', name: 'Scholarship', icon: 'school' },
+    { id: 'job', name: 'Part-time job', icon: 'work' },
+    { id: 'gift', name: 'Gift / friend', icon: 'redeem' },
+    { id: 'refund', name: 'Refund / cashback', icon: 'receipt_long' },
+    { id: 'other', name: 'Other', icon: 'payments' },
+  ];
+  const INCOME_SOURCE_IDS = INCOME_SOURCES.map(x => x.id);
+  const MAX_INCOME_FROM_LENGTH = 40;
+
+  function incomeSource(id) {
+    return INCOME_SOURCES.find(x => x.id === id) || INCOME_SOURCES[INCOME_SOURCES.length - 1];
+  }
+
+  function incomeFromDoc(doc) {
+    const d = doc.data() || {};
+    const item = {
+      id: doc.id,
+      amount: Number(d.amount) || 0,
+      source: INCOME_SOURCE_IDS.includes(d.source) ? d.source : 'other',
+      date: typeof d.date === 'string' ? d.date : localDateString(),
+      createdAt: Number(d.createdAt) || 0,
+    };
+    if (d.from) item.from = String(d.from);
+    if (d.note) item.note = String(d.note);
+    if (d.paymentMethod) item.paymentMethod = String(d.paymentMethod);
+    if (d.updatedAt) item.updatedAt = Number(d.updatedAt) || 0;
+    return item;
+  }
+
+  function sortIncome(list) {
+    return list.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.createdAt || 0) - (a.createdAt || 0)));
+  }
+
+  function getIncome() {
+    return sortIncome(_income.map(x => ({ ...x })));
+  }
+
+  /** Set when money received could not be read or synced (for example, security rules not updated yet). */
+  function getIncomeError() {
+    return _incomeError;
+  }
+
+  function validateIncomeInput(input, today = localDateString()) {
+    const num = parseFloat(input.amount);
+    if (isNaN(num) || num <= 0) return { valid: false, error: 'Please enter an amount greater than ₹0.' };
+    if (num > MAX_EXPENSE_AMOUNT) return { valid: false, error: 'An amount can be at most ₹10,00,000.' };
+    if (!INCOME_SOURCE_IDS.includes(input.source)) return { valid: false, error: 'Please choose where the money came from.' };
+    const date = input.date || today;
+    if (!validDateString(date)) return { valid: false, error: 'Please enter a valid date.' };
+    if (date > today) return { valid: false, error: "The date can't be in the future." };
+    if (date < MIN_EXPENSE_DATE) return { valid: false, error: "The date can't be before 2000." };
+    const from = String(input.from || '').trim();
+    if (from.length > MAX_INCOME_FROM_LENGTH) return { valid: false, error: `"From" must be ${MAX_INCOME_FROM_LENGTH} characters or fewer.` };
+    const note = String(input.note || '').trim();
+    if (note.length > MAX_NOTE_LENGTH) return { valid: false, error: `The note must be ${MAX_NOTE_LENGTH} characters or fewer.` };
+    if (input.paymentMethod && !PAYMENT_METHODS.includes(input.paymentMethod)) {
+      return { valid: false, error: 'Please choose how you received it from the list.' };
+    }
+    const value = { amount: BudgetCalc.roundMoney(num), source: input.source, date };
+    if (from) value.from = from;
+    if (note) value.note = note;
+    if (input.paymentMethod) value.paymentMethod = input.paymentMethod;
+    return { valid: true, value };
+  }
+
+  async function saveIncomeDoc(doc, previousList) {
+    try {
+      await writeSubdoc('income', STORAGE_KEYS.INCOME, doc.id, doc, _income);
+    } catch (err) {
+      _income = previousList;
+      throw err;
+    }
+    return { ...doc };
+  }
+
+  async function addIncome(input) {
+    const check = validateIncomeInput(input);
+    if (!check.valid) throw new Error(check.error);
+    const id = 'inc-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
+    const doc = { id, ...check.value, createdAt: Date.now() };
+    const previous = _income;
+    _income = sortIncome([doc, ...previous]);
+    return saveIncomeDoc(doc, previous);
+  }
+
+  async function updateIncome(id, input) {
+    const current = _income.find(x => x.id === id);
+    if (!current) throw new Error('That entry no longer exists.');
+    const check = validateIncomeInput(input);
+    if (!check.valid) throw new Error(check.error);
+    // Fields left empty are removed, not kept from before
+    const doc = { id, createdAt: current.createdAt || Date.now(), ...check.value, updatedAt: Date.now() };
+    const previous = _income;
+    _income = sortIncome(previous.map(x => (x.id === id ? doc : x)));
+    return saveIncomeDoc(doc, previous);
+  }
+
+  async function deleteIncome(id) {
+    const previous = _income;
+    _income = previous.filter(x => x.id !== id);
+    try {
+      await writeSubdoc('income', STORAGE_KEYS.INCOME, id, null, _income);
+    } catch (err) {
+      _income = previous;
+      throw err;
+    }
+    return true;
+  }
+
+  /** Put back an entry that was just deleted (the Undo action). It keeps its id and fields. */
+  async function restoreIncome(item) {
+    if (!item || !item.id) throw new Error('Nothing to restore.');
+    const doc = { ...item };
+    const previous = _income;
+    _income = sortIncome([doc, ...previous.filter(x => x.id !== doc.id)]);
+    return saveIncomeDoc(doc, previous);
+  }
+
   /** Delete everything this account has stored (used before the sign-in itself is removed). */
   async function deleteAllUserData() {
     const db = getDb();
     if (db && _currentUid) {
       const user = db.collection('users').doc(_currentUid);
       const writes = [];
-      for (const name of ['expenses', 'recurring', 'goals']) {
+      for (const name of ['expenses', 'recurring', 'goals', 'income']) {
         const snap = await user.collection(name).get();
         snap.forEach(doc => writes.push({ ref: doc.ref, remove: true }));
       }
@@ -1627,6 +1787,16 @@
     updateGoal,
     deleteGoal,
     addContribution,
+    // Money received
+    INCOME_SOURCES,
+    incomeSource,
+    getIncome,
+    getIncomeError,
+    validateIncomeInput,
+    addIncome,
+    updateIncome,
+    deleteIncome,
+    restoreIncome,
     deleteAllUserData,
     clearAllExpenses,
     // Budget operations

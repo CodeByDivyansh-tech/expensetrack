@@ -56,7 +56,7 @@
       categoryDonut: null,
       monthlyBar: null,
     },
-    renderCounts: { dashboard: 0, recurring: 0, goals: 0, transactions: 0, 'budget-setup': 0, analytics: 0, 'profile-&-settings': 0 },
+    renderCounts: { dashboard: 0, income: 0, recurring: 0, goals: 0, transactions: 0, 'budget-setup': 0, analytics: 0, 'profile-&-settings': 0 },
     tx: {
       filters: { query: '', category: '', payment: '', from: '', to: '', min: '', max: '' },
       sort: 'newest',
@@ -312,7 +312,7 @@
 
   // --- Navigation & Router ---
   function navigateTo(viewName) {
-    const allowed = ['dashboard', 'transactions', 'budget-setup', 'analytics', 'profile-&-settings', 'recurring', 'goals'];
+    const allowed = ['dashboard', 'transactions', 'income', 'budget-setup', 'analytics', 'profile-&-settings', 'recurring', 'goals'];
     if (!allowed.includes(viewName)) {
       viewName = 'dashboard';
     }
@@ -504,6 +504,7 @@
       case 'transactions': renderTransactions(); break;
       case 'recurring': renderRecurring(); break;
       case 'goals': renderGoals(); break;
+      case 'income': renderIncome(); break;
       case 'budget-setup': renderBudgetSetup(); break;
       case 'analytics': renderAnalytics(); break;
       case 'profile-&-settings': renderProfile(); break;
@@ -559,6 +560,7 @@
   // VIEW 1: DASHBOARD
   // ==========================================
   function renderDashboard() {
+    renderIncomeCard();
     state.renderCounts.dashboard++;
     const totalSpent = getTotalSpending();
     const overallCap = state.budget?.overallCap || 0;
@@ -3120,6 +3122,264 @@
   }
 
   // ==========================================
+  // MONEY RECEIVED (allowance from parents, scholarship, pay, gifts, refunds)
+  // ==========================================
+  function incomeList() {
+    return DataLayer && DataLayer.getIncome ? DataLayer.getIncome() : [];
+  }
+
+  function incomeSourceOf(id) {
+    return DataLayer && DataLayer.incomeSource ? DataLayer.incomeSource(id) : { id: 'other', name: 'Other', icon: 'payments' };
+  }
+
+  // Received, spent and what is left, for the current budget month
+  function currentIncomeSummary() {
+    const p = currentPeriod();
+    return BudgetCalculator.incomeSummary(incomeList(), state.expenses, p.year, p.month, startDay());
+  }
+
+  function setMoney(id, value, { signed = false } = {}) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const sign = signed && value < 0 ? '-' : '';
+    el.textContent = `${sign}${sym()}${formatINR(Math.abs(value))}`;
+  }
+
+  function balanceText(summary) {
+    if (summary.received === 0 && summary.spent === 0) return 'Log the money you receive to see how much is left after spending.';
+    if (summary.received === 0) return `Nothing received this month yet. You have spent ${sym()}${formatINR(summary.spent)}.`;
+    if (summary.balance >= 0) {
+      const pct = Math.round((summary.spent / summary.received) * 100);
+      return `You have spent ${pct}% of what you received this month. ${sym()}${formatINR(summary.balance)} is left.`;
+    }
+    return `You have spent ${sym()}${formatINR(-summary.balance)} more than you received this month.`;
+  }
+
+  function renderIncomeCard() {
+    if (!document.getElementById('dash-income-card')) return;
+    const summary = currentIncomeSummary();
+    const p = currentPeriod();
+    const period = document.getElementById('dash-income-period');
+    if (period) period.textContent = BudgetCalculator.periodLabel(p.year, p.month, startDay());
+    setMoney('dash-income-received', summary.received);
+    setMoney('dash-income-spent', summary.spent);
+    setMoney('dash-income-balance', summary.balance, { signed: true });
+    const label = document.getElementById('dash-income-balance-label');
+    const balanceEl = document.getElementById('dash-income-balance');
+    const over = summary.balance < 0;
+    if (label) label.textContent = over ? 'Over by' : 'Left';
+    if (balanceEl) {
+      balanceEl.classList.toggle('text-error', over);
+      balanceEl.classList.toggle('text-on-surface', !over);
+      if (over) balanceEl.textContent = `${sym()}${formatINR(-summary.balance)}`;
+    }
+    const note = document.getElementById('dash-income-note');
+    if (note) note.textContent = balanceText(summary);
+  }
+
+  function renderIncome() {
+    state.renderCounts.income++;
+    const listEl = document.getElementById('income-list');
+    const empty = document.getElementById('income-empty');
+    if (!listEl) return;
+    const items = incomeList();
+    const summary = currentIncomeSummary();
+    const p = currentPeriod();
+
+    document.querySelectorAll('.income-period-label').forEach(el => {
+      el.textContent = startDay() === 1 ? 'this month' : 'this budget month';
+    });
+    setMoney('income-total-received', summary.received);
+    setMoney('income-total-spent', summary.spent);
+    const over = summary.balance < 0;
+    const balanceEl = document.getElementById('income-total-balance');
+    const balanceLabel = document.getElementById('income-balance-label');
+    if (balanceLabel) balanceLabel.textContent = over ? 'Spent more than received' : 'Left after spending';
+    if (balanceEl) {
+      balanceEl.textContent = `${sym()}${formatINR(Math.abs(summary.balance))}`;
+      balanceEl.classList.toggle('text-error', over);
+      balanceEl.classList.toggle('text-on-surface', !over);
+    }
+
+    // Problems reading or syncing (for example, security rules that do not include money received yet)
+    const syncErr = document.getElementById('income-sync-error');
+    const loadErr = DataLayer && DataLayer.getIncomeError ? DataLayer.getIncomeError() : null;
+    if (syncErr) {
+      syncErr.classList.toggle('hidden', !loadErr);
+      if (loadErr) {
+        syncErr.textContent = loadErr.code === 'permission-denied'
+          ? "Money received can't be saved yet: the app's database rules need an update. Your expenses are not affected."
+          : `Money received can't sync right now: ${errorDetail(loadErr)}`;
+      }
+    }
+
+    // Breakdown by source for this month
+    const sourcesCard = document.getElementById('income-sources');
+    const sourceList = document.getElementById('income-source-list');
+    const entries = Object.entries(summary.bySource).sort((a, b) => b[1] - a[1]);
+    if (sourcesCard && sourceList) {
+      sourcesCard.classList.toggle('hidden', entries.length === 0);
+      sourceList.innerHTML = entries.map(([id, total]) => {
+        const src = incomeSourceOf(id);
+        const pct = summary.received > 0 ? Math.round((total / summary.received) * 100) : 0;
+        return `
+          <li class="flex flex-col gap-1">
+            <div class="flex items-center justify-between gap-2">
+              <span class="flex items-center gap-2 min-w-0"><span class="material-symbols-outlined text-lg text-on-surface-variant">${escapeHtml(src.icon)}</span><span class="font-label-md text-label-md text-on-surface truncate">${escapeHtml(src.name)}</span></span>
+              <span class="font-label-md text-label-md font-bold text-on-surface tabular-nums">${sym()}${formatINR(total)} <span class="font-normal text-on-surface-variant">(${pct}%)</span></span>
+            </div>
+            <div class="w-full bg-surface-container h-1.5 rounded-full overflow-hidden"><div class="bg-primary h-full rounded-full" style="width:${Math.min(100, pct)}%"></div></div>
+          </li>`;
+      }).join('');
+    }
+
+    if (empty) empty.classList.toggle('hidden', items.length > 0);
+
+    // Full history, grouped by budget month
+    const groups = [];
+    items.forEach(x => {
+      const per = BudgetCalculator.periodOf(x.date, startDay());
+      const key = `${per.year}-${per.month}`;
+      let g = groups[groups.length - 1];
+      if (!g || g.key !== key) { g = { key, year: per.year, month: per.month, items: [], total: 0 }; groups.push(g); }
+      g.items.push(x);
+      g.total += Number(x.amount) || 0;
+    });
+    listEl.innerHTML = groups.map(g => `
+      <section class="flex flex-col gap-space-sm" aria-label="${escapeHtml(BudgetCalculator.periodLabel(g.year, g.month, startDay()))}">
+        <div class="flex items-baseline justify-between gap-2 px-1">
+          <h2 class="font-title-md text-title-md text-on-surface font-bold">${escapeHtml(BudgetCalculator.periodLabel(g.year, g.month, startDay()))}${g.year === p.year && g.month === p.month ? ' <span class="font-label-sm text-label-sm text-on-surface-variant font-normal">(this month)</span>' : ''}</h2>
+          <span class="font-label-md text-label-md text-on-surface-variant tabular-nums">+${sym()}${formatINR(roundMoney(g.total))} &middot; ${g.items.length}</span>
+        </div>
+        ${g.items.map(renderIncomeRow).join('')}
+      </section>`).join('');
+  }
+
+  function renderIncomeRow(x) {
+    const src = incomeSourceOf(x.source);
+    const title = x.from ? `${src.name} · ${x.from}` : src.name;
+    const meta = [Tools.formatDate(x.date), x.paymentMethod, x.note].filter(Boolean).map(escapeHtml).join(' &middot; ');
+    return `
+      <div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-slate-100 flex items-center justify-between gap-space-sm">
+        <div class="flex items-center gap-space-md min-w-0">
+          <div class="w-10 h-10 rounded-xl bg-surface-container text-on-surface flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-xl">${escapeHtml(src.icon)}</span></div>
+          <div class="flex flex-col min-w-0">
+            <span class="font-title-md text-title-md text-on-surface font-bold truncate">${escapeHtml(title)}</span>
+            <span class="font-body-sm text-body-sm text-on-surface-variant truncate">${meta}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-space-sm flex-shrink-0">
+          <span class="font-title-md text-title-md font-bold text-primary tabular-nums">+${sym()}${formatINR(x.amount)}</span>
+          <button type="button" data-action="income-edit" data-id="${escapeHtml(x.id)}" class="w-11 h-11 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface-variant flex items-center justify-center" aria-label="Edit ${escapeHtml(title)}" title="Edit"><span class="material-symbols-outlined text-base">edit</span></button>
+          <button type="button" data-action="income-delete" data-id="${escapeHtml(x.id)}" class="w-11 h-11 rounded-xl bg-surface-container-low hover:bg-error-container hover:text-error text-on-surface-variant flex items-center justify-center" aria-label="Delete ${escapeHtml(title)}" title="Delete"><span class="material-symbols-outlined text-base">delete</span></button>
+        </div>
+      </div>`;
+  }
+
+  function selectIncomeSource(id) {
+    document.getElementById('income-source').value = id;
+    document.querySelectorAll('#income-source-chips .income-source-chip').forEach(b => setPressed(b, b.dataset.incomeSource === id));
+  }
+
+  function selectIncomePayment(method) {
+    const input = document.getElementById('income-payment');
+    const next = input.value === method ? '' : method; // tap again to clear
+    input.value = next;
+    document.querySelectorAll('#income-pay-chips .income-pay-chip').forEach(b => setPressed(b, b.dataset.incomePay === next));
+  }
+
+  function openIncomeModal(id) {
+    const item = id ? incomeList().find(x => x.id === id) : null;
+    document.getElementById('income-modal-title').textContent = item ? 'Edit money received' : 'Money received';
+    document.getElementById('income-modal-error').classList.add('hidden');
+    document.getElementById('income-id').value = item ? item.id : '';
+    document.getElementById('income-amount').value = item ? item.amount : '';
+    document.getElementById('income-from').value = item && item.from ? item.from : '';
+    document.getElementById('income-note').value = item && item.note ? item.note : '';
+    const date = document.getElementById('income-date');
+    date.max = localDateString();
+    date.min = '2000-01-01';
+    date.value = item ? item.date : localDateString();
+    selectIncomeSource(item ? item.source : 'parents');
+    document.getElementById('income-payment').value = ''; // start clear, then pick the saved method (if any)
+    selectIncomePayment(item && item.paymentMethod ? item.paymentMethod : '');
+    showModal(document.getElementById('income-modal'));
+    focusSoon(document.getElementById('income-amount'));
+  }
+
+  function closeIncomeModal() { hideModal(document.getElementById('income-modal')); }
+
+  async function saveIncome(e) {
+    e.preventDefault();
+    const id = document.getElementById('income-id').value;
+    const input = {
+      amount: document.getElementById('income-amount').value,
+      source: document.getElementById('income-source').value,
+      from: document.getElementById('income-from').value,
+      date: document.getElementById('income-date').value,
+      note: document.getElementById('income-note').value,
+      paymentMethod: document.getElementById('income-payment').value,
+    };
+    const err = document.getElementById('income-modal-error');
+    const btn = document.getElementById('income-save');
+    btn.disabled = true;
+    try {
+      if (id) await DataLayer.updateIncome(id, input); else await DataLayer.addIncome(input);
+      closeIncomeModal();
+      reloadFromDataLayer();
+      showToast(savedMessage(id ? 'Money received updated.' : 'Money received saved.'), 'success');
+    } catch (e2) {
+      err.textContent = errorDetail(e2);
+      err.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function handleIncomeAction(action, id) {
+    if (action === 'income-edit') return openIncomeModal(id);
+    const item = incomeList().find(x => x.id === id);
+    if (!item) return;
+    // Like expenses: delete at once and offer Undo for a few seconds
+    try {
+      await DataLayer.deleteIncome(id);
+      reloadFromDataLayer();
+    } catch (err) {
+      showToast(`Couldn't delete it: ${errorDetail(err)}`, 'error');
+      reloadFromDataLayer();
+      return;
+    }
+    showToast(savedMessage('Money received deleted.'), 'info', {
+      actionLabel: 'Undo',
+      duration: 6000,
+      onAction: async () => {
+        try {
+          await DataLayer.restoreIncome(item);
+          reloadFromDataLayer();
+          showToast('Restored.', 'success');
+        } catch (err) {
+          showToast(`Couldn't restore it: ${errorDetail(err)}`, 'error');
+        }
+      },
+    });
+  }
+
+  function initIncomeEvents() {
+    document.getElementById('income-add')?.addEventListener('click', () => openIncomeModal(null));
+    document.getElementById('income-form')?.addEventListener('submit', saveIncome);
+    document.getElementById('income-cancel')?.addEventListener('click', closeIncomeModal);
+    document.getElementById('income-modal-close')?.addEventListener('click', closeIncomeModal);
+    document.getElementById('income-source-chips')?.addEventListener('click', e => {
+      const b = e.target.closest('.income-source-chip');
+      if (b) selectIncomeSource(b.dataset.incomeSource);
+    });
+    document.getElementById('income-pay-chips')?.addEventListener('click', e => {
+      const b = e.target.closest('.income-pay-chip');
+      if (b) selectIncomePayment(b.dataset.incomePay);
+    });
+  }
+
+  // ==========================================
   // INSTALL AS AN APP, AND UPDATES (see pwa.js)
   // ==========================================
   function initInstall() {
@@ -3202,6 +3462,7 @@
       'import-modal': closeImportModal,
       'recurring-modal': closeRecurringModal,
       'goal-modal': closeGoalModal,
+      'income-modal': closeIncomeModal,
       'contrib-modal': closeContribModal,
       'confirm-modal': () => settleDialog('cancel'),
     };
@@ -3399,6 +3660,7 @@
       navigateTo: (arg) => navigateTo(arg),
       openBudgetModal: () => openBudgetModal(),
       openAddExpenseModal: () => openAddExpenseModal(),
+      openIncomeModal: () => openIncomeModal(null),
       dismissBanner: () => dismissBudgetBanner(),
     };
     document.addEventListener('click', e => {
@@ -3428,6 +3690,7 @@
         case 'delete-category': confirmDeleteCategory(id); break;
         case 'rec-edit': case 'rec-toggle': case 'rec-delete': handleRecurringAction(actionBtn.getAttribute('data-action'), id); break;
         case 'goal-edit': case 'goal-add-money': case 'goal-delete': handleGoalAction(actionBtn.getAttribute('data-action'), id); break;
+        case 'income-edit': case 'income-delete': handleIncomeAction(actionBtn.getAttribute('data-action'), id); break;
         default: break;
       }
     });
@@ -3505,6 +3768,7 @@
     initPreferences();
     initRecurringEvents();
     initGoalEvents();
+    initIncomeEvents();
     initInstall();
     document.getElementById('btn-delete-account')?.addEventListener('click', deleteAccountFlow);
     document.addEventListener('keydown', handleShortcuts);
@@ -3861,6 +4125,10 @@
   // Expose API for inline onclick handlers and testing
   window.ExpenseTrackApp = {
     navigateTo,
+    openIncomeModal,
+    closeIncomeModal,
+    getIncome: () => incomeList(),
+    getIncomeSummary: () => currentIncomeSummary(),
     syncAllViewsWithData,
     openAddExpenseModal,
     openEditExpenseModal,
