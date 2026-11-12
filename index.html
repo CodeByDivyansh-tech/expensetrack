@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <meta name="color-scheme" content="light dark"/>
   <link rel="manifest" href="/manifest.webmanifest"/>
   <meta name="mobile-web-app-capable" content="yes"/>
@@ -33,7 +33,9 @@
   <!-- Favicons & App Icons -->
   <link rel="icon" type="image/x-icon" href="favicon.ico"/>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
-  <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>
+  <link rel="apple-touch-icon" sizes="167x167" href="/assets/icons/apple-touch-icon-167.png"/>
+  <link rel="apple-touch-icon" sizes="152x152" href="/assets/icons/apple-touch-icon-152.png"/>
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,8 +44,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=optional" rel="stylesheet" media="print" data-async-css/>
   
   <!-- Material Symbols Outlined (Full Variable Font Range) -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance_wallet,add,add_circle,auto_stories,bar_chart,call_received,category,celebration,check_circle,chevron_left,chevron_right,close,cloud_done,cloud_off,delete,directions_bus,donut_large,download,edit,error,family_restroom,fitness_center,flight,home,info,insights,local_cafe,local_laundry_service,local_mall,lock,logout,manage_accounts,medical_services,menu_book,notifications,notifications_active,payments,person,phone_android,pie_chart,psychology_alt,receipt_long,redeem,repeat,restaurant,save,savings,school,search_off,security,shopping_bag,show_chart,sports_esports,subscriptions,sync,trending_up,tune,upload_file,verified,verified_user,warning,work&display=block"/>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance_wallet,add,add_circle,auto_stories,bar_chart,call_received,category,celebration,check_circle,chevron_left,chevron_right,close,cloud_done,cloud_off,delete,directions_bus,donut_large,download,edit,error,family_restroom,fitness_center,flight,home,info,insights,local_cafe,local_laundry_service,local_mall,lock,logout,manage_accounts,medical_services,menu_book,notifications,notifications_active,payments,person,phone_android,pie_chart,psychology_alt,receipt_long,redeem,repeat,restaurant,save,savings,school,search_off,security,shopping_bag,show_chart,sports_esports,subscriptions,sync,trending_up,tune,upload_file,verified,verified_user,warning,work&display=block" media="print" data-async-css/>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance_wallet,add,add_box,add_circle,auto_stories,bar_chart,call_received,category,celebration,check_circle,chevron_left,chevron_right,close,cloud_done,cloud_off,delete,directions_bus,donut_large,download,edit,error,family_restroom,fitness_center,flight,home,info,insights,install_mobile,ios_share,local_cafe,local_laundry_service,local_mall,lock,logout,manage_accounts,medical_services,menu_book,notifications,notifications_active,open_in_browser,payments,person,phone_android,pie_chart,psychology_alt,receipt_long,redeem,repeat,restaurant,save,savings,school,search_off,security,shopping_bag,show_chart,smartphone,sports_esports,subscriptions,sync,trending_up,tune,upload_file,verified,verified_user,warning,work&display=block"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance_wallet,add,add_box,add_circle,auto_stories,bar_chart,call_received,category,celebration,check_circle,chevron_left,chevron_right,close,cloud_done,cloud_off,delete,directions_bus,donut_large,download,edit,error,family_restroom,fitness_center,flight,home,info,insights,install_mobile,ios_share,local_cafe,local_laundry_service,local_mall,lock,logout,manage_accounts,medical_services,menu_book,notifications,notifications_active,open_in_browser,payments,person,phone_android,pie_chart,psychology_alt,receipt_long,redeem,repeat,restaurant,save,savings,school,search_off,security,shopping_bag,show_chart,smartphone,sports_esports,subscriptions,sync,trending_up,tune,upload_file,verified,verified_user,warning,work&display=block" media="print" data-async-css/>
 
   <!-- Compiled Tailwind CSS -->
   <link rel="stylesheet" href="dist/styles.css"/>
@@ -154,10 +156,10 @@
   <!-- ========================================== -->
   <!-- MAIN SHELL (HEADER + VIEWS)               -->
   <!-- ========================================== -->
-  <div class="lg:pl-72 flex flex-col min-h-screen">
+  <div class="app-shell lg:pl-72 flex flex-col min-h-screen">
     
     <!-- Top Header Bar -->
-    <header class="fixed top-0 right-0 left-0 lg:left-72 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40">
+    <header class="app-header fixed top-0 right-0 left-0 lg:left-72 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40">
       <div class="h-16 w-full px-margin sm:px-margin-tablet lg:px-margin-desktop flex items-center justify-between">
         <!-- Mobile Logo -->
         <div role="button" tabindex="0" class="tap flex items-center gap-space-sm lg:hidden cursor-pointer" data-click="navigateTo" data-arg="dashboard">
@@ -194,7 +196,7 @@
     </header>
 
     <!-- Main Content Dynamic Container -->
-    <main class="w-full pt-20 pb-28 lg:pb-space-xl px-margin sm:px-margin-tablet lg:px-margin-desktop flex-1 bg-surface">
+    <main class="app-main w-full pt-20 pb-28 lg:pb-space-xl px-margin sm:px-margin-tablet lg:px-margin-desktop flex-1 bg-surface">
 
       <!-- =================================================================== -->
       <!-- VIEW 1: DASHBOARD (HOME)                                            -->
@@ -1341,12 +1343,18 @@
           </div>
 
           <!-- Install -->
-          <div id="install-card" class="hidden lg:col-span-6 bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex items-center justify-between gap-space-md">
-            <div class="flex flex-col">
-              <h3 class="font-title-md text-title-md text-on-surface font-bold">Install ExpenseTrack</h3>
-              <p id="install-text" class="font-body-sm text-body-sm text-on-surface-variant">Add it to your home screen to open it like an app, even offline.</p>
+          <div id="install-card" class="lg:col-span-6 bg-surface-container-lowest rounded-3xl p-space-lg shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-space-md">
+            <div class="flex items-start gap-space-sm min-w-0">
+              <div class="w-10 h-10 shrink-0 rounded-2xl bg-surface-container flex items-center justify-center text-on-surface"><span id="install-icon" class="material-symbols-outlined text-xl">install_mobile</span></div>
+              <div class="flex flex-col min-w-0">
+                <h3 id="install-title" class="font-title-md text-title-md text-on-surface font-bold">Install ExpenseTrack</h3>
+                <p id="install-text" class="font-body-sm text-body-sm text-on-surface-variant">Add it to your home screen to open it like an app, even offline.</p>
+              </div>
             </div>
-            <button type="button" id="btn-install" class="px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm disabled:opacity-50 shrink-0">Install</button>
+            <div class="flex flex-wrap gap-2 shrink-0">
+              <button type="button" id="btn-install" class="hidden px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm disabled:opacity-50">Install</button>
+              <button type="button" id="btn-install-ios" class="hidden px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm">Install on iPhone</button>
+            </div>
           </div>
 
           <!-- Shortcuts to the other tools -->
@@ -1377,7 +1385,7 @@
   <!-- ========================================== -->
   <!-- MOBILE PERSISTENT BOTTOM NAVIGATION BAR    -->
   <!-- ========================================== -->
-  <nav class="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_-2px_10px_rgba(0,0,0,0.04)] z-50 flex items-center justify-around px-space-xs" data-active-classes="text-primary font-bold">
+  <nav class="app-tabbar lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_-2px_10px_rgba(0,0,0,0.04)] z-50 flex items-center justify-around px-space-xs" data-active-classes="text-primary font-bold">
     <a class="flex-1 min-w-0 min-h-[48px] flex flex-col items-center justify-center text-primary font-bold transition-colors" data-path="dashboard" href="#" aria-current="page">
       <span class="material-symbols-outlined text-2xl">home</span>
       <span class="font-label-sm text-label-sm">Home</span>
@@ -1722,6 +1730,17 @@
   <!-- ========================================== -->
   <!-- FLOATING TOAST NOTIFICATION CONTAINER      -->
   <!-- ========================================== -->
+  <div id="ios-install-modal" role="dialog" aria-modal="true" aria-labelledby="ios-install-title" aria-hidden="true" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-on-surface/40 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-surface-container-lowest rounded-3xl p-space-lg max-w-md w-full shadow-2xl flex flex-col gap-space-md max-h-[92vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-space-sm">
+        <div><h3 id="ios-install-title" class="font-title-md text-title-md text-on-surface font-bold">Install on iPhone or iPad</h3><p class="font-body-sm text-body-sm text-on-surface-variant">Five steps, about ten seconds.</p></div>
+        <button type="button" id="ios-install-close" aria-label="Close dialog" class="w-11 h-11 shrink-0 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center"><span class="material-symbols-outlined text-lg">close</span></button>
+      </div>
+      <p id="ios-install-note" class="hidden p-3 rounded-2xl bg-tertiary-fixed text-on-tertiary-fixed font-label-md text-label-md"></p>
+      <ol id="ios-install-steps" class="flex flex-col gap-space-md"><li class="flex items-start gap-space-sm"><div class="w-11 h-11 shrink-0 rounded-2xl bg-surface-container flex items-center justify-center text-on-surface relative"><span class="material-symbols-outlined text-2xl">open_in_browser</span><span class="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex items-center justify-center">1</span></div><div class="flex flex-col min-w-0"><span class="font-label-md text-label-md text-on-surface font-bold">Open ExpenseTrack in Safari</span><span class="font-body-sm text-body-sm text-on-surface-variant">Installing only works from Safari. If you are in another browser, open this page in Safari first.</span></div></li><li class="flex items-start gap-space-sm"><div class="w-11 h-11 shrink-0 rounded-2xl bg-surface-container flex items-center justify-center text-on-surface relative"><span class="material-symbols-outlined text-2xl">ios_share</span><span class="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex items-center justify-center">2</span></div><div class="flex flex-col min-w-0"><span class="font-label-md text-label-md text-on-surface font-bold">Tap the Share button</span><span class="font-body-sm text-body-sm text-on-surface-variant">It is the square with an arrow pointing up, at the bottom of Safari (at the top on iPad).</span></div></li><li class="flex items-start gap-space-sm"><div class="w-11 h-11 shrink-0 rounded-2xl bg-surface-container flex items-center justify-center text-on-surface relative"><span class="material-symbols-outlined text-2xl">add_box</span><span class="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex items-center justify-center">3</span></div><div class="flex flex-col min-w-0"><span class="font-label-md text-label-md text-on-surface font-bold">Choose "Add to Home Screen"</span><span class="font-body-sm text-body-sm text-on-surface-variant">Scroll down the list if you do not see it straight away.</span></div></li><li class="flex items-start gap-space-sm"><div class="w-11 h-11 shrink-0 rounded-2xl bg-surface-container flex items-center justify-center text-on-surface relative"><span class="material-symbols-outlined text-2xl">check_circle</span><span class="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex items-center justify-center">4</span></div><div class="flex flex-col min-w-0"><span class="font-label-md text-label-md text-on-surface font-bold">Tap "Add"</span><span class="font-body-sm text-body-sm text-on-surface-variant">You can keep the name ExpenseTrack. The icon appears on your home screen.</span></div></li><li class="flex items-start gap-space-sm"><div class="w-11 h-11 shrink-0 rounded-2xl bg-surface-container flex items-center justify-center text-on-surface relative"><span class="material-symbols-outlined text-2xl">smartphone</span><span class="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex items-center justify-center">5</span></div><div class="flex flex-col min-w-0"><span class="font-label-md text-label-md text-on-surface font-bold">Open ExpenseTrack from its new icon</span><span class="font-body-sm text-body-sm text-on-surface-variant">It opens full screen, like any other app. Sign in once with Google and you stay signed in.</span></div></li></ol>
+      <div class="flex justify-end"><button type="button" id="ios-install-done" class="px-space-lg py-2.5 min-h-[44px] rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors shadow-sm">Got it</button></div>
+    </div>
+  </div>
   <div id="toast-container" role="status" aria-live="polite" class="fixed bottom-20 lg:bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
 
   <!-- Could not load data -->

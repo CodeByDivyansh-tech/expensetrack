@@ -412,3 +412,72 @@ span.fx-num-play { display: inline-block; }
 }
 /* A tap answers at once: no double-tap-to-zoom wait on controls */
 button, a, input, select, label, [role="button"] { touch-action: manipulation; }
+
+/* =====================================================================================
+   INSTALLED APP AND IPHONE (viewport-fit=cover)
+   The page now reaches under the notch, the rounded corners and the home indicator, so the
+   fixed bars and the content keep clear of them. On other screens every inset is 0.
+   ===================================================================================== */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body { overflow-x: clip; }
+
+.app-header {
+  height: calc(4rem + var(--safe-top));
+  padding-top: var(--safe-top);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+.app-main { padding-top: calc(5rem + var(--safe-top)); }
+#offline-banner { top: calc(4rem + var(--safe-top)); }
+.app-tabbar {
+  height: calc(4rem + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  padding-left: max(0.25rem, var(--safe-left));
+  padding-right: max(0.25rem, var(--safe-right));
+}
+[role="dialog"] {
+  padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
+}
+.login-page {
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+@media (max-width: 1023px) {
+  .app-shell { padding-left: var(--safe-left); padding-right: var(--safe-right); }
+  .app-main { padding-bottom: calc(7rem + var(--safe-bottom)); }
+  #toast-container { bottom: calc(5rem + var(--safe-bottom)); right: max(1.5rem, var(--safe-right)); }
+}
+/* Phone turned sideways: the screen is short, so the bars are slimmer and dialogs scroll */
+@media (max-width: 1023px) and (orientation: landscape) and (max-height: 500px) {
+  .app-tabbar { height: calc(3.25rem + var(--safe-bottom)); }
+  .app-main { padding-bottom: calc(5rem + var(--safe-bottom)); }
+  [role="dialog"] { align-items: flex-start; overflow-y: auto; }
+}
+/* A dialog panel never grows past the space between the notch and the home indicator; it scrolls inside */
+@media (max-width: 1023px) {
+  [role="dialog"] > * { max-height: calc(100vh - max(1rem, var(--safe-top)) - max(1rem, var(--safe-bottom))); overflow-y: auto; }
+  @supports (height: 100dvh) {
+    [role="dialog"] > * { max-height: calc(100dvh - max(1rem, var(--safe-top)) - max(1rem, var(--safe-bottom))); }
+  }
+}
+/* Heights that follow the visible screen (browser bars and the keyboard change it on phones) */
+@supports (height: 100dvh) {
+  .min-h-screen { min-height: 100dvh; }
+  .max-h-\[92vh\] { max-height: min(92dvh, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 1rem)); }
+}
+/* iPhone and iPad only: Safari zooms the page when a field's text is under 16px, and the page then stays
+   zoomed and scrolls sideways. Fields without their own text size are 16px there. */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea { font-size: 16px; }
+}
+/* Installed app: no pull-to-refresh bounce past the bars, no text selection on the bars, no tap flash */
+.is-standalone body { overscroll-behavior-y: none; }
+.app-tabbar, .app-header { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+a, button, [role="button"] { -webkit-tap-highlight-color: transparent; }
+/* A chart that has not been drawn yet (or cannot be: no connection for Chart.js) never pokes out of its card */
+canvas { max-width: 100%; }

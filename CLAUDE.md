@@ -28,7 +28,7 @@ Read this first. It is the project guide for Claude Code (and anyone else) worki
 | `firebase-config.js` | Firebase init + `window.FirebaseService` (sign-in, reauthenticate, delete account, sign-out that clears the cache) |
 | `firestore.rules` | Validating rules: per-user access plus the shape, type and size of every document (see below) |
 | `theme-init.js` | Runs first: applies dark mode, sends signed-out visitors to `login.html`, releases the icon font |
-| `sw.js`, `pwa.js`, `manifest.webmanifest` | Installable app: service worker, install and update prompts |
+| `sw.js`, `pwa.js`, `manifest.webmanifest`, `vercel.json` | Installable app: service worker, install and update prompts; `vercel.json` holds Vercel's rewrites (clean URLs and the sign-in helper forwarding) |
 | `src/styles.css`, `tailwind.config.js` | Tailwind input and design tokens (see `DESIGN.md`); colours are `--c-*` CSS variables for dark mode. The look is **monochrome glass**: white/grey light theme, true-black dark theme, no blue tints; cards, sidebar, bars and dialogs are frosted glass (`--glass-*` variables, "GLASS PANELS" section). Red and amber stay for warnings and errors only |
 | `build.js` | Minifies our scripts with esbuild, stamps the service-worker build hash, copies the website into `public/` |
 | `render.yaml` | Render static-site config: build command, publish `public`, rewrites for `/login` and `/dashboard`, security headers incl. a strict CSP |
@@ -116,6 +116,23 @@ Phones lagged until these were fixed; `tests/e2e/mobile-performance.spec.js` and
 - **Service worker:** the app shell and versioned third-party files are cache-first (each build has its own cache); a new
   build arrives through a changed `sw.js`, is offered with "Reload", and is switched in when the app goes to the background.
 - **Touch:** small links and compact buttons carry the `tap` class (44px hit area on touch screens).
+
+## Installing as an app (iPhone, iPad, Android, desktop)
+
+- `theme-init.js` sets `window.ExpenseTrackPlatform` (`ios`, `standalone`, `iosSafari`, `iosOtherBrowser`). iPadOS reports
+  itself as a Mac, so iOS is detected by user agent **or** "Mac with a touch screen".
+- Settings → install card has five states (`data-state`): `installed`, `prompt` (browser install prompt: Android, desktop
+  Chrome/Edge), `ios-safari` and `ios-other` ("Install on iPhone" opens the step-by-step guide), `manual`. Never show a
+  button that does nothing.
+- Pages use `viewport-fit=cover`; the fixed bars, dialogs and the sign-in page pad themselves with `--safe-*`
+  (`env(safe-area-inset-*)`). On iOS, fields are 16px so Safari does not zoom the page on focus.
+- **Sign-in inside the installed iPhone/iPad app** uses a full-page redirect (a popup cannot return its result there).
+  Safari only completes it when Firebase's helper pages are on the app's own address, so `vercel.json` and `render.yaml`
+  forward `/__/auth/*` and `/__/firebase/init.json` to `expensetrack-bff94.firebaseapp.com`, `firebase-config.js` then uses
+  `location.host` as `authDomain` (only in that mode; the stored config values are unchanged), and `sw.js` ignores `/__/`.
+  **Owner step:** each live address needs `https://<address>/__/auth/handler` under "Authorized redirect URIs" of the
+  Google OAuth web client (Google Cloud console → APIs & Services → Credentials). "Try the other way" on the sign-in page
+  switches back to the popup (`localStorage.expensetrack_auth_mode = 'popup'`).
 
 ## firestore.rules
 

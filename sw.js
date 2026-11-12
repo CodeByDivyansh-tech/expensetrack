@@ -20,7 +20,7 @@ const SHELL_FILES = [
   '/app.js', '/data-layer.js', '/budget-calculator.js', '/expense-tools.js', '/firebase-config.js',
   '/login.js', '/theme-init.js', '/pwa.js', '/text-fx.js', '/dist/styles.css',
   '/assets/logo.svg', '/favicon.svg', '/favicon.ico', '/manifest.webmanifest',
-  '/assets/icons/icon-192.png', '/assets/icons/icon-512.png',
+  '/assets/icons/icon-192.png', '/assets/icons/icon-512.png', '/apple-touch-icon.png',
 ];
 
 // Same-origin-looking files from other hosts that the app needs to run
@@ -113,6 +113,7 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin === self.location.origin) {
     if (url.pathname === '/sw.js') return; // always check the network for a new worker
+    if (url.pathname.startsWith('/__/')) return; // Firebase sign-in helper pages (forwarded by the host): never cached
     if (request.mode === 'navigate') {
       const page = APP_PAGES[url.pathname];
       if (page) {

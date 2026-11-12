@@ -3434,29 +3434,59 @@
   function initInstall() {
     const card = document.getElementById('install-card');
     const button = document.getElementById('btn-install');
+    const iosButton = document.getElementById('btn-install-ios');
+    const title = document.getElementById('install-title');
     const text = document.getElementById('install-text');
+    const icon = document.getElementById('install-icon');
+    const platform = window.ExpenseTrackPlatform || {};
+    let justInstalled = false;
 
-    const installed = () => (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-    const onIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent) && !/CriOS|FxiOS/.test(navigator.userAgent);
+    // installed: running from the home screen (or just installed) | prompt: the browser can install it from
+    // a button (Android, desktop Chrome/Edge) | ios-safari: Add to Home Screen from Safari's Share menu |
+    // ios-other: an iPhone browser that cannot install, so Safari is needed | manual: nothing to offer
+    function installState() {
+      if (platform.standalone || justInstalled) return 'installed';
+      if (window.__installPrompt) return 'prompt';
+      if (platform.iosSafari) return 'ios-safari';
+      if (platform.iosOtherBrowser) return 'ios-other';
+      return 'manual';
+    }
 
     function refresh() {
       if (!card) return;
-      if (installed()) { card.classList.add('hidden'); return; }
-      if (window.__installPrompt) {
-        card.classList.remove('hidden');
-        button.classList.remove('hidden');
-        text.textContent = 'Add it to your home screen to open it like an app, even without a connection.';
-      } else if (onIos()) {
-        card.classList.remove('hidden');
-        button.classList.add('hidden');
-        text.textContent = 'On iPhone or iPad: tap the Share button, then "Add to Home Screen".';
+      const state = installState();
+      card.dataset.state = state;
+      card.classList.remove('hidden');
+      button.classList.toggle('hidden', state !== 'prompt');
+      iosButton.classList.toggle('hidden', state !== 'ios-safari' && state !== 'ios-other');
+      icon.textContent = state === 'installed' ? 'check_circle' : 'install_mobile';
+      if (state === 'installed') {
+        title.textContent = 'App installed';
+        text.textContent = platform.standalone
+          ? 'You are using the installed ExpenseTrack app. It opens from your home screen, even without a connection.'
+          : 'ExpenseTrack is installed. Open it from its icon on your home screen or app list.';
       } else {
-        card.classList.add('hidden');
+        title.textContent = 'Install ExpenseTrack';
+        text.textContent = {
+          prompt: 'Add it to your home screen to open it like an app, even without a connection.',
+          'ios-safari': 'Add ExpenseTrack to your home screen and use it like any other iPhone app.',
+          'ios-other': 'On iPhone and iPad the app is installed from Safari. Open this page in Safari, then follow the steps.',
+          manual: "This browser has no install button. In Chrome or Edge, use the install option in the browser's menu.",
+        }[state];
       }
     }
 
+    function openIosGuide() {
+      const note = document.getElementById('ios-install-note');
+      const other = installState() === 'ios-other';
+      note.classList.toggle('hidden', !other);
+      if (other) note.textContent = 'You are not in Safari right now. Copy this page\'s address, open Safari, paste it there, then follow the steps.';
+      showModal(document.getElementById('ios-install-modal'));
+    }
+    const closeIosGuide = () => hideModal(document.getElementById('ios-install-modal'));
+
     window.addEventListener('expensetrack:installable', refresh);
-    window.addEventListener('expensetrack:installed', () => { refresh(); showToast('ExpenseTrack is installed.', 'success'); });
+    window.addEventListener('expensetrack:installed', () => { justInstalled = true; refresh(); showToast('ExpenseTrack is installed.', 'success'); });
     button?.addEventListener('click', async () => {
       const prompt = window.__installPrompt;
       if (!prompt) return;
@@ -3465,6 +3495,9 @@
       window.__installPrompt = null;
       refresh();
     });
+    iosButton?.addEventListener('click', openIosGuide);
+    document.getElementById('ios-install-close')?.addEventListener('click', closeIosGuide);
+    document.getElementById('ios-install-done')?.addEventListener('click', closeIosGuide);
     window.addEventListener('expensetrack:update', (e) => {
       showToast('A new version of ExpenseTrack is ready.', 'info', { actionLabel: 'Reload', duration: 20000, onAction: () => e.detail.apply() });
     });
@@ -3512,6 +3545,7 @@
       'recurring-modal': closeRecurringModal,
       'goal-modal': closeGoalModal,
       'income-modal': closeIncomeModal,
+      'ios-install-modal': () => hideModal(document.getElementById('ios-install-modal')),
       'contrib-modal': closeContribModal,
       'confirm-modal': () => settleDialog('cancel'),
     };
