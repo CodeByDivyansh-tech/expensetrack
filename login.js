@@ -11,6 +11,8 @@
   const googleBtnText = document.getElementById('google-btn-text');
   const inAppNotice = document.getElementById('inapp-warning');
   const copyLinkBtn = document.getElementById('btn-copy-link');
+  const otherWayBtn = document.getElementById('btn-auth-other-way');
+  const platform = window.ExpenseTrackPlatform || {};
 
   const ERROR_MESSAGES = {
     'auth/popup-closed-by-user': 'Sign-in cancelled. Please try again.',
@@ -52,7 +54,9 @@
   }
 
   // Google refuses sign-in inside the embedded browsers of apps such as Instagram or WhatsApp.
+  // The installed home-screen app on an iPhone is not one of those (it also has no "Safari" in its name).
   function isInAppBrowser(ua) {
+    if (platform.standalone) return false;
     return /FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|Snapchat|Twitter|LinkedInApp|WhatsApp|GSA\/|; wv\)/i.test(ua) ||
       (/(iPhone|iPod|iPad)/.test(ua) && !/Safari/.test(ua));
   }
@@ -88,12 +92,39 @@
     }
   });
 
+  // Installed iPhone/iPad app: sign-in leaves for Google and comes back here. Finish it, or explain what
+  // went wrong and offer the other way of signing in.
+  const redirectMode = window.FirebaseService.authMode === 'redirect';
+  if (otherWayBtn) {
+    otherWayBtn.addEventListener('click', () => window.FirebaseService.useOtherSignInWay());
+    let triedBefore = false;
+    try { triedBefore = sessionStorage.getItem('expensetrack_signin_started') === '1'; } catch (e) { /* ignore */ }
+    if (platform.ios && platform.standalone && (triedBefore || !redirectMode)) otherWayBtn.classList.remove('hidden');
+  }
+  if (redirectMode) {
+    window.FirebaseService.finishRedirectSignIn().then((result) => {
+      if (result) { showAlert('Signed in. Opening your dashboard...', false); goToApp(); }
+    }).catch((err) => {
+      console.error('Google redirect sign-in error:', err);
+      showAlert(ERROR_MESSAGES[err && err.code] || 'Google sign-in did not finish. Please try again.');
+      if (otherWayBtn) otherWayBtn.classList.remove('hidden');
+    });
+  }
+
   googleBtn.addEventListener('click', async () => {
     hideAlert();
     googleBtnText.textContent = 'Signing in...';
     googleBtn.disabled = true;
 
     try {
+      if (redirectMode) {
+        try { sessionStorage.setItem('expensetrack_signin_started', '1'); } catch (e) { /* ignore */ }
+        // The sign-in helper pages must be reachable at this address (the host forwards them to Firebase).
+        // If they are not, use the popup instead of sending the person to a page that cannot finish.
+        let helperOk = false;
+        try { helperOk = (await fetch('/__/auth/handler', { cache: 'no-store' })).ok; } catch (e) { helperOk = false; }
+        if (!helperOk) { window.FirebaseService.useOtherSignInWay(); return; }
+      }
       await window.FirebaseService.signInWithGoogle();
       showAlert('Signed in. Opening your dashboard...', false);
       goToApp();

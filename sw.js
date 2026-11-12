@@ -1,13 +1,15 @@
 /**
  * ExpenseTrack service worker: lets the app open without a connection.
  *
- *  - Pages (HTML): network first, so you always get the newest version when online; the saved copy
- *    is used when the network is down.
- *  - Our own scripts, styles and images: served from the cache straight away and refreshed in the
- *    background.
- *  - A short list of third-party files the app cannot start without (Firebase and Chart.js scripts,
- *    fonts) is kept too. Your data never goes through here: Firestore and sign-in requests are
- *    left alone and handled by Firebase's own offline storage.
+ *  - The app itself (pages, scripts, styles, images) is served from the copy saved on the device, so it
+ *    opens at once even on a slow connection and nothing is downloaded again on every visit. Each build
+ *    has its own cache (see BUILD): when a new version is deployed the browser finds a changed sw.js,
+ *    saves the whole new version alongside, and the app offers to switch to it. Pages and scripts
+ *    therefore always come from the same build.
+ *  - Third-party files with a version in their address (Firebase and Chart.js scripts, font files) never
+ *    change, so they are also served from the saved copy. The small font stylesheet is refreshed in the
+ *    background. Your data never goes through here: Firestore and sign-in requests are left alone and
+ *    handled by Firebase's own offline storage.
  */
 const BUILD = '__BUILD_ID__'; // replaced with a hash of the site files by build.js
 const SHELL_CACHE = `expensetrack-shell-${BUILD}`;
@@ -18,7 +20,7 @@ const SHELL_FILES = [
   '/app.js', '/data-layer.js', '/budget-calculator.js', '/expense-tools.js', '/firebase-config.js',
   '/login.js', '/theme-init.js', '/pwa.js', '/text-fx.js', '/dist/styles.css',
   '/assets/logo.svg', '/favicon.svg', '/favicon.ico', '/manifest.webmanifest',
-  '/assets/icons/icon-192.png', '/assets/icons/icon-512.png',
+  '/assets/icons/icon-192.png', '/assets/icons/icon-512.png', '/apple-touch-icon.png',
 ];
 
 // Same-origin-looking files from other hosts that the app needs to run
@@ -29,12 +31,18 @@ const THIRD_PARTY_FILES = [
   { url: 'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js', mode: 'cors' },
 ];
 
-const CACHEABLE_THIRD_PARTY = [
-  /^https:\/\/www\.gstatic\.com\/firebasejs\//,
-  /^https:\/\/cdn\.jsdelivr\.net\/npm\/chart\.js@/,
-  /^https:\/\/fonts\.googleapis\.com\//,
+// Addresses that include a version or a content hash: the file behind them never changes
+const IMMUTABLE_THIRD_PARTY = [
+  /^https:\/\/www\.gstatic\.com\/firebasejs\/\d/,
+  /^https:\/\/cdn\.jsdelivr\.net\/npm\/chart\.js@\d/,
   /^https:\/\/fonts\.gstatic\.com\//,
 ];
+// Small and may change: answered from the saved copy and refreshed in the background
+const REFRESHED_THIRD_PARTY = [
+  /^https:\/\/fonts\.googleapis\.com\//,
+];
+// Addresses that open the app or the sign-in page
+const APP_PAGES = { '/': '/', '/index.html': '/', '/dashboard': '/', '/login': '/login', '/login.html': '/login' };
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -88,6 +96,16 @@ async function staleWhileRevalidate(request, cacheName) {
   return cached || (await refresh) || Response.error();
 }
 
+// The saved copy if there is one; the network (saving the answer) only when there is not
+async function cacheFirst(request, cacheName, alternateUrl) {
+  const cache = await caches.open(cacheName);
+  const cached = (await cache.match(request)) || (alternateUrl ? await cache.match(alternateUrl) : null);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response && (response.ok || response.type === 'opaque')) cache.put(request, response.clone());
+  return response;
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -95,16 +113,24 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin === self.location.origin) {
     if (url.pathname === '/sw.js') return; // always check the network for a new worker
+    if (url.pathname.startsWith('/__/')) return; // Firebase sign-in helper pages (forwarded by the host): never cached
     if (request.mode === 'navigate') {
-      const fallback = url.pathname.startsWith('/login') ? ['/login', '/login.html', '/'] : ['/', '/index.html'];
-      event.respondWith(networkFirst(request, SHELL_CACHE, fallback));
+      const page = APP_PAGES[url.pathname];
+      if (page) {
+        // Opening the app: straight from the device. A new version arrives through a new service worker.
+        event.respondWith(cacheFirst(request, SHELL_CACHE, page).catch(() => networkFirst(request, SHELL_CACHE, [page, '/'])));
+      } else {
+        event.respondWith(networkFirst(request, SHELL_CACHE, ['/', '/index.html']));
+      }
     } else {
-      event.respondWith(staleWhileRevalidate(request, SHELL_CACHE));
+      event.respondWith(cacheFirst(request, SHELL_CACHE));
     }
     return;
   }
 
-  if (CACHEABLE_THIRD_PARTY.some((re) => re.test(request.url))) {
+  if (IMMUTABLE_THIRD_PARTY.some((re) => re.test(request.url))) {
+    event.respondWith(cacheFirst(request, RUNTIME_CACHE));
+  } else if (REFRESHED_THIRD_PARTY.some((re) => re.test(request.url))) {
     event.respondWith(staleWhileRevalidate(request, RUNTIME_CACHE));
   }
   // Everything else (Firestore, sign-in, avatars) goes straight to the network

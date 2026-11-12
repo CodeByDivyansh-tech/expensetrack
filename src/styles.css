@@ -215,9 +215,18 @@ html .hover\:bg-surface-container-high:hover { background-color: rgb(var(--c-on-
 html .border-slate-100, html .border-slate-200 { border-color: var(--glass-edge); }
 html .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--glass-edge); }
 
-/* Phones: lighter blur keeps scrolling smooth */
-@media (max-width: 640px) {
+/* Phones and tablets: live blur is the most expensive effect a phone's graphics chip can be asked for,
+   and every blurred card is re-blurred on each scrolled frame. Cards in the page sit on a soft, almost
+   uniform backdrop, where blurring changes almost nothing you can see, so they keep the glass tint, edge
+   and highlight but drop the live blur. The fixed top and bottom bars keep it, because content really
+   does scroll underneath them. Dialog panels are nearly opaque already and sit on a blurred overlay. */
+@media (max-width: 1023px) {
   :root { --glass-blur: 14px; }
+  html main .bg-surface-container-lowest,
+  html [role="dialog"] > .bg-surface-container-lowest {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 /* No backdrop-filter support, or the person asked for less transparency: solid panels */
@@ -324,15 +333,17 @@ body[data-loading="true"] > *:not(#auth-loading-overlay) {
    change; the ExpenseTrack wordmark has a slow light sweep. Text content never changes.
    ===================================================================================== */
 .fx-word { display: inline-block; white-space: nowrap; }
-.fx-ch { display: inline-block; will-change: transform, opacity, filter; }
+.fx-ch { display: inline-block; }
 .fx-play .fx-ch {
   animation: fx-letter-in 0.7s cubic-bezier(.2, .8, .2, 1) both;
   animation-delay: calc(var(--i) * 0.028s);
 }
+/* Only transform and opacity: the phone's compositor animates these without repainting.
+   (An earlier version also blurred every letter, which repainted each one on every frame.) */
 @keyframes fx-letter-in {
-  0% { opacity: 0; transform: translateY(0.45em) rotateX(-70deg); filter: blur(6px); }
-  60% { opacity: 1; filter: blur(0); }
-  100% { opacity: 1; transform: none; filter: none; }
+  0% { opacity: 0; transform: translateY(0.45em) scaleY(0.4); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
 }
 
 span.fx-num-play { display: inline-block; }
@@ -340,8 +351,8 @@ span.fx-num-play { display: inline-block; }
   animation: fx-num-in 0.65s cubic-bezier(.2, .8, .2, 1) both;
 }
 @keyframes fx-num-in {
-  0% { opacity: 0.25; transform: translateY(0.18em) scale(0.97); filter: blur(5px); }
-  100% { opacity: 1; transform: none; filter: none; }
+  0% { opacity: 0.25; transform: translateY(0.18em) scale(0.97); }
+  100% { opacity: 1; transform: none; }
 }
 
 .fx-shimmer {
@@ -354,14 +365,119 @@ span.fx-num-play { display: inline-block; }
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: fx-shimmer 7s ease-in-out 1.2s infinite;
+  /* Plays once after the page opens. It used to loop forever, and because a moving text gradient cannot
+     be handed to the compositor, that kept the page restyling and repainting 60 times a second while idle. */
+  animation: fx-shimmer 1.8s ease-in-out 0.9s 1 both;
 }
 @keyframes fx-shimmer {
-  0%, 70% { background-position: 100% 0; }
+  0% { background-position: 100% 0; }
   100% { background-position: -50% 0; }
+}
+
+/* Phones and tablets: the same rise-in, without the blur and the 3D turn. Animating a blur on every letter
+   makes the phone's graphics chip redraw each letter on every frame; position and opacity alone do not. */
+@media (max-width: 1023px), (pointer: coarse) {
+  .fx-ch { will-change: auto; }
+  .fx-play .fx-ch { animation-name: fx-letter-in-lite; animation-duration: 0.45s; animation-delay: calc(var(--i) * 0.018s); }
+  .fx-num-play { animation-name: fx-num-in-lite; animation-duration: 0.35s; }
+}
+@keyframes fx-letter-in-lite {
+  0% { opacity: 0; transform: translateY(0.35em); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes fx-num-in-lite {
+  0% { opacity: 0.3; transform: translateY(0.15em); }
+  100% { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .fx-play .fx-ch, .fx-num-play { animation: none !important; }
   .fx-shimmer { animation: none; -webkit-text-fill-color: currentColor; background: none; }
 }
+
+/* =====================================================================================
+   TOUCH TARGETS
+   On touch screens, small text links and compact buttons get a 44px-high hit area (the
+   look stays the same), and budget sliders can be grabbed 19px above and below the track.
+   ===================================================================================== */
+@media (pointer: coarse), (max-width: 1023px) {
+  .tap { min-height: 44px; min-width: 44px; }
+  a.tap, button.tap { display: inline-flex; align-items: center; }
+  .budget-slider {
+    box-sizing: content-box;
+    padding-block: 19px;
+    margin-block: -19px;
+    background-clip: content-box;
+  }
+}
+/* A tap answers at once: no double-tap-to-zoom wait on controls */
+button, a, input, select, label, [role="button"] { touch-action: manipulation; }
+
+/* =====================================================================================
+   INSTALLED APP AND IPHONE (viewport-fit=cover)
+   The page now reaches under the notch, the rounded corners and the home indicator, so the
+   fixed bars and the content keep clear of them. On other screens every inset is 0.
+   ===================================================================================== */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body { overflow-x: clip; }
+
+.app-header {
+  height: calc(4rem + var(--safe-top));
+  padding-top: var(--safe-top);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+.app-main { padding-top: calc(5rem + var(--safe-top)); }
+#offline-banner { top: calc(4rem + var(--safe-top)); }
+.app-tabbar {
+  height: calc(4rem + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  padding-left: max(0.25rem, var(--safe-left));
+  padding-right: max(0.25rem, var(--safe-right));
+}
+[role="dialog"] {
+  padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
+}
+.login-page {
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+@media (max-width: 1023px) {
+  .app-shell { padding-left: var(--safe-left); padding-right: var(--safe-right); }
+  .app-main { padding-bottom: calc(7rem + var(--safe-bottom)); }
+  #toast-container { bottom: calc(5rem + var(--safe-bottom)); right: max(1.5rem, var(--safe-right)); }
+}
+/* Phone turned sideways: the screen is short, so the bars are slimmer and dialogs scroll */
+@media (max-width: 1023px) and (orientation: landscape) and (max-height: 500px) {
+  .app-tabbar { height: calc(3.25rem + var(--safe-bottom)); }
+  .app-main { padding-bottom: calc(5rem + var(--safe-bottom)); }
+  [role="dialog"] { align-items: flex-start; overflow-y: auto; }
+}
+/* A dialog panel never grows past the space between the notch and the home indicator; it scrolls inside */
+@media (max-width: 1023px) {
+  [role="dialog"] > * { max-height: calc(100vh - max(1rem, var(--safe-top)) - max(1rem, var(--safe-bottom))); overflow-y: auto; }
+  @supports (height: 100dvh) {
+    [role="dialog"] > * { max-height: calc(100dvh - max(1rem, var(--safe-top)) - max(1rem, var(--safe-bottom))); }
+  }
+}
+/* Heights that follow the visible screen (browser bars and the keyboard change it on phones) */
+@supports (height: 100dvh) {
+  .min-h-screen { min-height: 100dvh; }
+  .max-h-\[92vh\] { max-height: min(92dvh, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 1rem)); }
+}
+/* iPhone and iPad only: Safari zooms the page when a field's text is under 16px, and the page then stays
+   zoomed and scrolls sideways. Fields without their own text size are 16px there. */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea { font-size: 16px; }
+}
+/* Installed app: no pull-to-refresh bounce past the bars, no text selection on the bars, no tap flash */
+.is-standalone body { overscroll-behavior-y: none; }
+.app-tabbar, .app-header { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+a, button, [role="button"] { -webkit-tap-highlight-color: transparent; }
+/* A chart that has not been drawn yet (or cannot be: no connection for Chart.js) never pokes out of its card */
+canvas { max-width: 100%; }

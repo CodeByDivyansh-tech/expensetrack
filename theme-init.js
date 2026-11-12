@@ -7,6 +7,28 @@
     if (dark) document.documentElement.classList.add('dark');
   } catch (e) { /* storage blocked: stay light */ }
 
+  // What kind of device and window this is. iPhones and iPads cannot be asked to install an app from a
+  // button, and inside an installed (home-screen) app Google sign-in has to work differently.
+  (function () {
+    var nav = window.navigator || {};
+    var ua = nav.userAgent || '';
+    // iPadOS calls itself a Mac; a "Mac" with a touch screen is an iPad
+    var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && nav.maxTouchPoints > 1);
+    var standalone = nav.standalone === true ||
+      (typeof window.matchMedia === 'function' && (window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: minimal-ui)').matches));
+    var otherIosBrowser = /CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA\//.test(ua);
+    var embedded = /FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|Snapchat|Twitter|LinkedInApp|WhatsApp|; wv\)/i.test(ua);
+    window.ExpenseTrackPlatform = {
+      ios: ios,
+      standalone: standalone,
+      iosSafari: ios && !standalone && !otherIosBrowser && !embedded && /Safari/.test(ua),
+      iosOtherBrowser: ios && !standalone && (otherIosBrowser || embedded || !/Safari/.test(ua)),
+      embedded: embedded,
+    };
+    if (ios) document.documentElement.classList.add('is-ios');
+    if (standalone) document.documentElement.classList.add('is-standalone');
+  })();
+
   // Not signed in (this browser has no saved session)? Go straight to the sign-in page, before any of the
   // app's scripts are fetched. The sign-in page sends you back if you are in fact still signed in.
   try {

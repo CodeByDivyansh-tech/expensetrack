@@ -35,10 +35,20 @@
   }
 
   /** 30 Oct 2026 */
+  // One formatter, built once, and each date's text remembered: lists show the same dates again and again.
+  let _dateFormat = null;
+  const _dateText = new Map();
   function formatDate(iso) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
-    if (!m) return String(iso || '');
-    return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const key = String(iso || '');
+    const known = _dateText.get(key);
+    if (known !== undefined) return known;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+    if (!m) return key;
+    if (!_dateFormat) _dateFormat = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const text = _dateFormat.format(new Date(+m[1], +m[2] - 1, +m[3]));
+    if (_dateText.size > 2000) _dateText.clear();
+    _dateText.set(key, text);
+    return text;
   }
 
   /** "Today", "Yesterday", otherwise 30 Oct 2026 */

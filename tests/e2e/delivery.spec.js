@@ -103,7 +103,12 @@ test.describe('B25: headers, routes, 404', () => {
   test('the service name matches the live site, and /login and /dashboard are rewritten', async ({ page }) => {
     expect(fs.readFileSync(path.join(__dirname, '../../render.yaml'), 'utf8')).toMatch(/name: expensetrack-app\b/);
     const { rewrites } = readRenderConfig();
-    expect(rewrites).toEqual({ '/login': '/login.html', '/dashboard': '/index.html' });
+    expect(rewrites).toEqual({
+      '/login': '/login.html',
+      '/dashboard': '/index.html',
+      '/__/auth/*': 'https://expensetrack-bff94.firebaseapp.com/__/auth/*',
+      '/__/firebase/init.json': 'https://expensetrack-bff94.firebaseapp.com/__/firebase/init.json',
+    });
     expect(await get(page, '/login')).toContain('Welcome to ExpenseTrack');
     expect(await get(page, '/dashboard')).toContain('Spending Dashboard');
   });

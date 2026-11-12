@@ -42,11 +42,18 @@
     el.dataset.fxSplit = '1';
   }
 
-  // Restart a CSS animation
+  // Start (or restart) a CSS animation without forcing the browser to lay the page out in the middle of
+  // a script: the class comes off now and goes back on at the next frame.
+  var raf = window.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); };
   function play(el, cls) {
+    if (!el.classList.contains(cls)) { el.classList.add(cls); return; }
     el.classList.remove(cls);
-    void el.offsetWidth;
-    el.classList.add(cls);
+    raf(function () { el.classList.add(cls); });
+  }
+
+  // On screen? Answered from the classes the app already sets, so no layout is needed to find out.
+  function shown(el) {
+    return !el.closest('.hidden') && !el.closest('[hidden]');
   }
 
   function titlesIn(scope) {
@@ -54,18 +61,15 @@
   }
 
   function init() {
-    var titles = titlesIn(document);
-    titles.forEach(split);
-
-    // Play the title of whatever is on screen now
-    titles.forEach(function (t) { if (t.offsetParent !== null) play(t, 'fx-play'); });
+    // Only the title on screen is prepared now; the others are prepared when their page is first opened
+    titlesIn(document).forEach(function (t) { if (shown(t)) { split(t); play(t, 'fx-play'); } });
 
     // The app keeps the page invisible until the first data arrives: play the titles again when it appears
     if (document.body.hasAttribute('data-loading') && 'MutationObserver' in window) {
       var loadObserver = new MutationObserver(function () {
         if (document.body.getAttribute('data-loading') === 'true') return;
         loadObserver.disconnect();
-        titlesIn(document).forEach(function (t) { if (t.offsetParent !== null) play(t, 'fx-play'); });
+        titlesIn(document).forEach(function (t) { if (shown(t)) { split(t); play(t, 'fx-play'); } });
       });
       loadObserver.observe(document.body, { attributes: true, attributeFilter: ['data-loading'] });
     }
@@ -78,7 +82,8 @@
           var view = r.target;
           var wasHidden = (r.oldValue || '').split(/\s+/).indexOf('hidden') !== -1;
           if (wasHidden && !view.classList.contains('hidden')) {
-            titlesIn(view).forEach(function (t) { split(t); play(t, 'fx-play'); });
+            // A page coming back on screen restarts its own CSS animation; the title only needs preparing
+            titlesIn(view).forEach(function (t) { split(t); t.classList.add('fx-play'); });
           }
         });
       });
@@ -102,7 +107,7 @@
           var value = el.textContent;
           if (value !== last.get(el)) {
             last.set(el, value);
-            if (el.offsetParent !== null) play(el, 'fx-num-play');
+            if (shown(el)) play(el, 'fx-num-play');
           }
         });
       });

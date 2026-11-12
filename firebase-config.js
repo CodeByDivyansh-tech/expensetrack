@@ -16,10 +16,25 @@
     measurementId: "G-LEYQ3Y08JC"
   };
 
+  // Inside the installed iPhone/iPad app a sign-in popup cannot hand its result back, so Google sign-in
+  // uses a full-page redirect there. Safari only lets a redirect finish when the sign-in helper pages come
+  // from the same address as the app, so the host forwards /__/auth/* to Firebase (see vercel.json and
+  // render.yaml) and the app's own address is used as the auth domain. Everywhere else nothing changes.
+  // 'expensetrack_auth_mode' = 'popup' (set by "Try the other way" on the sign-in page) turns this off.
+  const platform = window.ExpenseTrackPlatform || {};
+  const host = window.location.hostname;
+  const localHost = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || /\.(localhost|test)$/.test(host);
+  let authMode = 'popup';
+  try {
+    if (platform.ios && platform.standalone && !localHost && window.location.protocol === 'https:' &&
+        localStorage.getItem('expensetrack_auth_mode') !== 'popup') authMode = 'redirect';
+  } catch (e) { /* storage blocked: keep the popup */ }
+  const activeConfig = authMode === 'redirect' ? Object.assign({}, firebaseConfig, { authDomain: window.location.host }) : firebaseConfig;
+
   // Initialize Firebase if compat SDK is loaded
   if (typeof firebase !== 'undefined') {
     if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+      firebase.initializeApp(activeConfig);
     }
   } else {
     console.error('Firebase SDK not loaded. Please include firebase-app-compat.js, firebase-auth-compat.js, and firebase-firestore-compat.js');
@@ -59,6 +74,24 @@
   const FirebaseService = {
     auth,
     db,
+    /** 'redirect' inside the installed iPhone/iPad app, otherwise 'popup' */
+    authMode,
+
+    /** The outcome of a redirect sign-in, once the page is back from Google (null when there was none). */
+    async finishRedirectSignIn() {
+      if (!auth || authMode !== 'redirect') return null;
+      const result = await auth.getRedirectResult();
+      return result && result.user ? result : null;
+    },
+
+    /** Switch between the two ways of signing in and reload (used when one of them does not complete). */
+    useOtherSignInWay() {
+      try {
+        if (authMode === 'redirect') localStorage.setItem('expensetrack_auth_mode', 'popup');
+        else localStorage.removeItem('expensetrack_auth_mode');
+      } catch (e) { /* storage blocked */ }
+      window.location.reload();
+    },
 
     /**
      * Listen for authentication state changes
@@ -107,6 +140,11 @@
       if (!auth || !googleProvider) {
         throw new Error('Firebase Auth not initialized.');
       }
+      if (authMode === 'redirect') {
+        // The page leaves for Google and comes back to the sign-in page, where getRedirectResult() finishes
+        await auth.signInWithRedirect(googleProvider);
+        return new Promise(() => {}); // never resolves: the page is navigating away
+      }
       const result = await auth.signInWithPopup(googleProvider);
       // Leave a session marker before the page moves on: the app's first script sends visitors without one to sign-in.
       try {
@@ -123,6 +161,10 @@
     async reauthenticate() {
       if (!auth || !auth.currentUser || !googleProvider) {
         throw new Error('You are not signed in.');
+      }
+      if (authMode === 'redirect') {
+        // A redirect would lose the place in the app; in the installed iPhone app this step is done in Safari
+        throw Object.assign(new Error('To confirm it is you, open ExpenseTrack in Safari and do this there.'), { code: 'expensetrack/use-browser' });
       }
       return auth.currentUser.reauthenticateWithPopup(googleProvider);
     },
