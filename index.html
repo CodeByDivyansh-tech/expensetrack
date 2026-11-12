@@ -160,7 +160,7 @@
     <header class="fixed top-0 right-0 left-0 lg:left-72 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40">
       <div class="h-16 w-full px-margin sm:px-margin-tablet lg:px-margin-desktop flex items-center justify-between">
         <!-- Mobile Logo -->
-        <div role="button" tabindex="0" class="flex items-center gap-space-sm lg:hidden cursor-pointer" data-click="navigateTo" data-arg="dashboard">
+        <div role="button" tabindex="0" class="tap flex items-center gap-space-sm lg:hidden cursor-pointer" data-click="navigateTo" data-arg="dashboard">
           <img alt="ExpenseTrack Logo" class="h-8 w-auto object-contain" src="assets/logo.svg"/>
           <span class="font-title-md text-title-md text-on-surface font-bold fx-shimmer">ExpenseTrack</span>
         </div>
@@ -182,7 +182,7 @@
             
           </button>
           
-          <div role="button" tabindex="0" class="flex items-center gap-space-sm pl-2 cursor-pointer" data-click="navigateTo" data-arg="profile-&-settings">
+          <div role="button" tabindex="0" class="tap flex items-center gap-space-sm pl-2 cursor-pointer" data-click="navigateTo" data-arg="profile-&-settings">
             <div class="hidden sm:flex flex-col text-right">
               <span class="font-label-md text-label-md text-on-surface font-semibold" id="header-user-name">Student</span>
               <span class="font-body-sm text-body-sm text-on-surface-variant" id="header-user-email">Google Account</span>
@@ -310,7 +310,7 @@
                 <span class="w-2 h-2 rounded-full bg-primary"></span>
                 Synced to your Google account
               </span>
-              <button class="text-primary font-bold hover:underline" data-click="navigateTo" data-arg="analytics">
+              <button class="tap text-primary font-bold hover:underline" data-click="navigateTo" data-arg="analytics">
                 View Analytics &rarr;
               </button>
             </div>
@@ -356,7 +356,7 @@
               <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">Category Budgets Snapshot</h2>
               <p class="font-body-sm text-body-sm text-on-surface-variant">Live spending vs allocated limits</p>
             </div>
-            <button class="text-primary font-label-md text-label-md font-bold hover:underline" data-click="navigateTo" data-arg="budget-setup">
+            <button class="tap text-primary font-label-md text-label-md font-bold hover:underline" data-click="navigateTo" data-arg="budget-setup">
               Configure Limits &rarr;
             </button>
           </div>
@@ -386,7 +386,7 @@
               <span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-3 py-1 rounded-full" id="dash-transactions-count">
                 0 Total
               </span>
-              <button class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors shadow-sm" data-click="openAddExpenseModal">
+              <button class="tap flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors shadow-sm" data-click="openAddExpenseModal">
                 <span class="material-symbols-outlined text-sm">add</span> Add New
               </button>
             </div>
@@ -511,7 +511,7 @@
                 <span class="w-2 h-2 rounded-full bg-primary"></span>
                 Live Budget Pacing
               </span>
-              <a class="text-primary font-bold hover:underline" href="#" data-click="navigateTo" data-arg="analytics">View History</a>
+              <a class="tap text-primary font-bold hover:underline" href="#" data-click="navigateTo" data-arg="analytics">View History</a>
             </div>
           </div>
         </div>
@@ -529,7 +529,7 @@
                 <span id="active-categories-count-badge" class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-3 py-1 rounded-full">
                   — Active Budgets
                 </span>
-                <button type="button" id="btn-budget-add-category" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors shadow-sm">
+                <button type="button" id="btn-budget-add-category" class="tap flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors shadow-sm">
                   <span class="material-symbols-outlined text-base">add</span>
                   <span>+ Custom Category</span>
                 </button>
@@ -877,7 +877,7 @@
               </p>
               <div class="flex items-center justify-between pt-space-xs border-t border-white/10">
                 <span class="font-label-sm text-label-sm text-primary-fixed">Safe Student Cushion</span>
-                <button class="px-3 py-1.5 rounded-full bg-white text-primary font-label-sm text-label-sm font-bold hover:bg-surface-container transition-colors" data-click="openBudgetModal">
+                <button class="tap px-3 py-1.5 rounded-full bg-white text-primary font-label-sm text-label-sm font-bold hover:bg-surface-container transition-colors" data-click="openBudgetModal">
                   Edit Monthly Cap
                 </button>
               </div>
@@ -1248,7 +1248,7 @@
                     <span class="font-headline-sm text-headline-sm text-on-surface font-bold" id="profile-user-name">Student</span>
                     <span class="px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-semibold">Verified</span>
                   </div>
-                  <button id="btn-logout" type="button" class="px-3 py-1.5 rounded-full bg-surface-container hover:bg-error-container hover:text-error text-on-surface font-label-sm text-label-sm flex items-center gap-1.5 transition-colors">
+                  <button id="btn-logout" type="button" class="tap px-3 py-1.5 rounded-full bg-surface-container hover:bg-error-container hover:text-error text-on-surface font-label-sm text-label-sm flex items-center gap-1.5 transition-colors">
                     <span class="material-symbols-outlined text-base">logout</span>
                     <span>Log Out</span>
                   </button>
@@ -1295,7 +1295,7 @@
                   <span class="font-label-md text-label-md text-error font-semibold">Clear All Expenses (Empty State)</span>
                   <span class="font-body-sm text-body-sm text-on-surface-variant">Empties all recorded expenses to test empty states gracefully.</span>
                 </div>
-                <button class="px-4 py-2 rounded-full bg-error hover:bg-red-700 text-on-error font-label-sm text-label-sm flex-shrink-0 transition-colors" id="btn-clear-expenses">
+                <button class="tap px-4 py-2 rounded-full bg-error hover:bg-red-700 text-on-error font-label-sm text-label-sm flex-shrink-0 transition-colors" id="btn-clear-expenses">
                   Clear Data
                 </button>
               </div>
@@ -1575,7 +1575,7 @@
         <p id="overall-cap-error" role="alert" class="hidden font-body-sm text-body-sm text-error font-semibold"></p>
         <p class="font-body-sm text-body-sm text-on-surface-variant">Recommended student tier: ₹10,000 - ₹15,000 / mo. Allowed: ₹500 to ₹10,00,000.</p>
         <label class="flex items-start gap-2 mt-space-xs min-h-[44px] cursor-pointer">
-          <input id="scale-caps" type="checkbox" class="mt-1 w-5 h-5 accent-primary"/>
+          <input id="scale-caps" type="checkbox" class="mt-1 w-5 h-5 shrink-0 accent-primary"/>
           <span class="font-body-sm text-body-sm text-on-surface">Also scale my category caps to the new budget
             <span id="scale-caps-note" class="block text-on-surface-variant"></span></span>
         </label>

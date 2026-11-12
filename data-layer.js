@@ -307,6 +307,7 @@
   let _income = [];
   let _unsubscribeIncome = null;
   let _incomeError = null;
+  let _loadedFromCache = false;
   let _budget = null;
   let _settings = null;
   let _customCategories = null;
@@ -510,6 +511,11 @@
     });
   }
 
+  function createdAtFromDate(date) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || ''));
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]).getTime() : 0;
+  }
+
   function expenseFromDoc(doc) {
     const d = doc.data();
     const exp = {
@@ -518,7 +524,9 @@
       category: normalizeCategoryKey(d.category),
       date: d.date || localDateString(),
       note: d.note || '',
-      createdAt: d.createdAt || Date.now(),
+      // An old expense saved without a time gets the start of its own day: the same answer on every read,
+      // so the list keeps its order and the screen is not redrawn for a "change" that is not one.
+      createdAt: d.createdAt || createdAtFromDate(d.date),
     };
     if (typeof d.paymentMethod === 'string' && d.paymentMethod) exp.paymentMethod = d.paymentMethod;
     return exp;
@@ -633,14 +641,38 @@
     let expensesSnap = null;
     let recurringSnap = null;
     let goalsSnap = null;
-    // Started now so it loads in parallel; handled on its own below
-    const incomeRead = incomeColRef.get().then(snap => ({ snap }), err => ({ err }));
+    // A returning visitor already has everything in this device's Firestore cache. Reading that first puts
+    // the dashboard on screen at once instead of waiting for five answers from the server (slow on mobile
+    // data); the live listeners attached below then bring in anything that changed elsewhere.
+    let incomeRead = null;
+    _loadedFromCache = false;
     try {
-      [userDocSnap, expensesSnap, recurringSnap, goalsSnap] = await Promise.all([userDocRef.get(), expensesColRef.get(), recurringColRef.get(), goalsColRef.get()]);
-      _loadError = null;
-    } catch (err) {
-      console.warn('ExpenseTrack: first read failed, continuing with live listeners:', err);
-      _loadError = isOffline() ? null : err;
+      const CACHE = { source: 'cache' };
+      const [u, e, r, g, i] = await Promise.all([
+        userDocRef.get(CACHE), expensesColRef.get(CACHE), recurringColRef.get(CACHE), goalsColRef.get(CACHE),
+        incomeColRef.get(CACHE).catch(() => null),
+      ]);
+      // Trust the cache only for an account it clearly knows: the user document is there, and either it has
+      // expenses or the one-time import question was already answered. Anything else asks the server.
+      const known = u && u.exists && e && (!e.empty || (u.data() || {}).legacyImportHandled === true);
+      if (known) {
+        userDocSnap = u; expensesSnap = e; recurringSnap = r; goalsSnap = g;
+        incomeRead = Promise.resolve(i ? { snap: i } : { snap: { forEach() {} } });
+        _loadedFromCache = true;
+        _loadError = null;
+      }
+    } catch (err) { /* not cached on this device yet: ask the server below */ }
+
+    if (!_loadedFromCache) {
+      // Started now so it loads in parallel; handled on its own below
+      incomeRead = incomeColRef.get().then(snap => ({ snap }), err => ({ err }));
+      try {
+        [userDocSnap, expensesSnap, recurringSnap, goalsSnap] = await Promise.all([userDocRef.get(), expensesColRef.get(), recurringColRef.get(), goalsColRef.get()]);
+        _loadError = null;
+      } catch (err) {
+        console.warn('ExpenseTrack: first read failed, continuing with live listeners:', err);
+        _loadError = isOffline() ? null : err;
+      }
     }
 
     if (userDocSnap && expensesSnap) {
@@ -1495,6 +1527,11 @@
   }
 
   /** Set when money received could not be read or synced (for example, security rules not updated yet). */
+  /** True when the last sign-in was drawn from this device's saved copy first (the server is then synced live). */
+  function wasLoadedFromCache() {
+    return _loadedFromCache;
+  }
+
   function getIncomeError() {
     return _incomeError;
   }
@@ -1792,6 +1829,7 @@
     incomeSource,
     getIncome,
     getIncomeError,
+    wasLoadedFromCache,
     validateIncomeInput,
     addIncome,
     updateIncome,

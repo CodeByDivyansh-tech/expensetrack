@@ -24,7 +24,10 @@
   function createFakeFirestore() {
     const store = new Map();
     const listeners = [];
-    const db = { _store: store, failWrites: null, failReads: null, hang: false, denyPaths: [] };
+    const db = { _store: store, failWrites: null, failReads: null, hang: false, denyPaths: [], cache: 'warm', serverReads: 0, cacheReads: 0 };
+    // Test hook: db.cache = 'cold' behaves like a device that has never synced: get({source:'cache'}) rejects
+    // for a document and is empty for a collection. serverReads / cacheReads count get() calls by source.
+    const fromCacheOnly = (opts) => !!(opts && opts.source === 'cache');
     // Test hook: db.denyPaths = [/regex/] refuses reads, listens and writes there, like a security rule would
     const denied = (path) => db.denyPaths.some((re) => re.test(path));
     const deniedError = () => Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' });
@@ -77,7 +80,14 @@
       return {
         id: path.split('/').pop(),
         path,
-        get: () => (db.failReads ? Promise.reject(db.failReads) : Promise.resolve(docSnap(path))),
+        get: (opts) => {
+          if (db.failReads) return Promise.reject(db.failReads);
+          if (fromCacheOnly(opts)) {
+            db.cacheReads++;
+            if (db.cache === 'cold') return Promise.reject(Object.assign(new Error('Failed to get document from cache.'), { code: 'unavailable' }));
+          } else db.serverReads++;
+          return Promise.resolve(docSnap(path));
+        },
         set(data, opts) {
           if (denied(path)) return Promise.reject(deniedError());
           const g = guardWrite();
@@ -103,7 +113,17 @@
       return {
         path,
         doc: (id) => docRef(path + '/' + id),
-        get: () => (denied(path) ? Promise.reject(deniedError()) : db.failReads ? Promise.reject(db.failReads) : Promise.resolve(colSnap(path))),
+        get: (opts) => {
+          if (fromCacheOnly(opts)) {
+            if (db.failReads) return Promise.reject(db.failReads);
+            db.cacheReads++;
+            return Promise.resolve(db.cache === 'cold' ? { empty: true, size: 0, docs: [], forEach() {} } : colSnap(path)); // rules do not apply to the cache
+          }
+          if (denied(path)) return Promise.reject(deniedError());
+          if (db.failReads) return Promise.reject(db.failReads);
+          db.serverReads++;
+          return Promise.resolve(colSnap(path));
+        },
         onSnapshot: (cb, errCb) => {
           if (denied(path)) { Promise.resolve().then(() => errCb && errCb(deniedError())); return () => {}; }
           return subscribe(() => colSnap(path), cb);

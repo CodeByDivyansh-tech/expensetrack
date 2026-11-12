@@ -30,9 +30,14 @@
   });
 
   function offerUpdate(registration) {
-    window.dispatchEvent(new CustomEvent('expensetrack:update', {
-      detail: { apply: () => registration.waiting && registration.waiting.postMessage({ type: 'SKIP_WAITING' }) },
-    }));
+    const apply = () => registration.waiting && registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    window.dispatchEvent(new CustomEvent('expensetrack:update', { detail: { apply } }));
+    // The app is served from the copy saved on the device, so a new version only takes over when it is
+    // switched in. If the "Reload" offer is ignored, switch quietly the next time the app is put in the
+    // background, unless a form is open (so nothing being typed is lost).
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && !document.querySelector('[role="dialog"]:not(.hidden)')) apply();
+    });
   }
 
   window.addEventListener('load', () => {

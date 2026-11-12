@@ -270,9 +270,16 @@
     return isSameMonth(dateStr, now.getFullYear(), now.getMonth());
   };
 
+  // One render asks for "this month's expenses" several times (total, per category, pace, recent list).
+  // The answer is remembered until the expense list, the period or the start day changes.
+  let _monthCache = { list: null, key: '', result: [] };
   function getCurrentMonthExpenses() {
     const p = currentPeriod();
-    return state.expenses.filter(exp => inPeriod(exp.date, p.year, p.month));
+    const key = p.year + '|' + p.month + '|' + startDay();
+    if (_monthCache.list !== state.expenses || _monthCache.key !== key) {
+      _monthCache = { list: state.expenses, key, result: state.expenses.filter(exp => inPeriod(exp.date, p.year, p.month)) };
+    }
+    return _monthCache.result;
   }
 
   function getMonthExpenses(year, month) {
@@ -496,7 +503,48 @@
 
   // --- Unified Single Source of Truth Synchronization ---
   // Shared widgets plus the view that is on screen; other views render when you open them.
+  // What the screen was last drawn from. A data notification that changes none of it needs no redraw.
+  let _renderedSignature = '';
+  function dataSignature() {
+    try {
+      return JSON.stringify([
+        state.expenses, state.budget, state.settings,
+        DataLayer.getCustomCategories ? DataLayer.getCustomCategories() : null,
+        DataLayer.getRecurring ? DataLayer.getRecurring() : null,
+        DataLayer.getGoals ? DataLayer.getGoals() : null,
+        DataLayer.getIncome ? DataLayer.getIncome() : null,
+        DataLayer.getIncomeError && DataLayer.getIncomeError() ? String(DataLayer.getIncomeError().code || 'error') : '',
+        localDateString(),
+      ]);
+    } catch (e) {
+      return String(Math.random()); // never skip a render because the signature failed
+    }
+  }
+
+  // Data notifications (Firestore snapshots) arrive in bursts: one save produces a local echo and a
+  // server acknowledgement, and a sync from another device produces one per document. Drawing the screen
+  // for each one blocked the phone for hundreds of milliseconds. They are now collected into a single
+  // redraw on the next frame, and skipped entirely when the data is the same as what is on screen.
+  let _dataRenderPending = false;
+  function scheduleDataRender() {
+    if (_dataRenderPending) return;
+    _dataRenderPending = true;
+    let done = false;
+    const run = () => {
+      if (done) return;
+      done = true;
+      _dataRenderPending = false;
+      loadState();
+      if (dataSignature() !== _renderedSignature) syncAllViewsWithData();
+      updateLoadErrorBanner();
+    };
+    // requestAnimationFrame does not fire in a background tab, so a timer backs it up
+    if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run);
+    setTimeout(run, 120);
+  }
+
   function syncAllViewsWithData() {
+    _renderedSignature = dataSignature();
     updateSidebarWidget();
     updateAcademicTermDisplay();
     switch (state.currentView) {
@@ -1714,13 +1762,14 @@
       } else {
         const idx = state.expenses.findIndex(x => x.id === state.editingExpenseId);
         if (idx !== -1) {
-          state.expenses[idx] = {
+          const edited = {
             ...state.expenses[idx],
             amount: amountVal,
             category: normCat,
             date: dateVal,
             note: noteVal || categoryName,
           };
+          state.expenses = state.expenses.map((x, i) => (i === idx ? edited : x)); // a new list, so remembered totals are recalculated
           saveExpenses();
         }
       }
@@ -1745,7 +1794,7 @@
           note: noteVal || categoryName,
           createdAt: Date.now(),
         };
-        state.expenses.unshift(newExp);
+        state.expenses = [newExp, ...state.expenses]; // a new list, so remembered totals are recalculated
         saveExpenses();
       }
       showToast(savedMessage('Expense logged successfully!'), 'success');
@@ -1798,7 +1847,7 @@
         note: (note && String(note).trim()) || categoryName,
         createdAt: Date.now(),
       };
-      state.expenses.unshift(newExp);
+      state.expenses = [newExp, ...state.expenses]; // a new list, so remembered totals are recalculated
       saveExpenses();
     }
     syncAllViewsWithData();
@@ -4064,11 +4113,7 @@
         // Listen for live Firestore updates across tabs/cloud (once, however many auth events fire)
         if (!dataListenerRegistered && DataLayer && typeof DataLayer.onDataChanged === 'function') {
           dataListenerRegistered = true;
-          DataLayer.onDataChanged(() => {
-            loadState();
-            syncAllViewsWithData();
-            updateLoadErrorBanner();
-          });
+          DataLayer.onDataChanged(scheduleDataRender);
         }
       } catch (err) {
         console.error('ExpenseTrack: Error initializing user data:', err);

@@ -199,12 +199,23 @@
   }
 
   /** The number part only (no symbol), grouped the way the chosen currency is written. */
+  // Number formatters are built once per locale and reused: creating one on every call (which is what
+  // toLocaleString does) is slow, and a single screen formats hundreds of amounts.
+  const _numberFormats = {};
+  function numberFormat(locale, withPaise) {
+    const key = locale + (withPaise ? '|2' : '|0');
+    if (!_numberFormats[key]) {
+      _numberFormats[key] = new Intl.NumberFormat(locale, withPaise
+        ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+        : { maximumFractionDigits: 0 });
+    }
+    return _numberFormats[key];
+  }
+
   function formatNumber(value, code) {
     const n = roundMoney(value);
     const hasPaise = Math.round(n * 100) % 100 !== 0;
-    return n.toLocaleString(currencyOf(code).locale, hasPaise
-      ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-      : { maximumFractionDigits: 0 });
+    return numberFormat(currencyOf(code).locale, hasPaise).format(n);
   }
 
   function formatMoney(value, code) {
@@ -253,15 +264,25 @@
   }
 
   /** First and last day (inclusive) of a period. */
+  // Remembered per (year, month, start day): filtering a list asks for the same period once per item.
+  const _periodRanges = new Map();
   function periodRange(year, month, startDay) {
     const s = clampStartDay(startDay);
-    const start = isoFromParts(year, month, s);
-    const nextStart = isoFromParts(year, month + 1, s);
-    return { start, end: addDays(nextStart, -1), days: daysBetween(start, nextStart) };
+    const key = year + '|' + month + '|' + s;
+    let r = _periodRanges.get(key);
+    if (!r) {
+      const start = isoFromParts(year, month, s);
+      const nextStart = isoFromParts(year, month + 1, s);
+      r = { start, end: addDays(nextStart, -1), days: daysBetween(start, nextStart) };
+      if (_periodRanges.size > 200) _periodRanges.clear();
+      _periodRanges.set(key, r);
+    }
+    return { start: r.start, end: r.end, days: r.days };
   }
 
   function periodContains(iso, year, month, startDay) {
-    const r = periodRange(year, month, startDay);
+    const s = clampStartDay(startDay);
+    const r = _periodRanges.get(year + '|' + month + '|' + s) || periodRange(year, month, s);
     return iso >= r.start && iso <= r.end;
   }
 

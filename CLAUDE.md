@@ -48,7 +48,7 @@ npx serve public                  # serve the built site (http://localhost:3000)
 
 | Command | What | Last count |
 |---|---|---|
-| `npm test` | Unit tests (`node:test`, in-memory fake Firestore) + module-load check | 165 + 1 check |
+| `npm test` | Unit tests (`node:test`, in-memory fake Firestore) + module-load check | 175 + 1 check |
 | `npm run test:rules` | `firestore.rules` in the Firestore emulator (needs Java 11+) | 80 |
 | `npm run test:e2e` | Builds, then Playwright against `public/` in installed Chrome, Firebase stubbed | 169 |
 | `npm run test:all` | The three above | |
@@ -101,6 +101,21 @@ entertainment, personal, emergency. Deleting a custom category that has expenses
 
 Limits (enforced in the data layer and again in the rules): amount > 0 and ≤ 10,00,000 with two decimals; note
 ≤ 100 characters in the app (rules allow 200); date from 2000-01-01 to today; budget cap whole rupees 500 to 10,00,000.
+
+## Performance rules (mobile)
+
+Phones lagged until these were fixed; `tests/e2e/mobile-performance.spec.js` and `tests/startup.test.js` guard them.
+
+- **Open from the device first.** `initUser` reads the Firestore cache (`get({ source: 'cache' })`) and only asks the
+  server when the account is not known on this device; live listeners then sync. Do not add server reads before first paint.
+- **One redraw per burst.** Data notifications go through `scheduleDataRender` (one redraw per frame, skipped when
+  `dataSignature()` is unchanged). Values read from Firestore must be deterministic (no `Date.now()` defaults).
+- **Replace lists, do not mutate them.** `state.expenses` is replaced on every change; totals are remembered per list.
+- **No formatter per call.** Use `BudgetCalculator.formatNumber` / `Tools.formatDate` (cached `Intl` formatters), not `toLocaleString` in loops.
+- **No live blur on cards below 1024px, no endless animations, no animated `filter`.** Only transform and opacity animate.
+- **Service worker:** the app shell and versioned third-party files are cache-first (each build has its own cache); a new
+  build arrives through a changed `sw.js`, is offered with "Reload", and is switched in when the app goes to the background.
+- **Touch:** small links and compact buttons carry the `tap` class (44px hit area on touch screens).
 
 ## firestore.rules
 
